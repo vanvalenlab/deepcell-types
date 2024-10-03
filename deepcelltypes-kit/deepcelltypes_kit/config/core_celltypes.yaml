@@ -1,0 +1,14 @@
+Cell:
+      Tcell: {}
+      Bcell: {}
+      NK: {}
+      Dendritic: {}
+      Mast: {}
+      Neutrophil: {}
+      Macrophage: {}
+      Monocyte: {}
+      Epithelial: {}
+      Endothelial: {}
+      Fibroblast: {}
+      SmoothMuscle: {}
+      Tumor: {}

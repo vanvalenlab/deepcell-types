@@ -1,0 +1,13 @@
+numpy
+matplotlib
+pyyaml
+zarr
+torchvision
+torchinfo
+tqdm
+torchmetrics
+pandas
+scikit-learn
+scipy
+seaborn
+timm

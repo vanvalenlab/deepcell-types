@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deepcelltypes_kit"
+version = "0.1.0"
+authors = [
+    { name="Xuefei (Julie) Wang", email="wang.xuefei.wang@gmail.com" },
+]
+description = "A library for the deepcelltypes project."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "pyyaml",
+    "numpy",
+    "scikit-image",
+    "matplotlib",
+    "networkx",
+    "tqdm",
+    "zarr",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Source Code" = "https://github.com/xuefei-wang/deepcelltypes-kit"
+"Issue Tracker" = "https://github.com/xuefei-wang/deepcelltypes-kit/issues"
+
+[tool.setuptools]
+packages = ['deepcelltypes_kit']
+include-package-data = true
+
+
+[tool.setuptools.package-data]
+deepcelltypes_kit = ["config/*.txt", "config/*.yaml", "config/*.json"]
