@@ -150,7 +150,7 @@ def main(model_name, device_num, patch_data_name):
     model = CellTypeCLIPModel(
         n_filters=256,
         n_heads=4,
-        n_celltypes=13,
+        n_celltypes=28,
         n_domains=6,
         marker_embeddings=marker_embeddings,
         embedding_dim=1024,

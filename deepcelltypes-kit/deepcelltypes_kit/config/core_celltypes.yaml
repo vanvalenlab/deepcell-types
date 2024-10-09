@@ -1,14 +1,29 @@
 Cell:
-      Tcell: {}
-      Bcell: {}
+      Tcell:
+            Treg: {}
+            CD4T: {}
+            CD8T: {}
+            NKT: {}
+      Bcell:
+            Plasma: {}
       NK: {}
       Dendritic: {}
       Mast: {}
       Neutrophil: {}
       Macrophage: {}
       Monocyte: {}
-      Epithelial: {}
-      Endothelial: {}
-      Fibroblast: {}
+      Epithelial:
+            Goblet: {}
+            Paneth: {}
+            Enterocyte: {}
+            Endocrine: {}
+      Endothelial:
+            LymphaticEndothelial: {}
+            BloodVesselEndothelial: {}
+      Fibroblast:
+            Myofibroblast: {}
       SmoothMuscle: {}
+      Glia: {}
+      Neuron: {}
       Tumor: {}
+      TransitAmplifying: {}
