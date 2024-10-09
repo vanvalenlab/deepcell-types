@@ -11,11 +11,11 @@ example_dataset.zarr
     attrs: 
         - channel_names
         - file_names
-    - file_name1
+    - file_name1 (group)
         attrs: mpp
-        - raw
-        - mask
-        - cell_type_info (optional)
+        - raw (dataset, shape (#channels, X, Y))
+        - mask (dataset, shape (1, X, Y))
+        - cell_type_info (dataset, optional)
             - cell_index
             - cell_type
     - file_name2
@@ -32,7 +32,7 @@ cell_type_info["cell_index"] = #YOUR_CELL_INDEX_LIST
 cell_type_info["cell_type"] = #YOUR_CELL_TYPE_LIST
 ```
 
-You also need to provide two mapping files: `celltype_mapping.yaml` and `channel_mapping.yaml` that maps your cell types and marker channels to the standard lists. The standard lists can be found here in `deepcelltypes-kit/deepcelltype_kit/config/core_celltypes.yaml` and `deepcelltypes-kit/deepcelltype_kit/config/master_channel.yaml`. If there are no cell type annotations, simply list `Unknown: Unknown` in the `celltype_mapping.yaml`. 
+You can also provide two optional mapping files: `celltype_mapping.yaml` and `channel_mapping.yaml` that maps your cell types and marker channels to the standard lists. The standard lists can be found here in `deepcelltypes-kit/deepcelltype_kit/config/core_celltypes.yaml` and `deepcelltypes-kit/deepcelltype_kit/config/master_channel.yaml`. If there are no cell type annotations, simply list `Unknown: Unknown` in the `celltype_mapping.yaml`. If your cell types and channels already match the standard lists, you can skip this by setting the two arguments to `None`.
 
 
 
@@ -41,7 +41,17 @@ Next, build the docker image by running:
 docker build . --tag=$USER/deepcell-types:latest
 ```
 
-Once the docker image has been built, you can run it by: 
+Once the docker image has been built, you can run the `preprocess.py` script to turn your images into patches:
+```
+docker run -it --rm \
+    --user $(id -u):$(id -g) \
+    --entrypoint python \
+    -v $PWD:/workspace \
+    $USER/deepcell-types:latest \
+    /workspace/preprocess.py --data_name example_dataset.zarr
+```
+
+Next, you can run predictions on the patches and collect results:
 ```
 docker run -it --rm \
     --user $(id -u):$(id -g) \
@@ -49,8 +59,8 @@ docker run -it --rm \
     --entrypoint python \
     --shm-size 80G \
     -v $PWD:/workspace \
-    $USER/deepcell-types:latest:1.0 \
-    /workspace/predict.py --data_name example_dataset.zarr
+    $USER/deepcell-types:latest \
+    /workspace/predict.py --patch_data_name example_dataset.patched.zarr
 ```
 
 ## Liscence

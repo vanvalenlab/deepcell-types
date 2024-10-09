@@ -144,6 +144,8 @@ def patch_generator(raw, mask, mpp, dct_config, final_q, cell_index=None, cell_t
         if idx == 0: # skip background 
             continue
         if cell_index is not None and cell_type is not None:
+            if len(cell_type[cell_index == idx]) == 0: # cell exists, but no label availble
+                continue
             orig_ct = cell_type[cell_index == idx][0]
         else:
             orig_ct = "Unknown"

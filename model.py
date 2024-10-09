@@ -238,16 +238,23 @@ class CellTypeCLIPModel(nn.Module):
 
 
     def forward(self, sample, ch_idx, mask, ct_idx):
-        # Encode text
-        raw_text_embedding = self.ct_embedding(ct_idx) # shape = [global_batch_size, embedding_dim]
-        
-        if self.training:
-            # Add noise to text embeddings
-            raw_text_embedding = raw_text_embedding + torch.randn_like(raw_text_embedding) * 0.05
-            # Normalize text embeddings
-            raw_text_embedding = raw_text_embedding / raw_text_embedding.norm(dim=-1, keepdim=True)
+        logit_scale = self.logit_scale.exp()
+        unknown_exists = -1 in ct_idx # if -1 in ct_idx, it means the cell type is unknown, return Nones for logits
 
-        text_embedding = self.text_adaptor(raw_text_embedding)
+        if not unknown_exists:
+            # Encode text
+            raw_text_embedding = self.ct_embedding(ct_idx) # shape = [global_batch_size, embedding_dim]
+            
+            if self.training:
+                # Add noise to text embeddings
+                raw_text_embedding = raw_text_embedding + torch.randn_like(raw_text_embedding) * 0.05
+                # Normalize text embeddings
+                raw_text_embedding = raw_text_embedding / raw_text_embedding.norm(dim=-1, keepdim=True)
+
+            text_embedding = self.text_adaptor(raw_text_embedding)
+            text_embedding = text_embedding / text_embedding.norm(dim=-1, keepdim=True)
+        else:
+            text_embedding = None
 
         # Encode image
         _, _, cls_token_embedding, marker_pos_attn = self.image_encoder(
@@ -255,15 +262,14 @@ class CellTypeCLIPModel(nn.Module):
         )
         image_embedding = cls_token_embedding
         image_embedding = self.image_adaptor(image_embedding)
-
-        # normalize embeddings
-        text_embedding = text_embedding / text_embedding.norm(dim=-1, keepdim=True)
         image_embedding = image_embedding / image_embedding.norm(dim=-1, keepdim=True)
 
-        # cosine similarity as logits
-        logit_scale = self.logit_scale.exp()
-        logits_per_image = logit_scale * image_embedding @ text_embedding.t() # shape = [global_batch_size, global_batch_size]
-        logits_per_text = logits_per_image.t()
+        if unknown_exists:
+            logits_per_image = None
+            logits_per_text = None
+        else:
+            logits_per_image = logit_scale * image_embedding @ text_embedding.t() # shape = [global_batch_size, global_batch_size]
+            logits_per_text = logits_per_image.t()
 
         # extract probabilities for each image
         raw_text_embedding_all_classes = self.ct_embedding.weight # shape = [n_celltypes, embedding_dim]

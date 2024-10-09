@@ -56,7 +56,6 @@ class DCTConfig:
                 master_celltype_list_updated.append(celltype)
 
         ct2idx = {ct: idx for idx, ct in enumerate(master_celltype_list_updated)}
-        ct2idx['Uknown'] = -1.0
                 
         return ct2idx, core_celltypes
 

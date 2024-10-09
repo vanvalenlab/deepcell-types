@@ -13,7 +13,6 @@ from deepcelltypes_kit.config import DCTConfig
 
 from model import CellTypeCLIPModel
 from dataset import PatchDataset
-from preprocess import patchify
 
 dct_config = DCTConfig()
 
@@ -95,11 +94,11 @@ def forward_one_batch(
 @click.command()
 @click.option("--model_name", type=str, default="model_combined_ct")
 @click.option("--device_num", type=str, default="cuda:0")
-@click.option("--data_name", type=str, default="")
-def main(model_name, device_num, data_name):
+@click.option("--patch_data_name", type=str, default="")
+def main(model_name, device_num, patch_data_name):
     device = torch.device(device_num)
-    data_dir = Path("example_data")
-    data_name = data_dir / data_name
+    data_dir = Path("data")
+    patch_data_path = data_dir / patch_data_name
 
     # Load ct2embedding
     ct2embedding_dict = dct_config.get_celltype_embedding()
@@ -124,17 +123,26 @@ def main(model_name, device_num, data_name):
         idx = dct_config.marker2idx[marker]
         marker_embeddings[idx] = ebd
 
+    # if celltype_mapping.yaml exists, load it
+    celltype_mapping = None
+    celltype_mapping_path = data_dir / "celltype_mapping.yaml"
+    if celltype_mapping_path.exists():
+        with open(celltype_mapping_path, "r") as f:
+            celltype_mapping = yaml.safe_load(f)
+
+    # if channel_mapping.yaml exists, load it
+    channel_mapping = None
+    channel_mapping_path = data_dir / "channel_mapping.yaml"
+    if channel_mapping_path.exists():
+        with open(channel_mapping_path, "r") as f:
+            channel_mapping = yaml.safe_load(f)
+
     # Load datasets
-    with open(data_dir / 'celltype_mapping.yaml', 'r') as f:
-        celltype_mapping = yaml.safe_load(f)
-    with open(data_dir / 'channel_mapping.yaml', 'r') as f:
-        channel_mapping = yaml.safe_load(f)
-    patch_data_name = patchify(data_name)
     test_dataset = PatchDataset(
-        patch_data_name,
-        celltype_mapping,
-        channel_mapping,
+        patch_data_path,
         dct_config=dct_config,
+        celltype_mapping=celltype_mapping,
+        channel_mapping=channel_mapping,
     )
 
     test_loader = DataLoader(test_dataset, batch_size=256, shuffle=False, num_workers=24)
@@ -149,7 +157,7 @@ def main(model_name, device_num, data_name):
         ct_embeddings=ct_embeddings,
         img_feature_extractor="conv"
     )
-    model.load_state_dict(torch.load(f"models/{model_name}.pt", map_location=device))
+    model.load_state_dict(torch.load(f"model/{model_name}.pt", map_location=device))
     model.to(device)
 
     
@@ -163,7 +171,7 @@ def main(model_name, device_num, data_name):
                 batch_data, device, model, predlogger=predlogger
             )
 
-        predlogger.save(Path(f"output/{model_name}_testing_preditions.csv"))
+        predlogger.save(Path(f"output/{model_name}_{patch_data_path.stem}.csv"))
     
     return
 

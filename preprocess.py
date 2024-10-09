@@ -2,6 +2,7 @@ from pathlib import Path
 import numpy as np
 from tqdm import tqdm
 import zarr
+import click
 from collections import defaultdict
 
 from deepcelltypes_kit.image_funcs import patch_generator
@@ -10,10 +11,14 @@ from deepcelltypes_kit.config import DCTConfig
 dct_config = DCTConfig()
 
 
+@click.command()
+@click.option("--data_name", type=str, default="")
+def patchify(data_name, batch_size=2000):
+    data_dir = Path("data")
+    data_path = data_dir / data_name
+    output_path = Path(data_path).with_suffix(".patched.zarr")
 
-def patchify(dataset_path, batch_size=2000):
-    input_group = zarr.open(dataset_path, mode="r")
-    output_path = Path(dataset_path).with_suffix(".patched.zarr")
+    input_group = zarr.open(data_path, mode="r")
     output_group = zarr.open(output_path, mode="w")
 
     file_names = input_group.attrs['file_names']
@@ -31,11 +36,13 @@ def patchify(dataset_path, batch_size=2000):
         dct_config.CROP_SIZE,
     )
 
-    unique_cell_types = set(["Unknown",] )
-    for file_name in tqdm(file_names):
+    unique_cell_types = set()
+    for file_name in file_names:
         if "cell_type_info" in input_group[file_name]:
             cell_type = input_group[file_name]["cell_type_info"]["cell_type"]
             unique_cell_types.update(cell_type)
+        else:
+            unique_cell_types.add("Unknown")
 
     for orig_ct in list(unique_cell_types):
         ct_group = output_group.create_group(orig_ct)
@@ -109,3 +116,7 @@ def patchify(dataset_path, batch_size=2000):
                 ct_group["file_name"].append(np.array([file_name] * len(batches[orig_ct]), dtype=f"U80"))
     
     return output_path
+
+
+if __name__ == "__main__":
+    patchify()
