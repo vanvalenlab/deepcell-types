@@ -63,8 +63,5 @@ docker run -it --rm \
     /workspace/predict.py --patch_data_name example_dataset.patched.zarr
 ```
 
-## Liscence
-
-
 ## Citation
 
