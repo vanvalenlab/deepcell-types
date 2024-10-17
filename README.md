@@ -38,7 +38,7 @@ You can also provide two optional mapping files: `celltype_mapping.yaml` and `ch
 
 Next, build the docker image by running:
 ```
-docker build . --tag=$USER/deepcell-types:hubmap
+docker build . --tag=$USER/deepcell-types:latest
 ```
 
 Once the docker image has been built, you can run the `preprocess.py` script to turn your images into patches:
@@ -47,7 +47,7 @@ docker run -it --rm \
     --user $(id -u):$(id -g) \
     --entrypoint python \
     -v $PWD:/workspace \
-    $USER/deepcell-types:hubmap \
+    $USER/deepcell-types:latest \
     /workspace/preprocess.py --data_name example_dataset.zarr
 ```
 
@@ -59,7 +59,7 @@ docker run -it --rm \
     --entrypoint python \
     --shm-size 80G \
     -v $PWD:/workspace \
-    $USER/deepcell-types:hubmap \
+    $USER/deepcell-types:latest \
     /workspace/predict.py --patch_data_name example_dataset.patched.zarr --model_name model_specific_ct
 ```
 
