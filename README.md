@@ -35,6 +35,8 @@ cell_type_info["cell_type"] = #YOUR_CELL_TYPE_LIST
 You can also provide two optional mapping files: `celltype_mapping.yaml` and `channel_mapping.yaml` that maps your cell types and marker channels to the standard lists. The standard lists can be found here in `deepcelltypes-kit/deepcelltype_kit/config/core_celltypes.yaml` and `deepcelltypes-kit/deepcelltype_kit/config/master_channel.yaml`. If there are no cell type annotations, simply list `Unknown: Unknown` in the `celltype_mapping.yaml`. If your cell types and channels already match the standard lists, you can skip this by setting the two arguments to `None`.
 
 
+We provided two formats of example data. `data/example_data_with_labels.zarr` comes with cell type labels, which are saved in `cell_type_info`; `/data/example_data_without_labels.zarr` has `cell_type_info` dataset and will be automatically labeled as 'Unknown's.
+
 
 Next, build the docker image by running:
 ```
