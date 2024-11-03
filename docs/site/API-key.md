@@ -18,3 +18,15 @@ export DEEPCELL_ACCESS_TOKEN=<token-from-users.deepcell.org>
 This line can be added to your shell configuration (e.g. ``.bashrc``, ``.zshrc``,
 ``.bash_profile``, etc.) to automatically grant access to DeepCell models/data
 upon login.
+
+Models
+------
+
+The model can be downloaded for local use:
+
+```python
+>>> from utils import download_model
+
+
+>>> download_model()
+```
