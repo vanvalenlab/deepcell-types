@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>DeepCell API Key &#8212; deepcell-types</title>
+    <title>Model and Datasets &#8212; deepcell-types</title>
   
   
   
@@ -126,7 +126,7 @@
     
 <li class="nav-item current active">
   <a class="nav-link nav-internal" href="#">
-    DeepCell API Key
+    Model and Datasets
   </a>
 </li>
 
@@ -205,7 +205,7 @@
     
 <li class="nav-item current active">
   <a class="nav-link nav-internal" href="#">
-    DeepCell API Key
+    Model and Datasets
   </a>
 </li>
 
@@ -270,7 +270,7 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">DeepCell API Key</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Model and Datasets</span></li>
   </ul>
 </nav>
 </div>
@@ -287,21 +287,46 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="deepcell-api-key">
-<h1>DeepCell API Key<a class="headerlink" href="#deepcell-api-key" title="Link to this heading">#</a></h1>
+  <section id="model-and-datasets">
+<h1>Model and Datasets<a class="headerlink" href="#model-and-datasets" title="Link to this heading">#</a></h1>
 <p>DeepCell models and training datasets are licensed under a
-[modified Apache license][license] for non-commercial academic use only.
+<a class="reference external" href="https://github.com/vanvalenlab/deepcell-types/blob/master/LICENSE">modified Apache license</a> for non-commercial academic use only.
 An API key for accessing datasets and models can be obtained at <a class="reference external" href="https://users.deepcell.org/login/">https://users.deepcell.org/login/</a>.</p>
 <section id="api-key-usage">
 <h2>API Key Usage<a class="headerlink" href="#api-key-usage" title="Link to this heading">#</a></h2>
 <p>The token that is issued by <a class="reference external" href="https://users.deepcell.org">https://users.deepcell.org</a> should be added as an
-environment variable::</p>
+environment variable:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DEEPCELL_ACCESS_TOKEN</span><span class="o">=</span>&lt;token-from-users.deepcell.org&gt;
 </pre></div>
 </div>
 <p>This line can be added to your shell configuration (e.g. <code class="docutils literal notranslate"><span class="pre">.bashrc</span></code>, <code class="docutils literal notranslate"><span class="pre">.zshrc</span></code>,
 <code class="docutils literal notranslate"><span class="pre">.bash_profile</span></code>, etc.) to automatically grant access to DeepCell models/data
 upon login.</p>
+</section>
+<section id="models">
+<h2>Models<a class="headerlink" href="#models" title="Link to this heading">#</a></h2>
+<p>The model can be downloaded for local use:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">utils</span> <span class="kn">import</span> <span class="n">download_model</span>
+
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">download_model</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="training-data">
+<h2>Training Data<a class="headerlink" href="#training-data" title="Link to this heading">#</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The training dataset is over 1.3 TB - make sure you have space and sufficient
+network bandwidth before attempting to download.</p>
+</div>
+<p>Similarly, training data can be downloaded for local use with:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">utils</span> <span class="kn">import</span> <span class="n">download_training_data</span>
+
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">download_training_data</span><span class="p">()</span>
+</pre></div>
+</div>
 </section>
 </section>
 
@@ -344,6 +369,8 @@ upon login.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#api-key-usage">API Key Usage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#models">Models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#training-data">Training Data</a></li>
 </ul>
   </nav></div>
 
