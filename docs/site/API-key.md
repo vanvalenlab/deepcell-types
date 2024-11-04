@@ -30,3 +30,20 @@ The model can be downloaded for local use:
 
 >>> download_model()
 ```
+
+Training Data
+-------------
+
+```{warning}
+The training dataset is over 1.3 TB - make sure you have space and sufficient
+network bandwidth before attempting to download.
+```
+
+Similarly, training data can be downloaded for local use with:
+
+```python
+>>> from utils import download_training_data
+
+
+>>> download_training_data()
+```

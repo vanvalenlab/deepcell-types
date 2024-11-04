@@ -26,3 +26,24 @@ def download_model(*, version=None):
     fetch_data(
         asset_key, cache_subdir="models", file_hash=_model_registry.get(version)
     )
+
+
+def download_training_data(*, version=None):
+    """Download the complete corpus of training data for the deepcell-types model.
+
+    The compressed dataset will be downloaded to ``$HOME/.deepcell/data``.
+
+    Parameters
+    ----------
+    version : str, optional
+       Which version of the training data to download. Default is `None`, which results
+       in the latest (i.e. most-recently-released) version being downloaded.
+    """
+    from ._auth import fetch_data
+
+
+    asset_key = f"data/deepcell-types-data.tar.gz"
+
+    fetch_data(
+        asset_key, cache_subdir="data", file_hash=_dataset_registry.get(version)
+    )
