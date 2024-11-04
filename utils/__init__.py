@@ -42,7 +42,7 @@ def download_training_data(*, version=None):
     from ._auth import fetch_data
 
 
-    asset_key = f"data/deepcell-types-data.tar.gz"
+    asset_key = f"data/deepcell-types/deepcell-types-data.tar.gz"
 
     fetch_data(
         asset_key, cache_subdir="data", file_hash=_dataset_registry.get(version)
