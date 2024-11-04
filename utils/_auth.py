@@ -115,7 +115,7 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
     val, suff = file_size.split(" ")
     # TODO: Case statement would be awesome here, but need to support all the
     # way back to Python 3.8
-    suffix_mapping = {"KB": 1e3, "MB": 1e6, "B": 1, "GB": 1e9}
+    suffix_mapping = {"KB": 2**10, "MB": 2**20, "B": 1, "GB": 2**30, "TB": 2**40}
     file_size_numerical = int(float(val) * suffix_mapping[suff])
 
     logging.info(
