@@ -44,6 +44,4 @@ def download_training_data(*, version=None):
 
     asset_key = f"data/deepcell-types/deepcell-types-data.tar.gz"
 
-    fetch_data(
-        asset_key, cache_subdir="data", file_hash=_dataset_registry.get(version)
-    )
+    fetch_data(asset_key, cache_subdir="data")
