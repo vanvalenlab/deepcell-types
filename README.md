@@ -66,4 +66,13 @@ docker run -it --rm \
 ```
 
 ## Citation
-
+```
+@article{deepcelltypes,
+  title={Generalized cell phenotyping for spatial proteomics with language-informed vision models},
+  author={Wang, Xuefei and Dilip, Rohit and Bussi, Yuval and Brown, Caitlin and Pradhan, Elora and Jain, Yashvardhan and Yu, Kevin and Li, Shenyi and Abt, Martin and Borner, Katy and others},
+  journal={bioRxiv},
+  pages={2024--11},
+  year={2024},
+  publisher={Cold Spring Harbor Laboratory}
+}
+```
