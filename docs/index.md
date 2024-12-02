@@ -7,6 +7,8 @@ varying marker panels.
 
 For details on running the containerized workflow, see the [source repo][github].
 
+For access to models and datasets, see {doc}`site/API-key`.
+
 ```{toctree}
 ---
 maxdepth: 1
