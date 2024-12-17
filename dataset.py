@@ -22,9 +22,11 @@ class PatchDataset(Dataset):
         self.ct2idx = dct_config.ct2idx
         if celltype_mapping is None:
             celltype_mapping = {ct_label: ct_label for ct_label in dct_config.ct2idx.keys()}
-        if channel_mapping is None:
-            channel_mapping = {ch: ch for ch in dct_config.master_channels}
         celltype_mapping["Unknown"] = "Unknown"
+        user_channel_mapping = channel_mapping
+        channel_mapping = {ch: ch for ch in dct_config.master_channels}
+        if user_channel_mapping:
+            channel_mapping.update(user_channel_mapping)
         self.celltype_mapping = celltype_mapping
         self.channel_mapping = channel_mapping
         self.indices = [] # global indices
