@@ -13,7 +13,8 @@ dct_config = DCTConfig()
 
 @click.command()
 @click.option("--data_name", type=str, default="")
-def patchify(data_name, batch_size=2000):
+@click.option("--drop", type=str, multiple=True)
+def patchify(data_name, drop, batch_size=2000):
     data_dir = Path("data")
     data_path = data_dir / data_name
     output_path = Path(data_path).with_suffix(".patched.zarr")
@@ -25,6 +26,17 @@ def patchify(data_name, batch_size=2000):
     print(file_names)
 
     channel_names = input_group.attrs["channel_names"]
+    # Verify that any channels requested to be dropped are in the
+    # recognized channel_names
+    if not_found := (set(drop) - set(channel_names)):
+        raise ValueError(
+            f"Requested to drop the following channels:\n\n{not_found}\n"
+            f"which were not found in the data:\n\n{channel_names}"
+        )
+    idx_to_keep = list(range(len(channel_names)))
+    for ch in drop:
+        idx_to_keep.remove(channel_names.index(ch))
+    channel_names = list(np.array(channel_names, dtype=str)[idx_to_keep])
 
     output_group.attrs["channel_names"] = channel_names
 
@@ -70,6 +82,8 @@ def patchify(data_name, batch_size=2000):
         raw = input_group[file_name]["raw"][:].astype(
             np.float32
         )  # convert to float32 to save space
+        if drop:
+            raw = raw[idx_to_keep, ...]
         raw[raw==0] = np.nan
         q = np.nanquantile(raw, 0.99, axis=(1,2))
         q_values.append(q)
@@ -83,6 +97,8 @@ def patchify(data_name, batch_size=2000):
         raw = input_group[file_name]["raw"][:].astype(
             np.float32
         )  # convert to float32 to save space
+        if drop:
+            raw = raw[idx_to_keep, ...]
         mask = input_group[file_name]["mask"][:]
         mpp = input_group[file_name].attrs["mpp"]
         if "cell_type_info" in input_group[file_name]:
@@ -91,6 +107,8 @@ def patchify(data_name, batch_size=2000):
         else:
             cell_type = None
             cell_index = None
+
+        assert len(channel_names) == raw.shape[0]
         
 
         batches = defaultdict(list) # store patches for each cell type

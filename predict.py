@@ -95,9 +95,12 @@ def forward_one_batch(
 @click.option("--model_name", type=str, default="model_combined_ct")
 @click.option("--device_num", type=str, default="cuda:0")
 @click.option("--patch_data_name", type=str, default="")
-def main(model_name, device_num, patch_data_name):
+@click.option("--channel-mapping", type=str, default="")
+@click.option("--output-dir", type=str, default="")
+def main(model_name, device_num, patch_data_name, channel_mapping, output_dir):
     device = torch.device(device_num)
-    data_dir = Path("data")
+    data_dir = Path("/data")
+    output_dir = Path(output_dir) if output_dir else data_dir
     patch_data_path = data_dir / patch_data_name
 
     # Load ct2embedding
@@ -132,8 +135,8 @@ def main(model_name, device_num, patch_data_name):
 
     # if channel_mapping.yaml exists, load it
     channel_mapping = None
-    channel_mapping_path = data_dir / "channel_mapping.yaml"
-    if channel_mapping_path.exists():
+    channel_mapping_path = Path(channel_mapping) if channel_mapping else None
+    if channel_mapping_path is not None:
         with open(channel_mapping_path, "r") as f:
             channel_mapping = yaml.safe_load(f)
 
@@ -157,7 +160,7 @@ def main(model_name, device_num, patch_data_name):
         ct_embeddings=ct_embeddings,
         img_feature_extractor="conv"
     )
-    model.load_state_dict(torch.load(f"model/{model_name}.pt", map_location=device))
+    model.load_state_dict(torch.load(model_name, map_location=device))
     model.to(device)
 
     
@@ -171,7 +174,8 @@ def main(model_name, device_num, patch_data_name):
                 batch_data, device, model, predlogger=predlogger
             )
 
-        predlogger.save(Path(f"output/{model_name}_{patch_data_path.stem}.csv"))
+        output_location = output_dir / f"{patch_data_path.stem}_predictions.csv"
+        predlogger.save(output_location)
     
     return
 
