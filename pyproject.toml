@@ -34,3 +34,7 @@ license-files = ["LICENSE"]
 
 [tool.setuptools]
 packages = ['deepcell_types']
+include-package-data = true
+
+[tool.setuptools.package-data]
+deepcelltypes_kit = ["dct-kit/config/*.yaml", "dct-kit/config/*.json"]
