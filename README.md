@@ -5,21 +5,7 @@ DeepCell Types is a novel approach to cell phenotyping for spatial proteomics th
 
 ## How to use
 
-Put your dataset under `/data` folder, following the format below:
 ```
-example_dataset.zarr
-    attrs: 
-        - channel_names
-        - file_names
-    - file_name1 (group)
-        attrs: mpp
-        - raw (dataset, shape (#channels, X, Y))
-        - mask (dataset, shape (1, X, Y))
-        - cell_type_info (dataset, optional)
-            - cell_index
-            - cell_type
-    - file_name2
-        ...
 ```
 
 For `masks`, background are labeled as 0, cell indices starts from 1. For `raw`, the shapes should be (#channels, X, Y). If cell type annotations are available, you can add the optional `cell_type_info` of shape (#cells). It can be created as follows:
