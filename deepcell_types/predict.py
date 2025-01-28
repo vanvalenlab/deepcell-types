@@ -9,7 +9,7 @@ import yaml
 import torch
 from torch.utils.data import DataLoader
 
-from deepcelltypes_kit.config import DCTConfig
+from dct_kit.config import DCTConfig
 
 from model import CellTypeCLIPModel
 from dataset import PatchDataset

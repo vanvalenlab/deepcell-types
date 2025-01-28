@@ -5,8 +5,8 @@ import zarr
 import click
 from collections import defaultdict
 
-from deepcelltypes_kit.image_funcs import patch_generator
-from deepcelltypes_kit.config import DCTConfig
+from dct_kit.image_funcs import patch_generator
+from dct_kit.config import DCTConfig
 
 dct_config = DCTConfig()
 
