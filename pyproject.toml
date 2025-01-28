@@ -37,4 +37,4 @@ packages = ['deepcell_types']
 include-package-data = true
 
 [tool.setuptools.package-data]
-deepcelltypes_kit = ["dct-kit/config/*.yaml", "dct-kit/config/*.json"]
+deepcell_types = ["dct-kit/config/*.yaml", "dct-kit/config/*.json"]
