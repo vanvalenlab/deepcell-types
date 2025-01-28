@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deepcell-types"
+version = "0.0.1"
+authors = [
+    { name="Xuefei (Julie) Wang", email="xwang3@caltech.edu" },
+]
+description = "A generalized cell phenotyping model for spatial proteomics"
+readme = "README.md"
+requires-python = "==3.10"
+dependencies = [
+    "pyyaml",
+    "numpy",
+    "scikit-image",
+    "matplotlib",
+    "networkx",
+    "tqdm",
+    "zarr",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+license = {text = "Modified Apache 2.0"}
+license-files = ["LICENSE"]
+
+[project.urls]
+"Source Code" = "https://github.com/vanvalenlab/deepcell-types"
+"Issue Tracker" = "https://github.com/vanvalenlab/deepcell-types/issues"
+
+[tool.setuptools]
+packages = ['deepcell_types']
