@@ -10,7 +10,7 @@ authors = [
 ]
 description = "A generalized cell phenotyping model for spatial proteomics"
 readme = "README.md"
-requires-python = "==3.10"
+requires-python = "~=3.10"
 dependencies = [
     "pyyaml",
     "numpy",
@@ -25,8 +25,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-license = {text = "Modified Apache 2.0"}
-license-files = ["LICENSE"]
+license = {file = "LICENSE"}
 
 [project.urls]
 "Source Code" = "https://github.com/vanvalenlab/deepcell-types"
