@@ -129,11 +129,8 @@ def patch_generator(raw, mask, mpp, dct_config, final_q, cell_index=None, cell_t
         anti_aliasing=False,
     ).astype(np.int32)
 
-    raw = raw / final_q[None, None, :]
-    # if final_q has 0, then raw will have nan, replace nan with 0
-    raw = np.nan_to_num(raw, nan=0)
-
-    raw = np.clip(raw, 0, 5)
+    raw = percentile_threshold(raw, percentile=dct_config.PERCENTILE_THRESHOLD)
+    raw = np.clip(raw, 0, 5) # clip to remove the extreme values
     raw, mask = pad_cell(raw, mask, dct_config.CROP_SIZE)
 
     props = regionprops(mask, cache=False)
