@@ -3,50 +3,63 @@ import zarr
 import numpy as np
 from torch.utils.data import Dataset
 
+import numpy as np
+import zarr
+import yaml
+import warnings
+
+from .dct_kit.image_funcs import patch_generator
+
 
 class PatchDataset(Dataset):
+    """
+    Dataset for single-image patchified data.
+    """
     def __init__(
         self,
-        path,
+        raw,
+        mask,
+        channel_names,
+        mpp,
         dct_config,
-        celltype_mapping=None,
-        channel_mapping=None,
         **kwargs,
     ):
         super(PatchDataset, self).__init__(**kwargs)
 
+        self.mask = mask
+        self.dct_config = dct_config
         self.max_channels = dct_config.MAX_NUM_CHANNELS
-
         self.paddings = -1.0
+        self.mpp = mpp
         self.marker2idx = dct_config.marker2idx
-        self.ct2idx = dct_config.ct2idx
-        if celltype_mapping is None:
-            celltype_mapping = {ct_label: ct_label for ct_label in dct_config.ct2idx.keys()}
-        if channel_mapping is None:
-            channel_mapping = {ch: ch for ch in dct_config.master_channels}
-        celltype_mapping["Unknown"] = "Unknown"
-        self.celltype_mapping = celltype_mapping
-        self.channel_mapping = channel_mapping
-        self.indices = [] # global indices
-        zf = zarr.open(path, mode="r")
-        self.zarr_file = zf
-        
-        for ct_label, ct_data in zf.groups():
-            if ct_label not in celltype_mapping:
-                continue
-            ct_label_standard = celltype_mapping[ct_label]
-            new_indices = [
-                    (
-                        ct_label,
-                        ct_label_standard,
-                        idx,
-                        fov_name,
-                        path.stem, # dataset name
-                    )
-                    for idx, fov_name in enumerate(ct_data["file_name"])
-                ]
-            self.indices.extend(new_indices)
 
+        with open('data/channel_mapping.yaml', 'r') as f:
+            channel_mapping = yaml.safe_load(f)
+        self.channel_mapping = channel_mapping
+
+        channel_names_standard = []
+        channel_masking = []
+        for ch_name in channel_names:
+            if ch_name not in self.channel_mapping:
+                channel_masking.append(True)
+                warnings.warn(
+                    f"Channel {ch_name} is not in the channel mapping. "
+                    "This channel will be masked out."
+                )
+            else:
+                channel_masking.append(False)
+                channel_names_standard.append(self.channel_mapping[ch_name])
+
+
+        ch_idx = torch.as_tensor(
+            [self.marker2idx[ch_name] for ch_name in channel_names_standard]
+            + [-1] * (self.max_channels - len(channel_names_standard))
+        )  # (C_max, )
+        self.channel_names_standard = channel_names_standard
+        self.ch_idx = ch_idx
+        self.raw = raw[~np.array(channel_masking), :, :]  # (C, H, W)
+
+        self._patchify()
         
 
     def _pad_images(self, sample):
@@ -105,36 +118,34 @@ class PatchDataset(Dataset):
         marker_positivity = (mean_intensity > threshold).astype(np.float32)
 
         return marker_positivity
+    
+    def _patchify(self):
+        """
+        Patchify the raw and mask data into smaller patches for training.    
+        """
+        # Create the output group
+        num_chs = len(self.channel_names_standard)
+        patches = []
+        print("Raw ", self.raw.dtype)
+        for raw_patch, mask_patch, cell_index, _ in patch_generator(
+            self.raw, self.mask, self.mpp, dct_config=self.dct_config
+        ):
+            sample = self._combine_masks(raw_patch, mask_patch)  # (C, 3, H, W)
 
+            attn_mask = self._create_attn_mask(sample)  # (C_max,)
+            sample = self._pad_images(sample)  # (C_max, 3, H, W)
+            sample, ch_idx, attn_mask = torch.as_tensor(sample), torch.as_tensor(self.ch_idx), torch.as_tensor(attn_mask)
+
+            patches.append([sample, ch_idx, attn_mask, cell_index])
+
+        self.patches = patches
 
     def __len__(self):
-        return len(self.indices)
+        return len(self.patches)
 
     def __getitem__(self, idx):
-        ct_label, ct_label_standard, sample_index, fov_name, dataset_name = self.indices[
-            idx
-        ]
-        raw = self.zarr_file[ct_label]["raw"][sample_index]  # (C, H, W)
-        combined_mask = self.zarr_file[ct_label]["mask"][
-            sample_index
-        ]  # (H, W, 2), self and neighbor masks
-        cell_index = self.zarr_file[ct_label]["cell_index"][sample_index]
-        ch_names = self.zarr_file.attrs["channel_names"]
-        ch_names_standard = [self.channel_mapping[ch_name] for ch_name in ch_names]
-        ch_idx = torch.as_tensor(
-            [self.marker2idx[ch_name] for ch_name in ch_names_standard]
-            + [-1] * (self.max_channels - len(ch_names_standard))
-        )  # (C_max, )
-        if ct_label_standard == 'Unknown':
-            ct_idx = -1
-        else:
-            ct_idx = self.ct2idx[ct_label_standard]
-
-        sample = self._combine_masks(raw, combined_mask)  # (C, 3, H, W)
-        mask = self._create_attn_mask(sample)  # (C_max,)
-        sample = self._pad_images(sample)  # (C_max, 3, H, W)
+       
+        sample, ch_idx, attn_mask, cell_index = self.patches[idx]
         
-        sample, ch_idx, mask = torch.as_tensor(sample), torch.as_tensor(ch_idx), torch.as_tensor(mask)
-
-        return sample, ch_idx, mask, ct_idx, cell_index, fov_name
+        return sample, ch_idx, attn_mask, cell_index
     
