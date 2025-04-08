@@ -111,7 +111,7 @@ def combine_raw_mask(raw, mask):
     return raw_aug_mask
 
 
-def patch_generator(raw, mask, mpp, dct_config, final_q, cell_index=None, cell_type=None):
+def patch_generator(raw, mask, mpp, dct_config):
     """
     Output: 
         raw_patch: np.float32
@@ -134,17 +134,12 @@ def patch_generator(raw, mask, mpp, dct_config, final_q, cell_index=None, cell_t
     raw, mask = pad_cell(raw, mask, dct_config.CROP_SIZE)
 
     props = regionprops(mask, cache=False)
+    orig_ct = "Unknown" # Assume everything is unknown for now
 
     for prop in tqdm(props):
         idx = prop.label
         if idx == 0: # skip background 
             continue
-        if cell_index is not None and cell_type is not None:
-            if len(cell_type[cell_index == idx]) == 0: # cell exists, but no label availble
-                continue
-            orig_ct = cell_type[cell_index == idx][0]
-        else:
-            orig_ct = "Unknown"
 
         delta = dct_config.CROP_SIZE // 2
         cbox = get_crop_box(prop.centroid, delta)
