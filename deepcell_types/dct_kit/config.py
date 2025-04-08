@@ -24,6 +24,7 @@ class DCTConfig:
         self._master_channels = self._load_master_channels()
         self._marker2idx = {ch: idx for idx, ch in enumerate(self.master_channels)}
         self.NUM_CELLTYPES = len(self.ct2idx)
+        self.PERCENTILE_THRESHOLD = 99.0
 
     @property
     def ct2idx(self):
