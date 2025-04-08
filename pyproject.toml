@@ -12,6 +12,8 @@ description = "A generalized cell phenotyping model for spatial proteomics"
 readme = "README.md"
 requires-python = "~=3.10"
 dependencies = [
+    "requests",
+    "click",
     "pyyaml",
     "numpy",
     "scikit-image",
@@ -19,6 +21,7 @@ dependencies = [
     "networkx",
     "tqdm",
     "zarr",
+    "torch",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
