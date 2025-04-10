@@ -33,75 +33,70 @@ class PredLogger:
         return cell_type_str_pred, top_probs, cell_index
 
 
-class MyDCTModel:
-    def __init__(self, model_name, device_num):
-        self.device = torch.device(device_num)
+def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=256, num_workers=24): 
+    device = torch.device(device_num)
 
-        # Load ct2embedding
-        ct2embedding_dict = dct_config.get_celltype_embedding()
-        ct_embeddings = np.zeros((len(dct_config.ct2idx), 1024), dtype=np.float32)
-        for ct, ebd in ct2embedding_dict.items():
-            if ct not in dct_config.ct2idx:
-                continue
-            idx = dct_config.ct2idx[ct]
-            ct_embeddings[idx] = ebd
+    # Load ct2embedding
+    ct2embedding_dict = dct_config.get_celltype_embedding()
+    ct_embeddings = np.zeros((len(dct_config.ct2idx), 1024), dtype=np.float32)
+    for ct, ebd in ct2embedding_dict.items():
+        if ct not in dct_config.ct2idx:
+            continue
+        idx = dct_config.ct2idx[ct]
+        ct_embeddings[idx] = ebd
 
-        # Load marker2embedding
-        marker2embedding = dct_config.get_channel_embedding(
-            embedding_model_name="text-embedding-3-large-1024"
-        )
-        marker_embeddings = np.empty_like(list(marker2embedding.values()), dtype=np.float32)
-        for marker, ebd in marker2embedding.items():
-            if marker not in dct_config.marker2idx:
-                continue
-            idx = dct_config.marker2idx[marker]
-            marker_embeddings[idx] = ebd
-        
-        # Load model
-        model = CellTypeCLIPModel(
-            n_filters=256,
-            n_heads=4,
-            n_celltypes=28,
-            n_domains=6,
-            marker_embeddings=marker_embeddings,
-            embedding_dim=1024,
-            ct_embeddings=ct_embeddings,
-            img_feature_extractor="conv"
-        )
+    # Load marker2embedding
+    marker2embedding = dct_config.get_channel_embedding(
+        embedding_model_name="text-embedding-3-large-1024"
+    )
+    marker_embeddings = np.empty_like(list(marker2embedding.values()), dtype=np.float32)
+    for marker, ebd in marker2embedding.items():
+        if marker not in dct_config.marker2idx:
+            continue
+        idx = dct_config.marker2idx[marker]
+        marker_embeddings[idx] = ebd
+    
+    # Load model
+    model = CellTypeCLIPModel(
+        n_filters=256,
+        n_heads=4,
+        n_celltypes=28,
+        n_domains=6,
+        marker_embeddings=marker_embeddings,
+        embedding_dim=1024,
+        ct_embeddings=ct_embeddings,
+        img_feature_extractor="conv"
+    )
 
-        model_path = str(Path.home() / ".deepcell" / "models" / f"{model_name}.pt")
-        model.load_state_dict(torch.load(model_path, map_location=self.device))
-        model.to(self.device)
-        self.model = model
+    model_path = str(Path.home() / ".deepcell" / "models" / f"{model_name}.pt")
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.to(device)
 
-        self.pred_logger = PredLogger()
+    pred_logger = PredLogger()
 
+    # Initialize dataset
+    dataset = PatchDataset(raw, mask, channel_names, mpp, dct_config)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
-    def predict(self, raw, mask, channel_names, mpp, batch_size=256, num_workers=24): 
-        
-        # Initialize dataset
-        dataset = PatchDataset(raw, mask, channel_names, mpp, dct_config)
-        data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    # Run prediction on test set
+    model.eval()
+    with torch.no_grad():
+        for sample, ch_idx, attn_mask, cell_index in tqdm(data_loader, desc=f"(inference)"):
+            _, _, _, _, probs, _ = model(
+                sample.to(device),
+                ch_idx.to(device),
+                attn_mask.to(device),
+            )
 
-        # Run prediction on test set
-        self.model.eval()
-        with torch.no_grad():
-            for sample, ch_idx, attn_mask, cell_index in tqdm(data_loader, desc=f"(inference)"):
-                _, _, _, _, probs, _ = self.model(
-                    sample.to(self.device),
-                    ch_idx.to(self.device),
-                    attn_mask.to(self.device),
-                )
-
-                self.pred_logger.log(
-                    probs=probs.cpu().detach().numpy(),
-                    cell_index=cell_index.detach().cpu().numpy(),
-                )
+            pred_logger.log(
+                probs=probs.cpu().detach().numpy(),
+                cell_index=cell_index.detach().cpu().numpy(),
+            )
 
 
-            result = self.pred_logger.get_result()
-            cell_types = result[0]
-        
-        return cell_types
+        result = pred_logger.get_result()
+        cell_types = result[0]
+    
+    return cell_types
 
 

@@ -1,1 +1,1 @@
-from .predict import MyDCTModel
+from .predict import predict

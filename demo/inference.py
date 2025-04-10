@@ -36,10 +36,6 @@ print(img.shape, img.dtype)
 model_name = "deepcell-types_specific_ct_v0.1"
 device_num = "cuda:0"
 
-from deepcell_types import MyDCTModel
-
-# Initialize the application
-app = MyDCTModel(model_name, device_num)
-
-# Run inference
-cell_types = app.predict(img, mask, chnames, mpp)
+# Run prediction
+from deepcell_types import predict
+cell_types = predict(img, mask, chnames, mpp, model_name, device_num)
