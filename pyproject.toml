@@ -35,8 +35,12 @@ license = {file = "LICENSE"}
 "Issue Tracker" = "https://github.com/vanvalenlab/deepcell-types/issues"
 
 [tool.setuptools]
-packages = ['deepcell_types']
+packages = [
+    'deepcell_types',
+    'deepcell_types.dct_kit',
+    'deepcell_types.utils'
+]
 include-package-data = true
 
 [tool.setuptools.package-data]
-deepcell_types = ["dct-kit/config/*.yaml", "dct-kit/config/*.json"]
+deepcell_types = ["dct_kit/config/*.yaml", "dct_kit/config/*.json"]
