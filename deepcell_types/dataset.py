@@ -58,8 +58,6 @@ class PatchDataset(IterableDataset):
         self.channel_names_standard = channel_names_standard
         self.ch_idx = ch_idx
         self.raw = raw[~np.array(channel_masking), :, :]  # (C, H, W)
-
-        self._patchify()
         
 
     def _pad_images(self, sample):
