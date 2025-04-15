@@ -36,9 +36,14 @@ class PredLogger:
 def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=256, num_workers=24): 
     device = torch.device(device_num)
 
+    embedding_model_name = "deepseek-r1-70b-llama-distill-q4-K_M.json"
+    embedding_dim = 8192
+
     # Load ct2embedding
-    ct2embedding_dict = dct_config.get_celltype_embedding()
-    ct_embeddings = np.zeros((len(dct_config.ct2idx), 1024), dtype=np.float32)
+    ct2embedding_dict = dct_config.get_celltype_embedding(
+        embedding_model_name=embedding_model_name
+    )
+    ct_embeddings = np.zeros((len(dct_config.ct2idx), embedding_dim), dtype=np.float32)
     for ct, ebd in ct2embedding_dict.items():
         if ct not in dct_config.ct2idx:
             continue
@@ -47,7 +52,7 @@ def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=25
 
     # Load marker2embedding
     marker2embedding = dct_config.get_channel_embedding(
-        embedding_model_name="text-embedding-3-large-1024"
+        embedding_model_name=embedding_model_name
     )
     marker_embeddings = np.empty_like(list(marker2embedding.values()), dtype=np.float32)
     for marker, ebd in marker2embedding.items():
@@ -63,7 +68,7 @@ def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=25
         n_celltypes=28,
         n_domains=6,
         marker_embeddings=marker_embeddings,
-        embedding_dim=1024,
+        embedding_dim=embedding_dim,
         ct_embeddings=ct_embeddings,
         img_feature_extractor="conv"
     )
