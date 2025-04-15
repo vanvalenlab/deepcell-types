@@ -1,7 +1,7 @@
 import torch
 import zarr
 import numpy as np
-from torch.utils.data import Dataset
+from torch.utils.data import IterableDataset
 
 import numpy as np
 import zarr
@@ -11,7 +11,7 @@ import warnings
 from .dct_kit.image_funcs import patch_generator
 
 
-class PatchDataset(Dataset):
+class PatchDataset(IterableDataset):
     """
     Dataset for single-image patchified data.
     """
@@ -118,15 +118,11 @@ class PatchDataset(Dataset):
         marker_positivity = (mean_intensity > threshold).astype(np.float32)
 
         return marker_positivity
-    
-    def _patchify(self):
+
+    def __iter__(self):
         """
-        Patchify the raw and mask data into smaller patches for training.    
+        Patchify the raw and mask data into smaller patches
         """
-        # Create the output group
-        num_chs = len(self.channel_names_standard)
-        patches = []
-        print("Raw ", self.raw.dtype)
         for raw_patch, mask_patch, cell_index, _ in patch_generator(
             self.raw, self.mask, self.mpp, dct_config=self.dct_config
         ):
@@ -136,16 +132,7 @@ class PatchDataset(Dataset):
             sample = self._pad_images(sample)  # (C_max, 3, H, W)
             sample, ch_idx, attn_mask = torch.as_tensor(sample), torch.as_tensor(self.ch_idx), torch.as_tensor(attn_mask)
 
-            patches.append([sample, ch_idx, attn_mask, cell_index])
-
-        self.patches = patches
+            yield sample, ch_idx, attn_mask, cell_index
 
     def __len__(self):
         return len(self.patches)
-
-    def __getitem__(self, idx):
-       
-        sample, ch_idx, attn_mask, cell_index = self.patches[idx]
-        
-        return sample, ch_idx, attn_mask, cell_index
-    
