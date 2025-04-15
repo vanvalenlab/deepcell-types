@@ -78,10 +78,10 @@ class DCTConfig:
             channel_embedding = json.load(f)
         return channel_embedding
     
-    def get_celltype_embedding(self):
+    def get_celltype_embedding(self, embedding_model_name="text-embedding-3-large-1024"):
         """Get the celltype embedding from the json file.
         """
-        with open(self.data_folder / f"celltype_embeddings-text-embedding-3-large-1024.json", "r") as f:
+        with open(self.data_folder / f"celltype_embeddings-{embedding_model_name}.json", "r") as f:
             ct2embedding_dict = json.load(f)
         return ct2embedding_dict
     
