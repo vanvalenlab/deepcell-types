@@ -36,7 +36,7 @@ class PredLogger:
 def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=256, num_workers=24): 
     device = torch.device(device_num)
 
-    embedding_model_name = "deepseek-r1-70b-llama-distill-q4-K_M.json"
+    embedding_model_name = "deepseek-r1-70b-llama-distill-q4_K_M"
     embedding_dim = 8192
 
     # Load ct2embedding
@@ -65,8 +65,8 @@ def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=25
     model = CellTypeCLIPModel(
         n_filters=256,
         n_heads=4,
-        n_celltypes=28,
-        n_domains=6,
+        n_celltypes=len(dct_config.ct2idx),
+        n_domains=9,
         marker_embeddings=marker_embeddings,
         embedding_dim=embedding_dim,
         ct_embeddings=ct_embeddings,

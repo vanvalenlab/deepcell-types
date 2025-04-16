@@ -23,7 +23,16 @@ Cell:
       Fibroblast:
             Myofibroblast: {}
       SmoothMuscle: {}
-      Glia: {}
-      Neuron: {}
+      CardiacMuscle: {}
+      Nerve:
+            Neuron: {}
+            Glial: {}
       Tumor: {}
-      TransitAmplifying: {}
+      Thrombocyte: {}
+      Erythrocyte: {}
+      Hepatocyte: {}
+      Astrocyte: {}
+      Mesangial: {}
+      EVT: {}
+      ICC: {}
+      LittoralCell: {}
