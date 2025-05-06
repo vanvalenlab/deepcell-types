@@ -12,6 +12,7 @@ class DCTConfig:
         self.MAX_NUM_CHANNELS = 75
         self.BATCH_SIZE = 400
         self.MAX_CHUNK_PER_CT_PER_DATASET = 25
+        self.PERCENTILE_THRESHOLD = 99.0
 
         self.HIST_NORM_KERNEL_SIZE = 128
         self.CROP_SIZE = 64
@@ -22,9 +23,18 @@ class DCTConfig:
         self._ct2idx, self._core_celltypes = self._load_ct2idx_and_core_celltypes()
 
         self._master_channels = self._load_master_channels()
-        self._marker2idx = {ch: idx for idx, ch in enumerate(self.master_channels)}
+
+        embedding_model_name = "deepseek-r1-70b-llama-distill-q4_K_M"
+        marker2embedding = self.get_channel_embedding(
+            embedding_model_name=embedding_model_name
+        )
+        self._domain2idx = {domain:idx for idx, domain in enumerate(sorted(set(list(self.domain_mapping.values()))))}
+        # self._marker2idx = {ch: idx for idx, ch in enumerate(self.master_channels)}
+        self._marker2idx = {ch: idx for idx, ch in enumerate(marker2embedding)}
+        # self._dataset2idx = {k: idx for idx, k in enumerate(self.celltype_mapping.keys())}
         self.NUM_CELLTYPES = len(self.ct2idx)
-        self.PERCENTILE_THRESHOLD = 99.0
+        self.NUM_DOMAINS = len(self.domain2idx)
+        
 
     @property
     def ct2idx(self):

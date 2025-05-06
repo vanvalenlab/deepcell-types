@@ -43,6 +43,8 @@ def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=25
     ct2embedding_dict = dct_config.get_celltype_embedding(
         embedding_model_name=embedding_model_name
     )
+
+    # ct_embeddings = np.zeros_like(list(ct2embedding_dict.values()), dtype=np.float32)
     ct_embeddings = np.zeros((len(dct_config.ct2idx), embedding_dim), dtype=np.float32)
     for ct, ebd in ct2embedding_dict.items():
         if ct not in dct_config.ct2idx:
@@ -54,10 +56,12 @@ def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=25
     marker2embedding = dct_config.get_channel_embedding(
         embedding_model_name=embedding_model_name
     )
-    marker_embeddings = np.empty_like(list(marker2embedding.values()), dtype=np.float32)
+
+    marker_embeddings = np.zeros_like(list(marker2embedding.values()), dtype=np.float32)
+    # marker_embeddings = np.zeros((len(dct_config.marker2idx), embedding_dim), dtype=np.float32)
     for marker, ebd in marker2embedding.items():
         if marker not in dct_config.marker2idx:
-            continue
+            print("bad_marker?", marker)
         idx = dct_config.marker2idx[marker]
         marker_embeddings[idx] = ebd
     
