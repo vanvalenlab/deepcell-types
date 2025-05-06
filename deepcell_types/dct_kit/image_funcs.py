@@ -4,6 +4,11 @@ from skimage.exposure import rescale_intensity, equalize_adapthist
 from skimage.transform import resize, rescale
 from skimage.measure import regionprops
 
+def normalize_per_channel(image):    
+    min_vals = np.min(image, axis=(0, 1), keepdims=True)
+    ptp_vals = np.ptp(image, axis=(0, 1), keepdims=True)
+    ptp_vals[ptp_vals == 0] = 1.0 
+    return (image-min_vals)/ptp_vals
 
 def percentile_threshold(image, percentile=99.9):
     """Copied and modified from: https://github.com/vanvalenlab/deepcell-toolbox/blob/e8c1277ee4243bc6a34916d554d0c2eab0cf7505/deepcell_toolbox/processing.py#L104
@@ -130,7 +135,9 @@ def patch_generator(raw, mask, mpp, dct_config):
     ).astype(np.int32)
 
     raw = percentile_threshold(raw, percentile=dct_config.PERCENTILE_THRESHOLD)
-    raw = np.clip(raw, 0, 5) # clip to remove the extreme values
+    # raw = np.clip(raw, 0, 5) # clip to remove the extreme values
+
+    raw = normalize_per_channel(raw)
     raw, mask = pad_cell(raw, mask, dct_config.CROP_SIZE)
 
     props = regionprops(mask, cache=False)
