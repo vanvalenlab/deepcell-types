@@ -47,14 +47,19 @@ class DomainClassificationHead(nn.Module):
         self.dense3 = nn.Linear(n_filters // 2, n_domains)
         self.silu = nn.SiLU()
         self.dropout = nn.Dropout(dropout_rate)
+        self.layer_norm1 = nn.BatchNorm1d(n_filters)
+        self.layer_norm2 = nn.BatchNorm1d(n_filters // 2)
+        self.layer_norm3 = nn.BatchNorm1d(n_domains)
 
     def forward(self, x):
         out = x
         out = grad_reverse(out)
         out = self.dense1(out)
+        out = self.layer_norm1(out)
         out = self.silu(out)
         out = self.dropout(out)
         out = self.dense2(out)
+        out = self.layer_norm2(out)
         out = self.silu(out)
         out = self.dropout(out)
         out = self.dense3(out)
