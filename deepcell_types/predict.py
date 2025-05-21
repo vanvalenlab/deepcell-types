@@ -58,9 +58,7 @@ def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=25
     )
 
     tct = dct_config.get_tct_mapping()
-    ct_exclude = None
-    if tissue_exclude:
-        ct_exclude = [[i for i in range(len(ct_embeddings)) if i not in [dct_config.ct2idx[i] for i in tct[tissue_exclude]]] for _ in range(batch_size)]
+    
 
     marker_embeddings = np.zeros_like(list(marker2embedding.values()), dtype=np.float32)
     # marker_embeddings = np.zeros((len(dct_config.marker2idx), embedding_dim), dtype=np.float32)
@@ -96,6 +94,9 @@ def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=25
     model.eval()
     with torch.no_grad():
         for sample, ch_idx, attn_mask, cell_index in tqdm(data_loader, desc=f"(inference)"):
+            ct_exclude = None
+            if tissue_exclude:
+                ct_exclude = [[i for i in range(len(ct_embeddings)) if i not in [dct_config.ct2idx[i] for i in tct[tissue_exclude]]] for _ in range(len(sample))]
             _, _, _, _, probs, _ = model(
                 sample.to(device),
                 ch_idx.to(device),
