@@ -28,12 +28,12 @@ class DCTConfig:
         marker2embedding = self.get_channel_embedding(
             embedding_model_name=embedding_model_name
         )
-        self._domain2idx = {domain:idx for idx, domain in enumerate(sorted(set(list(self.domain_mapping.values()))))}
+        # self._domain2idx = {domain:idx for idx, domain in enumerate(sorted(set(list(self.domain_mapping.values()))))}
         # self._marker2idx = {ch: idx for idx, ch in enumerate(self.master_channels)}
         self._marker2idx = {ch: idx for idx, ch in enumerate(marker2embedding)}
         # self._dataset2idx = {k: idx for idx, k in enumerate(self.celltype_mapping.keys())}
         self.NUM_CELLTYPES = len(self.ct2idx)
-        self.NUM_DOMAINS = len(self.domain2idx)
+        # self.NUM_DOMAINS = len(self.domain2idx)
         
 
     @property
@@ -94,6 +94,13 @@ class DCTConfig:
         with open(self.data_folder / f"celltype_embeddings-{embedding_model_name}.json", "r") as f:
             ct2embedding_dict = json.load(f)
         return ct2embedding_dict
+    
+    def get_tct_mapping(self):
+        """Get the tissue to celltype mapping from the yaml file.
+        """
+        with open(self.data_folder / f"tissue_celltype_mapping_merged.yaml", "r") as f:
+            tct = yaml.safe_load(f)
+        return tct
     
 
 if __name__ == "__main__":

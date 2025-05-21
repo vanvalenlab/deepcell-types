@@ -242,7 +242,7 @@ class CellTypeCLIPModel(nn.Module):
         self.text_adaptor = nn.Linear(embedding_dim, n_filters)
 
 
-    def forward(self, sample, ch_idx, mask):
+    def forward(self, sample, ch_idx, mask, ct_exclude=None):
 
         # Encode image
         _, _, cls_token_embedding, marker_pos_attn = self.image_encoder(
@@ -261,6 +261,13 @@ class CellTypeCLIPModel(nn.Module):
         text_embedding_all_classes = self.text_adaptor(raw_text_embedding_all_classes)
         text_embedding_all_classes = text_embedding_all_classes / text_embedding_all_classes.norm(dim=-1, keepdim=True)
         logits_per_image_all_classes = logit_scale * image_embedding @ text_embedding_all_classes.t()
+
+        if ct_exclude is not None:
+            for i in range(len(ct_exclude)):
+                for j in range(len(ct_exclude[i])):
+                    logits_per_image_all_classes[i][ct_exclude[i][j]] = -1e4
+
+
         probs = torch.softmax(logits_per_image_all_classes, dim=-1) # shape = [global_batch_size, n_celltypes]
 
         # normalize marker_pos_attn by max value
