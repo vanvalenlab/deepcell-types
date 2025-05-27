@@ -47,8 +47,3 @@ Cell:
       ICC: {}
       LittoralCell: {}
       Podocyte: {}
-# APC: Antigen Presenting Cell, including dendritic cells, macrophages, and B cells, Langerhans
-# Leukocyte: Neutrophils, Lymphocytes, Eosinophils, Basophils, Monocytes
-# Megakaryocyte: A cell found in the bone marrow. This can include fibroblasts, macrophages, adipocytes, osteoblasts, osteoclasts, endothelial cells and hematopoietic cells.
-# Kupffer Cells: In liver, macrohpages are called Kupffer Cells
-# CellDeath: Necrotic, Apoptotic (Apototic is tumor, according to the paper, so ignore this part for now)
