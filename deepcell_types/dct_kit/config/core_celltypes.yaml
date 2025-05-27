@@ -1,0 +1,38 @@
+Cell:
+      Tcell:
+            Treg: {}
+            CD4T: {}
+            CD8T: {}
+            NKT: {}
+      Bcell:
+            Plasma: {}
+      NK: {}
+      Dendritic: {}
+      Mast: {}
+      Neutrophil: {}
+      Macrophage: {}
+      Monocyte: {}
+      Epithelial:
+            Goblet: {}
+            Paneth: {}
+            Enterocyte: {}
+            Endocrine: {}
+      Endothelial:
+            LymphaticEndothelial: {}
+            BloodVesselEndothelial: {}
+      Fibroblast:
+            Myofibroblast: {}
+      SmoothMuscle: {}
+      CardiacMuscle: {}
+      Nerve:
+            Neuron: {}
+            Glial: {}
+      Tumor: {}
+      Thrombocyte: {}
+      Erythrocyte: {}
+      Hepatocyte: {}
+      Astrocyte: {}
+      Mesangial: {}
+      EVT: {}
+      ICC: {}
+      LittoralCell: {}
