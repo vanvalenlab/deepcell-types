@@ -5,17 +5,12 @@ import zarr
 from pprint import pprint
 from packaging import version
 
-# This version of the archive was created with zarr v2, so can only be
-# ready with zarr v2
-assert version.parse(zarr.__version__).major < 3
-
 # Open archive
-zname = "/data/hubmap.zarr.zip"
-store = zarr.storage.ZipStore(zname, mode="r", allowZip64=True)
-z = zarr.open_group(store=store, mode="r")
+zname = "/data2/hubmap.zarr"
+z = zarr.open(zname, mode="r")
 
 # Choose a dataset
-k = "HBM685_PCCJ_427"
+k = "HBM224_RCHM_744"
 ds = z[k]
 print(ds.tree())
 
@@ -36,7 +31,7 @@ print(mask.shape, mask.dtype)
 print(img.shape, img.dtype)
 
 # Choose model and device
-model_name = "model_hubmap_from_scratch_p2_ct"
+model_name = "model_c_patch2_entire_dataset"
 device_num = "cuda:0"
 
 # Run prediction
