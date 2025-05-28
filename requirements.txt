@@ -2,6 +2,7 @@ numpy
 matplotlib
 pyyaml
 zarr
+rich
 torchinfo
 tqdm
 torchmetrics
