@@ -33,7 +33,7 @@ class PredLogger:
         return cell_type_str_pred, top_probs, cell_index
 
 
-def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=256, num_workers=24): 
+def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=256, num_workers=24, tissue_exclude=None): 
     device = torch.device(device_num)
 
     embedding_model_name = "deepseek-r1-70b-llama-distill-q4_K_M"
@@ -56,6 +56,9 @@ def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=25
     marker2embedding = dct_config.get_channel_embedding(
         embedding_model_name=embedding_model_name
     )
+
+    tct = dct_config.get_tct_mapping()
+    
 
     marker_embeddings = np.zeros_like(list(marker2embedding.values()), dtype=np.float32)
     # marker_embeddings = np.zeros((len(dct_config.marker2idx), embedding_dim), dtype=np.float32)
@@ -91,10 +94,14 @@ def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=25
     model.eval()
     with torch.no_grad():
         for sample, ch_idx, attn_mask, cell_index in tqdm(data_loader, desc=f"(inference)"):
+            ct_exclude = None
+            if tissue_exclude:
+                ct_exclude = [[i for i in range(len(ct_embeddings)) if i not in [dct_config.ct2idx[i] for i in tct[tissue_exclude]]] for _ in range(len(sample))]
             _, _, _, _, probs, _ = model(
                 sample.to(device),
                 ch_idx.to(device),
                 attn_mask.to(device),
+                ct_exclude=ct_exclude
             )
 
             pred_logger.log(

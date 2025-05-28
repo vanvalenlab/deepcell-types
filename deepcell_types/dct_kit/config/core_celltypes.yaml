@@ -10,20 +10,31 @@ Cell:
       Dendritic: {}
       Mast: {}
       Neutrophil: {}
-      Macrophage: {}
+      Macrophage: 
+            Microglial: {}
+            Langerhans: {}
       Monocyte: {}
       Epithelial:
+            CollectingDuct: {}
+            Melanocyte: {}
             Goblet: {}
             Paneth: {}
             Enterocyte: {}
-            Endocrine: {}
+      Endocrine: 
+            AlphaCell: {}
+            BetaCell: {}
       Endothelial:
+            HSEC: {}
             LymphaticEndothelial: {}
             BloodVesselEndothelial: {}
-      Fibroblast:
-            Myofibroblast: {}
-      SmoothMuscle: {}
-      CardiacMuscle: {}
+      Stromal:
+            Fibroblast:
+                  Stellate: {}
+                  Myofibroblast: {}
+            SmoothMuscle: {}
+            Pericyte: 
+                  Mesangial: {}
+            CardiacMuscle: {}
       Nerve:
             Neuron: {}
             Glial: {}
@@ -32,7 +43,7 @@ Cell:
       Erythrocyte: {}
       Hepatocyte: {}
       Astrocyte: {}
-      Mesangial: {}
       EVT: {}
       ICC: {}
       LittoralCell: {}
+      Podocyte: {}
