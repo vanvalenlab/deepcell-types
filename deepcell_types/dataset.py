@@ -32,10 +32,7 @@ class PatchDataset(IterableDataset):
         self.paddings = -1.0
         self.mpp = mpp
         self.marker2idx = dct_config.marker2idx
-
-        with open('data/channel_mapping.yaml', 'r') as f:
-            channel_mapping = yaml.safe_load(f)
-        self.channel_mapping = channel_mapping
+        self.channel_mapping = dct_config.channel_mapping
 
         channel_names_standard = []
         channel_masking = []
