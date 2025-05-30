@@ -34,6 +34,12 @@ class DCTConfig:
         # self._dataset2idx = {k: idx for idx, k in enumerate(self.celltype_mapping.keys())}
         self.NUM_CELLTYPES = len(self.ct2idx)
         # self.NUM_DOMAINS = len(self.domain2idx)
+
+        # Default channel mapping containing all recognized marker name aliases to the
+        # names recognized by the model
+        with open(self.data_folder / "channel_mapping.yaml") as fh:
+            channel_mapping = yaml.safe_load(fh)
+        self.channel_mapping = channel_mapping
         
 
     @property
