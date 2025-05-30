@@ -22,6 +22,7 @@ pip install git+https://github.com/vanvalenlab/deepcell-types@master
 maxdepth: 1
 hidden: true
 ---
+site/tutorial
 site/API-key
 ```
 
