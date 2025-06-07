@@ -232,7 +232,13 @@ With the system all configured, we can now run the pipeline:
 
 ```{code-cell}
 cell_types = deepcell_types.predict(
-    img, mask, chnames, mpp, model_name=model, device=device, num_workers=num_data_loader_threads
+    img.astype(np.float32),
+    mask.astype(np.float32),
+    chnames,
+    mpp,
+    model_name=model,
+    device_num=device,
+    num_workers=num_data_loader_threads,
 )
 ```
 
