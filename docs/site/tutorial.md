@@ -215,16 +215,40 @@ visualization.
 ```
 
 ```{code-cell}
+import napari
+nim = napari.Viewer(show=True)  # Headless for CI; set show=True for interactive viz
+
 # Compute contrast limits
-cl = [(min(ch), max(ch) for ch in img]
+cl = [(np.min(ch), np.max(ch)) for ch in img]
 
 # Visualize multiplex image
-nim = napari.view_image(img, channel_axis=0, name=chnames, contrast_limits=cl);
+nim.add_image(img, channel_axis=0, name=chnames, contrast_limits=cl);
 
 # Add segmentation mask
 mask_lyr = nim.add_labels(mask, name="CellSAM segmentation")
 mask_lyr.contour = 1
 ```
+
+```{code-cell}
+:tags: [hide-cell]
+
+# For static rendering - can safely be ignored if running notebook interactively
+from pathlib import Path
+
+screenshot_path = Path("extra_output/_generated")
+screenshot_path.mkdir(parents=True, exist_ok=True)
+nim.screenshot(
+    path=screenshot_path / "napari_img_and_segmentation.png",
+    canvas_only=False,
+);
+```
+
+<center>
+  <img src="../_generated/napari_img_and_segmentation.png"
+       alt="Napari window of multiplexed image and computed segmentation mask"
+       width=100%
+  />
+</center>
 
 
 ### Cell-type inference with `deepcell-types`
