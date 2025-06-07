@@ -206,6 +206,27 @@ mask, _, _ = skimage.segmentation.relabel_sequential(mask)
 mask = mask.astype(np.uint32)
 ```
 
+### Visualizing results
+
+```{note}
+Multiplexed images and their analysis products are extremely information dense; users are
+strongly recommended to run tutorials locally to leverage `napari` for interactive
+visualization.
+```
+
+```{code-cell}
+# Compute contrast limits
+cl = [(min(ch), max(ch) for ch in img]
+
+# Visualize multiplex image
+nim = napari.view_image(img, channel_axis=0, name=chnames, contrast_limits=cl);
+
+# Add segmentation mask
+mask_lyr = nim.add_labels(mask, name="CellSAM segmentation")
+mask_lyr.contour = 1
+```
+
+
 ### Cell-type inference with `deepcell-types`
 
 We now have all the necessary components to run the cell-type inference pipeline.
