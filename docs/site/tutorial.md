@@ -51,15 +51,13 @@ installed.
 import zarr
 
 z = zarr.open_group(
-    store="s3://hubmap-mirror-demo/hubmap.zarr",
+    store="s3://deepcelltypes-demo-datasets/hubmap.zarr",
     mode="r",
     storage_options={
-        "anon": False,  # TODO: Make true when archive made public
-        "client_kwargs": dict(region_name="us-east-2"),
+        "anon": True,
+        "client_kwargs": dict(region_name="us-east-1"),
     },
 )
-keys = list(z.group_keys())
-print(f"Number of datasets in the archive: {len(keys)}")
 ```
 
 High-level structure of the data archive:
@@ -68,6 +66,183 @@ High-level structure of the data archive:
 z.tree()
 ```
 
+A more detailed look at the datasets:
+
+```{code-cell}
+import pandas as pd  # for nice html rendering
+
+summary = pd.DataFrame.from_dict(
+    {k:
+        {
+            "tissue": z[k].attrs["tissue"],
+            "technology": z[k].attrs["modality"],
+            "Num ch.": z[k]["image"].shape[0],
+            "shape": z[k]["image"].shape[1:],
+        }
+        for k in z.group_keys()
+    },
+    orient="index",
+)
+
+summary.sort_index()
+```
+
+In the interest of minimizing network bandwidth, we'll use the `HBM994_PDJN_987`
+dataset to demonstrate the deepcell-types inference pipeline.
+
+```{code-cell}
+k = "HBM994_PDJN_987"
+```
+
+### Dataset anatomy
+
+As noted above, the cell-type prediction pipeline requires the multiplexed image,
+the channel-name mapping, and a segmentation mask for the image.
+The multiplexed image is stored in the `image` array for each dataset, and the
+channel mapping is stored under the key `"channels"` in the image metadata.
+
+```{code-cell}
+ds = z[k]
+img = ds["image"][:]  # Load data into memory
+chnames = ds["image"].attrs.get("channels")
+
+# Sanity check: ensure that channel name list is the same size as the number of
+# channels in the image
+len(chnames) == img.shape[0]
+```
+
+Another bit of metadata that is useful (when available) is the pixel size of
+the image, in microns-per-pixel.
+While not strictly required, this can improve predictions by tamping down
+variability in image scaling.
+This information is stored in the dataset metadata.
+
+```{code-cell}
+mpp = ds["image"].attrs["mpp"]
+mpp
+```
+
+## Running the cell-type prediction pipeline
+
+```{note}
+Both `cellSAM` and `deepcell-types` models can in principle be run on CPUs, but
+it is strongly recommended that users make use of GPU-capable machines when
+running cell segmentation/cell-type prediction workflows.
+```
+
+The final input is a segmentation mask.
+`deepcell-types` has been intentionally designed for flexibility on this front
+to better integrate into existing spatial-omics workflows.
+However, for convenience, several pre-computed segmentation masks are stored
+in the data archive: one computed by [Mesmer](https://www.nature.com/articles/s41587-021-01094-0)
+and a second by [CellSAM](https://www.biorxiv.org/content/10.1101/2023.11.17.567630v4).
+
+For illustration purposes however, we will demonstrate how to use one of these
+models to construct a full cell-type inference pipeline.
+
+### Cell segmentation with `cellSAM`
+
+In order to use `cellSAM`, it must be installed in the environment, e.g.
+
+```bash
+pip install git+https://github.com/vanvalenlab/cellSAM.git
+```
+
+```{code-cell}
+import numpy as np
+from cellSAM.cellsam_pipeline import cellsam_pipeline
+```
+
+For convenience, channels corresponding to nuclear markers and a whole-cell marker
+are stored in the dataset metadata.
+
+```{note}
+While the nuclear channel is unambiguous, the whole-cell channel selection is
+arbitrary. Users are encourage to try different channels or combinations of
+channels for improved whole-cell segmentation results.
+```
+
+```{code-cell}
+# Extract channels for segmentation
+nuc, mem = ds.attrs["nuclear_channel"], ds.attrs["membrane_channel"]
+im = np.stack(
+    [img[chnames.index(nuc)], img[chnames.index(mem)]],
+    axis=-1,
+).squeeze()
+```
+
+CellSAM expects multiplexed data in a particular format.
+See the [cellsam docs][cellsam_ref] for details.
+
+```{code-cell}
+# Format for cellsam
+seg_img = np.zeros((*im.shape[:-1], 3), dtype=im.dtype)
+seg_img[..., 1:] = im
+```
+
+Finally, run the segmentation pipeline:
+
+```{code-cell}
+mask = cellsam_pipeline(
+    seg_img,
+    block_size=512,
+    low_contrast_enhancement=False,
+    use_wsi=True,
+    gauge_cell_size=False,
+)
+
+# Sanity check: the segmentation mask should have the same W, H dimensions as
+# the input image
+mask.shape == img.shape[1:]
+```
+
+Let's perform a bit of post-processing to ensure that the segmentation mask
+(represented as a label image) is sequential.
+
+```{code-cell}
+import skimage
+
+mask, _, _ = skimage.segmentation.relabel_sequential(mask)
+mask = mask.astype(np.uint32)
+```
+
+### Cell-type inference with `deepcell-types`
+
+We now have all the necessary components to run the cell-type inference pipeline.
+
+```{code-cell}
+import deepcell_types
+```
+
+To run the inference pipeline, you will need to download a trained model.
+See {ref}`models` for details.
+
+```{code-cell}
+# Model & system-specific configuration
+model = "model_c_patch2_entire_dataset"
+
+# NOTE: if you do not have a cuda-capable GPU, try "cpu"
+device = "cuda:0"
+# NOTE: For machines with many cores & large RAM (e.g. GPU nodes), consider
+# increasing for better performance.
+num_data_loader_threads = 1
+```
+
+With the system all configured, we can now run the pipeline:
+
+```{code-cell}
+cell_types = deepcell_types.predict(
+    img, mask, chnames, mpp, model_name=model, device=device, num_workers=num_data_loader_threads
+)
+```
+
+Predictions are provided in the form of a dictionary mapping the cell index from
+the segmentation mask (an integer) to the prediction.
+
+```{code-cell}
+cell_types
+```
 
 [hubmap-data-portal]: https://portal.hubmapconsortium.org/search/datasets
 [zarr]: https://zarr.readthedocs.io/en/stable/
+[cellsam_ref]: https://vanvalenlab.github.io/cellSAM/reference/generated/cellSAM.cellsam_pipeline.cellsam_pipeline.html

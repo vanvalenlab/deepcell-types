@@ -1,3 +1,7 @@
 sphinx
 pydata-sphinx-theme
 myst-nb
+# For tutorial
+napari
+pyqt6
+s3fs
