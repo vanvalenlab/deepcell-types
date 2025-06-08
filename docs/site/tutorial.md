@@ -303,6 +303,31 @@ df = pd.DataFrame.from_dict(  # For nice table rendering
 )
 ```
 
+```{code-cell}
+from collections import defaultdict
+
+# Convert the 1-1 `cell: type` mapping to a 1-many `type: list-of-cells` mapping
+labels_by_celltype = defaultdict(list)
+for idx, ct in idx_to_pred.items():
+    labels_by_celltype[ct].append(idx)
+```
+
+Here's the distribution of predicted cell types for this tissue:
+
+```{code-cell}
+from pprint import pprint
+num_cells = np.max(mask)
+print(f"Total number of cells: {num_cells}")
+
+pprint(
+    {
+        k: f"{len(v)} ({100 * len(v) / num_cells:02.2f}%)"
+        for k, v in labels_by_celltype.items()
+    },
+    sort_dicts=False,
+)
+```
+
 ### Visualizing the results
 
 There are many ways to visualize the cell-type prediction data, each with their own
@@ -312,13 +337,6 @@ The advantage of this approach is that individual layers can be toggled off to f
 on a particular cell type during interactive visualization.
 
 ```{code-cell}
-from collections import defaultdict
-
-# Convert the 1-1 `cell: type` mapping to a 1-many `type: list-of-cells` mapping
-labels_by_celltype = defaultdict(list)
-for idx, ct in idx_to_pred.items():
-    labels_by_celltype[ct].append(idx)
-
 # Regionprops to extract slices corresponding to each individual cell mask
 props = skimage.measure.regionprops(mask)
 prop_dict = {p.label: p for p in props}
@@ -353,7 +371,7 @@ nim.screenshot(
 
 <center>
   <img src="../_generated/napari_celltype_layers.png"
-       alt="Napari window of multiplexed image with celltype predictions
+       alt="Napari window of multiplexed image with celltype predictions"
        width=100%
   />
 </center>
