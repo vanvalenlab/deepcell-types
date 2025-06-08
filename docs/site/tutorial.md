@@ -226,7 +226,7 @@ nim.add_image(img, channel_axis=0, name=chnames, contrast_limits=cl);
 
 # Add segmentation mask
 mask_lyr = nim.add_labels(mask, name="CellSAM segmentation")
-mask_lyr.contour = 1
+mask_lyr.contour = 3  # Relatively thick borders for static viz
 ```
 
 ```{code-cell}
@@ -276,6 +276,8 @@ num_data_loader_threads = 1
 With the system all configured, we can now run the pipeline:
 
 ```{code-cell}
+:tags: [hide-output]
+
 cell_types = deepcell_types.predict(
     img.astype(np.float32),
     mask.astype(np.float32),
@@ -287,12 +289,74 @@ cell_types = deepcell_types.predict(
 )
 ```
 
-Predictions are provided in the form of a dictionary mapping the cell index from
-the segmentation mask (an integer) to the prediction.
+Predictions are provided in the form of list of strings, where the order of
+the list is given by the ordering of cell indices in the segmentation
+mask.
+Since we ordered the mask indices above, it's straightforward to make this
+mapping explicit:
 
 ```{code-cell}
-cell_types
+idx_to_pred = dict(enumerate(cell_types, start=1))
+
+df = pd.DataFrame.from_dict(  # For nice table rendering
+    idx_to_pred, orient="index", columns=["Cell type"]
+)
 ```
+
+### Visualizing the results
+
+There are many ways to visualize the cell-type prediction data, each with their own
+advantages and disadvantages.
+One way is to add an independent layer for each predicted cell type.
+The advantage of this approach is that individual layers can be toggled off to focus
+on a particular cell type during interactive visualization.
+
+```{code-cell}
+from collections import defaultdict
+
+# Convert the 1-1 `cell: type` mapping to a 1-many `type: list-of-cells` mapping
+labels_by_celltype = defaultdict(list)
+for idx, ct in idx_to_pred.items():
+    labels_by_celltype[ct].append(idx)
+
+# Regionprops to extract slices corresponding to each individual cell mask
+props = skimage.measure.regionprops(mask)
+prop_dict = {p.label: p for p in props}
+
+# Create a binary mask layer for each celltype and populate it
+# using the regionprops
+for k, l in labels_by_celltype.items():
+    ctmask = np.zeros_like(mask, dtype=np.uint8)
+    for idx in l:
+        p = prop_dict[idx]
+        ctmask[p.slice][p.image] = 1
+    mask_lyr = nim.add_labels(ctmask, name=f"{k} ({len(l)})")
+    mask_lyr.colormap = napari.utils.DirectLabelColormap(
+        color_dict={None: (0, 0, 0), 1: np.random.rand(3)}
+    )
+```
+
+```{code-cell}
+:tags: [hide-cell]
+
+# For static rendering - can safely be ignored if running notebook interactively
+from pathlib import Path
+
+screenshot_path = Path("extra_output/_generated")
+screenshot_path.mkdir(parents=True, exist_ok=True)
+nim.screenshot(
+    path=screenshot_path / "napari_celltype_layers.png",
+    canvas_only=False,
+);
+```
+
+
+<center>
+  <img src="../_generated/napari_celltype_layers.png"
+       alt="Napari window of multiplexed image with celltype predictions
+       width=100%
+  />
+</center>
 
 [hubmap-data-portal]: https://portal.hubmapconsortium.org/search/datasets
 [zarr]: https://zarr.readthedocs.io/en/stable/
