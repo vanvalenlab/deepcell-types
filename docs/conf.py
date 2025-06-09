@@ -19,6 +19,9 @@ extensions = ['myst_nb']
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
+# Execution conf
+nb_execution_timeout = 300  # seconds
+nb_execution_show_tb = True  # print tracebacks to stderr
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -26,4 +29,5 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'pydata_sphinx_theme'
 html_static_path = ['_static']
+html_extra_path = ['site/extra_output']
 html_title = "deepcell-types"
