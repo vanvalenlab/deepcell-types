@@ -5,3 +5,4 @@ myst-nb
 napari
 pyqt6
 s3fs
+git+https://github.com/vanvalenlab/cellSAM
