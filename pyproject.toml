@@ -16,7 +16,6 @@ dependencies = [
     "pyyaml",
     "numpy",
     "scikit-image",
-    "networkx",
     "tqdm",
     "torch",
 ]
