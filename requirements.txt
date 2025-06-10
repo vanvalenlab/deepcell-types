@@ -1,9 +1,0 @@
-numpy
-pyyaml
-torchinfo
-tqdm
-torchmetrics
-pandas
-scikit-learn
-scipy
-seaborn
