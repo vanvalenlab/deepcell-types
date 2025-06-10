@@ -38,6 +38,7 @@ hidden: true
 ---
 site/tutorial
 site/API-key
+site/reference
 ```
 
 [github]: https://github.com/vanvalenlab/deepcell-types
