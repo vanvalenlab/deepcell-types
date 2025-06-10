@@ -290,8 +290,8 @@ With the system all configured, we can now run the pipeline:
 :tags: [hide-output]
 
 cell_types = deepcell_types.predict(
-    img.astype(np.float32),
-    mask.astype(np.float32),
+    img,
+    mask,
     chnames,
     mpp,
     model_name=model,

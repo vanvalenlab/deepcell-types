@@ -1,10 +1,7 @@
 import torch
-import zarr
-import numpy as np
 from torch.utils.data import IterableDataset
 
 import numpy as np
-import zarr
 import yaml
 import warnings
 
@@ -26,7 +23,10 @@ class PatchDataset(IterableDataset):
     ):
         super(PatchDataset, self).__init__(**kwargs)
 
-        self.mask = mask
+        # Model requires image and mask in single precision
+        raw = raw.astype(np.float32)
+        self.mask = mask.astype(np.float32)
+
         self.dct_config = dct_config
         self.max_channels = dct_config.MAX_NUM_CHANNELS
         self.paddings = -1.0

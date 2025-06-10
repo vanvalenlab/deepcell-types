@@ -13,14 +13,10 @@ readme = "README.md"
 requires-python = "~=3.10"
 dependencies = [
     "requests",
-    "click",
     "pyyaml",
     "numpy",
     "scikit-image",
-    "matplotlib",
-    "networkx",
     "tqdm",
-    "zarr",
     "torch",
 ]
 classifiers = [
