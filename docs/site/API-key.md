@@ -34,6 +34,15 @@ The model can be downloaded for local use:
 >>> download_model()
 ```
 
+A `version` can be specified to access a specific pre-trained model, e.g.
+
+```python
+download_model(version="2025-06-09_public-data-only")
+```
+
+A listing of available pre-trained models is available at
+`deepcell_types.utils._model_registry`.
+
 Training Data
 -------------
 

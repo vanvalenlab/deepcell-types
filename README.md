@@ -9,11 +9,34 @@ from deepcell_types.utils import download_model
 download_model()
 ```
 
-## How to use
+## Installation
 
-Clone the repo, create a virual environment, install the package by `pip install -e .`.
-To run the demo: `python demo/inference.py`
+As with all Python packages, users are encouraged to use some form
+of virtual environment for package installation.
+Popular options include `venv`/`virtualenv`, `conda`/`mamba`, `uv`,
+or `pixi`.
+Users are encouraged to use whatever environment management toolchain
+they are most comfortable with.
+For those unsure, the quickest way to start is to use the `venv` module,
+part of the Python standard library:
 
+```bash
+# Create a new virtual environment
+python -m venv dct-env
+# Enter the virtual environment
+source dct-env/bin/activate
+
+# Once inside the environment, install deepcell-types
+pip install git+https://github.com/vanvalenlab/deepcell-types@master
+```
+
+## Running
+
+The `deepcell-types` cell-type inference functionality is provided via
+a simple functional interface, `deepcell_types.predict`.
+
+For a complete example of the cell-type inference pipeline, check out
+the [tutorial](https://vanvalenlab.github.io/deepcell-types/site/tutorial.html).
 
 ## Citation
 ```
