@@ -21,6 +21,7 @@ This line can be added to your shell configuration (e.g. ``.bashrc``, ``.zshrc``
 ``.bash_profile``, etc.) to automatically grant access to DeepCell models/data
 upon login.
 
+(download_models)=
 Models
 ------
 

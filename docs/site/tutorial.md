@@ -24,7 +24,7 @@ Each of these components will be covered in further detail in this tutorial.
 
 ## Example datasets
 
-This tutorial will make use of the spatial proteomic data provided by the
+This tutorial will make use of the spatial proteomic data available on the
 [HuBMAP data portal][hubmap-data-portal].
 Users are encouraged to explore the portal for data of interest.
 For convenience, a subset of the publicly-available spatial proteomic data
@@ -100,6 +100,8 @@ As noted above, the cell-type prediction pipeline requires the multiplexed image
 the channel-name mapping, and a segmentation mask for the image.
 The multiplexed image is stored in the `image` array for each dataset, and the
 channel mapping is stored under the key `"channels"` in the image metadata.
+Note that these two inputs are derived directly from the corresponding datasets
+on the HuBMAP data portal.
 
 ```{code-cell}
 ds = z[k]
@@ -135,9 +137,11 @@ The final input is a segmentation mask.
 to better integrate into existing spatial-omics workflows.
 However, for convenience, several pre-computed segmentation masks are stored
 in the data archive: one computed by [Mesmer](https://www.nature.com/articles/s41587-021-01094-0)
-and a second by [CellSAM](https://www.biorxiv.org/content/10.1101/2023.11.17.567630v4).
+(available at `ds["segmentations/torch_mesmer"]`)
+and a second by [CellSAM](https://www.biorxiv.org/content/10.1101/2023.11.17.567630v4)
+(available at `ds["segmentations/cellsam"]`).
 
-For illustration purposes however, we will demonstrate how to use one of these
+In this tutorial, we will demonstrate how to use one of these
 models to construct a full cell-type inference pipeline.
 
 ### Cell segmentation with `cellSAM`
@@ -157,9 +161,12 @@ For convenience, channels corresponding to nuclear markers and a whole-cell mark
 are stored in the dataset metadata.
 
 ```{note}
-While the nuclear channel is unambiguous, the whole-cell channel selection is
-arbitrary. Users are encourage to try different channels or combinations of
+Nuclear markers are typically unambiguous. The whole-cell channel selection
+on the other hand is less well-defined.
+Users are encouraged to try different channels or combinations of
 channels for improved whole-cell segmentation results.
+The `membrane_channel` selection in the metadata is arbitrary and provided
+for convenience.
 ```
 
 ```{code-cell}
@@ -183,6 +190,8 @@ seg_img[..., 1:] = im
 Finally, run the segmentation pipeline:
 
 ```{code-cell}
+:tags: [hide-output]
+
 mask = cellsam_pipeline(
     seg_img,
     block_size=512,
@@ -190,7 +199,9 @@ mask = cellsam_pipeline(
     use_wsi=True,
     gauge_cell_size=False,
 )
+```
 
+```{code-cell}
 # Sanity check: the segmentation mask should have the same W, H dimensions as
 # the input image
 mask.shape == img.shape[1:]
@@ -260,7 +271,7 @@ import deepcell_types
 ```
 
 To run the inference pipeline, you will need to download a trained model.
-See {ref}`models` for details.
+See {ref}`download_models` for details.
 
 ```{code-cell}
 # Model & system-specific configuration
@@ -298,10 +309,13 @@ mapping explicit:
 ```{code-cell}
 idx_to_pred = dict(enumerate(cell_types, start=1))
 
-df = pd.DataFrame.from_dict(  # For nice table rendering
+pd.DataFrame.from_dict(  # For nice table rendering
     idx_to_pred, orient="index", columns=["Cell type"]
 )
 ```
+
+Depending on the subsequent analysis you wish to perform, it may be convenient
+to group the cells by their predicted cell-type:
 
 ```{code-cell}
 from collections import defaultdict
@@ -316,8 +330,8 @@ Here's the distribution of predicted cell types for this tissue:
 
 ```{code-cell}
 from pprint import pprint
-num_cells = np.max(mask)
-print(f"Total number of cells: {num_cells}")
+
+print(f"Total number of cells: {(num_cells := np.max(mask))}")
 
 pprint(
     {
@@ -333,7 +347,7 @@ pprint(
 There are many ways to visualize the cell-type prediction data, each with their own
 advantages and disadvantages.
 One way is to add an independent layer for each predicted cell type.
-The advantage of this approach is that individual layers can be toggled off to focus
+The advantage of this approach is that individual layers can be toggled to focus
 on a particular cell type during interactive visualization.
 
 ```{code-cell}
