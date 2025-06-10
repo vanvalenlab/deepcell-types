@@ -1,4 +1,5 @@
-docs/site/extra_output
+# Static images auto-generated during doc build
+docs/_static/_generated
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
