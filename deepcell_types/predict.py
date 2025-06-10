@@ -34,6 +34,52 @@ class PredLogger:
 
 
 def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=256, num_workers=24, tissue_exclude=None): 
+    """Run the cell-type prediction pipeline.
+
+    Given a spatial proteomics image `raw`, a corresponding segmentation `mask`,
+    and a list of markers (`channel_names`) corresponding to the channels of `raw`,
+    predict the cell type associated with each index in `mask`.
+
+    Parameters
+    ----------
+    raw : A spatial proteomic image as an `numpy.ndarray` with shape ``(C, W, H)``.
+        A 2D multiplexed image in channel-first format. The image will be converted
+        internally to ``dtype=np.float32``.
+    mask : 2D label image
+        Segmentation mask of `raw` as a 2D label image with shape ``(W, H)``.
+    channel_names : list of str
+        A list of channel markers. Must have the same length as the number of channels
+        in `raw` and be given in the same order as the channels in `raw`.
+    mpp : float
+        The image resolution in microns-per-pixel. Improves prediction performance by
+        removing scale variability.
+    model_name : str
+        Name of the pre-trained model to use for inference. Models are searched for
+        at ``Path.home() / ".deepcell/models"``.
+    device_num : `torch.device` or `str`
+        Which device to run inference on. For example, ``"cpu"`` or ``"cuda"``.
+        To specify a specific GPU on multi-GPU systems, try ``"cuda:<device_num>``,
+        e.g. ``"cuda:0"``.
+    batch_size : int, default=256
+        Batch size to be used for inference. Larger `batch_size` will increase
+        performance by increasing VRAM usage. Default value of 256 is conservative
+        and should be appropriate for systems with <16GB VRAM.
+    num_workers : int, default=24
+        Number of threads to use for loading data. Increasing `num_workers` may result
+        in large increases in CPU memory footprint. Only recommended for systems with
+        ``>64 GB`` RAM.
+    tissue_exclude : str, optional, default=None
+        If provided, limit the cell type prediction to only those categories known to
+        be associated with the specified tissue type.
+
+    Returns
+    -------
+    list of str
+        A list whose ``len`` is equal to the number of unique cell indices in `mask`,
+        ordered by ascending cell index.
+    """
+
+
     device = torch.device(device_num)
 
     embedding_model_name = "deepseek-r1-70b-llama-distill-q4_K_M"
