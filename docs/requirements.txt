@@ -9,3 +9,7 @@ napari
 pyqt6
 s3fs
 git+https://github.com/vanvalenlab/cellSAM
+# For (local) interactive tutorial
+jupyter
+jupyterlab-myst
+jupytext
