@@ -1,8 +1,14 @@
 """Utilities for model/data access."""
 
-_latest = "v0.1"
+_latest = "2025-06-09"
 _model_registry = {
-    "v0.1": "e499da92509821161be88a47237960a9"
+    # Original model version uploaded with preprint
+    "specific_ct_v0.1": "e499da92509821161be88a47237960a9",
+    # Versions released June 9th 2025. The public-data-only version is trained
+    # only on the subset of data that is publicly available (for reproducibility).
+    # Users are recommended to use the *non* public-data-only option.
+    "2025-06-09": "19b669675c06816414e8677f542ff542",
+    "2025-06-09_public-data-only": "19b669675c06816414e8677f542ff542",
 }
 
 
@@ -21,7 +27,7 @@ def download_model(*, version=None):
 
 
     version = version if version is not None else _latest
-    asset_key = f"models/deepcell-types_specific_ct_{version}.pt"
+    asset_key = f"models/deepcell-types_{version}.pt"
 
     fetch_data(
         asset_key, cache_subdir="models", file_hash=_model_registry.get(version)

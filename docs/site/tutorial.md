@@ -264,7 +264,7 @@ See {ref}`models` for details.
 
 ```{code-cell}
 # Model & system-specific configuration
-model = "model_c_patch2_entire_dataset"
+model = "deepcell-types_2025-06-09"
 
 # NOTE: if you do not have a cuda-capable GPU, try "cpu"
 device = "cuda:0"
