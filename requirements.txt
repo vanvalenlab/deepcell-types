@@ -1,7 +1,5 @@
 numpy
 pyyaml
-zarr
-rich
 torchinfo
 tqdm
 torchmetrics
