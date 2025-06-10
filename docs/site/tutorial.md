@@ -235,7 +235,7 @@ mask_lyr.contour = 3  # Relatively thick borders for static viz
 # For static rendering - can safely be ignored if running notebook interactively
 from pathlib import Path
 
-screenshot_path = Path("extra_output/_generated")
+screenshot_path = Path("../_static/_generated")
 screenshot_path.mkdir(parents=True, exist_ok=True)
 nim.screenshot(
     path=screenshot_path / "napari_img_and_segmentation.png",
@@ -244,7 +244,7 @@ nim.screenshot(
 ```
 
 <center>
-  <img src="../_generated/napari_img_and_segmentation.png"
+  <img src="../_static/_generated/napari_img_and_segmentation.png"
        alt="Napari window of multiplexed image and computed segmentation mask"
        width=100%
   />
@@ -360,7 +360,7 @@ for k, l in labels_by_celltype.items():
 # For static rendering - can safely be ignored if running notebook interactively
 from pathlib import Path
 
-screenshot_path = Path("extra_output/_generated")
+screenshot_path = Path("../_static/_generated")
 screenshot_path.mkdir(parents=True, exist_ok=True)
 nim.screenshot(
     path=screenshot_path / "napari_celltype_layers.png",
@@ -370,7 +370,7 @@ nim.screenshot(
 
 
 <center>
-  <img src="../_generated/napari_celltype_layers.png"
+  <img src="../_static/_generated/napari_celltype_layers.png"
        alt="Napari window of multiplexed image with celltype predictions"
        width=100%
   />
