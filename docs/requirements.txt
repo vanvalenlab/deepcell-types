@@ -1,7 +1,10 @@
+# For documentation
 sphinx
 pydata-sphinx-theme
 myst-nb
 # For tutorial
+zarr
+pandas
 napari
 pyqt6
 s3fs
