@@ -1,0 +1,6 @@
+﻿deepcell\_types.predict
+=======================
+
+.. currentmodule:: deepcell_types
+
+.. autofunction:: predict

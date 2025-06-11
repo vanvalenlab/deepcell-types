@@ -21,17 +21,26 @@ This line can be added to your shell configuration (e.g. ``.bashrc``, ``.zshrc``
 ``.bash_profile``, etc.) to automatically grant access to DeepCell models/data
 upon login.
 
+(download_models)=
 Models
 ------
 
 The model can be downloaded for local use:
 
 ```python
->>> from utils import download_model
-
+>>> from deepcell_types.utils import download_model
 
 >>> download_model()
 ```
+
+A `version` can be specified to access a specific pre-trained model, e.g.
+
+```python
+download_model(version="2025-06-09_public-data-only")
+```
+
+A listing of available pre-trained models is available at
+`deepcell_types.utils._model_registry`.
 
 Training Data
 -------------
