@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'deepcell-types'
-copyright = '2024, Van Valen Lab at the California Institute of Technology (Caltech)'
+copyright = '%Y, Van Valen Lab at the California Institute of Technology (Caltech)'
 author = 'Xuefei (Julie) Wang'
 release = '0.0.1-dev'
 
@@ -35,3 +35,6 @@ nb_execution_show_tb = True  # print tracebacks to stderr
 html_theme = 'pydata_sphinx_theme'
 html_static_path = ['_static']
 html_title = "deepcell-types"
+html_theme_options = {
+    "github_url": "https://github.com/vanvalenlab/deepcell-types",
+}
