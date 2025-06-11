@@ -5,9 +5,11 @@ DeepCell Types is a novel approach to cell phenotyping for spatial proteomics
 that addresses the challenge of generalization across diverse datasets with
 varying marker panels.
 
-For details on running the containerized workflow, see the [source repo][github].
+For details on running the cell-type inference workflow, see the {doc}`site/tutorial`.
 
-For access to models and datasets, see {doc}`site/API-key`.
+The source code can be found at the [github repo][github].
+
+For access to pre-trained models and datasets, see {doc}`site/API-key`.
 
 ## Installation
 
@@ -33,7 +35,7 @@ download_model()  # No argument == latest released version
 
 ## Running
 
-The {doc}`tutorial` demonstrates how to set up, run, and visualize the
+The {doc}`site/tutorial` demonstrates how to set up, run, and visualize the
 outputs of the cell-type inference pipeline.
 
 This tutorial can also be run locally with `jupyter`.
