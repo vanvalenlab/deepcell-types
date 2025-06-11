@@ -31,6 +31,39 @@ from deepcell_types.utils import download_model
 download_model()  # No argument == latest released version
 ```
 
+## Running
+
+The {doc}`tutorial` demonstrates how to set up, run, and visualize the
+outputs of the cell-type inference pipeline.
+
+This tutorial can also be run locally with `jupyter`.
+
+Start by cloning the sorce repository:
+
+```bash
+git clone https://github.com/vanvalenlab/deepcell-types.git && cd deepcell-types
+```
+
+Ensure that all necessary extra dependencies are installed in your virtual
+environment (along with `deepcell-types` itself):
+
+```bash
+pip install -r docs/requirements.txt .
+```
+
+Launch a jupyter lab instance:
+
+```bash
+jupyter lab
+```
+
+Then open the tutorial at `docs/site/tutorial.md`.
+
+```{note}
+Depending on your `jupyterlab` version, you may need to right-click the tutorial.md
+and select `Open with -> Jupytext notebook`.
+```
+
 ```{toctree}
 ---
 maxdepth: 1
@@ -38,6 +71,7 @@ hidden: true
 ---
 site/tutorial
 site/API-key
+site/reference
 ```
 
 [github]: https://github.com/vanvalenlab/deepcell-types

@@ -2,6 +2,7 @@
 sphinx
 pydata-sphinx-theme
 myst-nb
+numpydoc
 # For tutorial
 zarr
 pandas
@@ -9,3 +10,7 @@ napari
 pyqt6
 s3fs
 git+https://github.com/vanvalenlab/cellSAM
+# For (local) interactive tutorial
+jupyter
+jupyterlab-myst
+jupytext
