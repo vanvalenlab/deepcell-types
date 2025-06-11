@@ -28,8 +28,7 @@ Models
 The model can be downloaded for local use:
 
 ```python
->>> from utils import download_model
-
+>>> from deepcell_types.utils import download_model
 
 >>> download_model()
 ```
