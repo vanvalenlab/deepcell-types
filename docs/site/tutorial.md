@@ -4,7 +4,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.13.1
+    jupytext_version: 1.17.2
 kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
@@ -47,7 +47,7 @@ installed.
 
 ### Exploring the archive
 
-```{code-cell}
+```{code-cell} ipython3
 import zarr
 
 z = zarr.open_group(
@@ -62,13 +62,13 @@ z = zarr.open_group(
 
 High-level structure of the data archive:
 
-```{code-cell}
+```{code-cell} ipython3
 z.tree()
 ```
 
 A more detailed look at the datasets:
 
-```{code-cell}
+```{code-cell} ipython3
 import pandas as pd  # for nice html rendering
 
 summary = pd.DataFrame.from_dict(
@@ -90,7 +90,7 @@ summary.sort_index()
 In the interest of minimizing network bandwidth, we'll use the `HBM994_PDJN_987`
 dataset to demonstrate the deepcell-types inference pipeline.
 
-```{code-cell}
+```{code-cell} ipython3
 k = "HBM994_PDJN_987"
 ```
 
@@ -103,7 +103,7 @@ channel mapping is stored under the key `"channels"` in the image metadata.
 Note that these two inputs are derived directly from the corresponding datasets
 on the HuBMAP data portal.
 
-```{code-cell}
+```{code-cell} ipython3
 ds = z[k]
 img = ds["image"][:]  # Load data into memory
 chnames = ds["image"].attrs.get("channels")
@@ -119,7 +119,7 @@ While not strictly required, this can improve predictions by tamping down
 variability in image scaling.
 This information is stored in the dataset metadata.
 
-```{code-cell}
+```{code-cell} ipython3
 mpp = ds["image"].attrs["mpp"]
 mpp
 ```
@@ -152,7 +152,7 @@ In order to use `cellSAM`, it must be installed in the environment, e.g.
 pip install git+https://github.com/vanvalenlab/cellSAM.git
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 import numpy as np
 from cellSAM.cellsam_pipeline import cellsam_pipeline
 ```
@@ -169,7 +169,7 @@ The `membrane_channel` selection in the metadata is arbitrary and provided
 for convenience.
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 # Extract channels for segmentation
 nuc, mem = ds.attrs["nuclear_channel"], ds.attrs["membrane_channel"]
 im = np.stack(
@@ -181,7 +181,7 @@ im = np.stack(
 CellSAM expects multiplexed data in a particular format.
 See the [cellsam docs][cellsam_ref] for details.
 
-```{code-cell}
+```{code-cell} ipython3
 # Format for cellsam
 seg_img = np.zeros((*im.shape[:-1], 3), dtype=im.dtype)
 seg_img[..., 1:] = im
@@ -189,7 +189,7 @@ seg_img[..., 1:] = im
 
 Finally, run the segmentation pipeline:
 
-```{code-cell}
+```{code-cell} ipython3
 :tags: [hide-output]
 
 mask = cellsam_pipeline(
@@ -201,7 +201,7 @@ mask = cellsam_pipeline(
 )
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 # Sanity check: the segmentation mask should have the same W, H dimensions as
 # the input image
 mask.shape == img.shape[1:]
@@ -210,7 +210,7 @@ mask.shape == img.shape[1:]
 Let's perform a bit of post-processing to ensure that the segmentation mask
 (represented as a label image) is sequential.
 
-```{code-cell}
+```{code-cell} ipython3
 import skimage
 
 mask, _, _ = skimage.segmentation.relabel_sequential(mask)
@@ -225,7 +225,7 @@ strongly recommended to run tutorials locally to leverage `napari` for interacti
 visualization.
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 import napari
 nim = napari.Viewer(show=True)  # Headless for CI; set show=True for interactive viz
 
@@ -240,7 +240,7 @@ mask_lyr = nim.add_labels(mask, name="CellSAM segmentation")
 mask_lyr.contour = 3  # Relatively thick borders for static viz
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 :tags: [hide-cell]
 
 # For static rendering - can safely be ignored if running notebook interactively
@@ -266,14 +266,14 @@ nim.screenshot(
 
 We now have all the necessary components to run the cell-type inference pipeline.
 
-```{code-cell}
+```{code-cell} ipython3
 import deepcell_types
 ```
 
 To run the inference pipeline, you will need to download a trained model.
 See {ref}`download_models` for details.
 
-```{code-cell}
+```{code-cell} ipython3
 # Model & system-specific configuration
 model = "deepcell-types_2025-06-09"
 
@@ -286,7 +286,7 @@ num_data_loader_threads = 1
 
 With the system all configured, we can now run the pipeline:
 
-```{code-cell}
+```{code-cell} ipython3
 :tags: [hide-output]
 
 cell_types = deepcell_types.predict(
@@ -306,7 +306,7 @@ mask.
 Since we ordered the mask indices above, it's straightforward to make this
 mapping explicit:
 
-```{code-cell}
+```{code-cell} ipython3
 idx_to_pred = dict(enumerate(cell_types, start=1))
 
 pd.DataFrame.from_dict(  # For nice table rendering
@@ -317,7 +317,7 @@ pd.DataFrame.from_dict(  # For nice table rendering
 Depending on the subsequent analysis you wish to perform, it may be convenient
 to group the cells by their predicted cell-type:
 
-```{code-cell}
+```{code-cell} ipython3
 from collections import defaultdict
 
 # Convert the 1-1 `cell: type` mapping to a 1-many `type: list-of-cells` mapping
@@ -328,7 +328,7 @@ for idx, ct in idx_to_pred.items():
 
 Here's the distribution of predicted cell types for this tissue:
 
-```{code-cell}
+```{code-cell} ipython3
 from pprint import pprint
 
 print(f"Total number of cells: {(num_cells := np.max(mask))}")
@@ -350,7 +350,7 @@ One way is to add an independent layer for each predicted cell type.
 The advantage of this approach is that individual layers can be toggled to focus
 on a particular cell type during interactive visualization.
 
-```{code-cell}
+```{code-cell} ipython3
 # Regionprops to extract slices corresponding to each individual cell mask
 props = skimage.measure.regionprops(mask)
 prop_dict = {p.label: p for p in props}
@@ -368,7 +368,7 @@ for k, l in labels_by_celltype.items():
     )
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 :tags: [hide-cell]
 
 # For static rendering - can safely be ignored if running notebook interactively
@@ -381,7 +381,6 @@ nim.screenshot(
     canvas_only=False,
 );
 ```
-
 
 <center>
   <img src="../_static/_generated/napari_celltype_layers.png"
