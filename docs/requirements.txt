@@ -2,6 +2,7 @@
 sphinx
 pydata-sphinx-theme
 myst-nb
+numpydoc
 # For tutorial
 zarr
 pandas
