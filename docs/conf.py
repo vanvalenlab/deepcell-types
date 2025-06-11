@@ -35,3 +35,6 @@ nb_execution_show_tb = True  # print tracebacks to stderr
 html_theme = 'pydata_sphinx_theme'
 html_static_path = ['_static']
 html_title = "deepcell-types"
+html_theme_options = {
+    "github_url": "https://github.com/vanvalenlab/deepcell-types",
+}
