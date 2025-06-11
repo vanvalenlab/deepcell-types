@@ -24,6 +24,7 @@ pip install git+https://github.com/vanvalenlab/deepcell-types@master
 A pre-trained model is required to run the cell-type inference pipeline.
 Pre-trained models are available via the [users.deepcell.org][dc_org] portal
 according to the [license terms][license].
+See {doc}`site/API-key` for details.
 
 The latest version can be downloaded like so:
 
