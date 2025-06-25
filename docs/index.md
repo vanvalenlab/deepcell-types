@@ -87,11 +87,11 @@ and select `Open with -> Jupytext notebook`.
    - To add a new alias for a marker name that is currently supported, add the
      alias to `deepcell_types/dct_kit/config/channel_mapping.yaml`. For example,
      if your data contains a channel named `FP3` representing the `FoxP3` marker,
-     add the following line to `channel_mapping.yaml`::
+     add the following line to `channel_mapping.yaml`:
 
-        ``FP3: FoxP3``
+         FP3: FoxP3
 
-     Note that the target name (`FoxP3 in this example`) must be one of the
+     Note that the target name (`FoxP3` in this example) must be one of the
      names already found in `master_channels.yaml`
 
    - Adding new markers to the model can be achieved by manually acquiring
