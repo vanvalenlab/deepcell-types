@@ -67,6 +67,45 @@ Depending on your `jupyterlab` version, you may need to right-click the tutorial
 and select `Open with -> Jupytext notebook`.
 ```
 
+## Limitations
+
+1. **Maximum channel limit**
+
+   The model currently supports a maximum of **75** channels per dataset. If you
+   have a dataset with more than 75 marker channels, it will be necessary to
+   remove channels to get below this limit. Note that (by default) nuclear and
+   non-recognized channel names are automatically dropped.
+
+2. **Recognized channels**
+
+   The model maintains a registry of natively-supported channels at
+   [`deepcell_types/dct_kit/config/master_channels.yaml`][master_channels_gh].
+   If your data contains markers not found in this listing, they will be
+   ignored at inference time.
+   There are two ways to add support for additional channels:
+
+   - To add a new alias for a marker name that is currently supported, add the
+     alias to `deepcell_types/dct_kit/config/channel_mapping.yaml`. For example,
+     if your data contains a channel named `FP3` representing the `FoxP3` marker,
+     add the following line to `channel_mapping.yaml`:
+
+         FP3: FoxP3
+
+     Note that the target name (`FoxP3` in this example) must be one of the
+     names already found in `master_channels.yaml`
+
+   - Adding new markers to the model can be achieved by manually acquiring
+     embeddings for additional channels via DeepSeek (model and prompt details
+     can be found in the paper).
+
+3. **Image preprocessing**
+
+   The model requires users to preprocess input images to align with the
+   distribution of our training data for optimal performance and generalization.
+   See the paper for details.
+
+[master_channels_gh]: https://github.com/vanvalenlab/deepcell-types/blob/master/deepcell_types/dct_kit/config/master_channels.yaml
+
 ```{toctree}
 ---
 maxdepth: 1

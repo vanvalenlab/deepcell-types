@@ -31,7 +31,7 @@
 <link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css?v=be8a1c11" />
   
   <!-- So that users can add custom icons -->
   <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -373,6 +373,44 @@ environment (along with <code class="docutils literal notranslate"><span class="
 <p>Depending on your <code class="docutils literal notranslate"><span class="pre">jupyterlab</span></code> version, you may need to right-click the tutorial.md
 and select <code class="docutils literal notranslate"><span class="pre">Open</span> <span class="pre">with</span> <span class="pre">-&gt;</span> <span class="pre">Jupytext</span> <span class="pre">notebook</span></code>.</p>
 </div>
+</section>
+<section id="limitations">
+<h2>Limitations<a class="headerlink" href="#limitations" title="Link to this heading">#</a></h2>
+<ol class="arabic">
+<li><p><strong>Maximum channel limit</strong></p>
+<p>The model currently supports a maximum of <strong>75</strong> channels per dataset. If you
+have a dataset with more than 75 marker channels, it will be necessary to
+remove channels to get below this limit. Note that (by default) nuclear and
+non-recognized channel names are automatically dropped.</p>
+</li>
+<li><p><strong>Recognized channels</strong></p>
+<p>The model maintains a registry of natively-supported channels at
+<a class="reference external" href="https://github.com/vanvalenlab/deepcell-types/blob/master/deepcell_types/dct_kit/config/master_channels.yaml"><code class="docutils literal notranslate"><span class="pre">deepcell_types/dct_kit/config/master_channels.yaml</span></code></a>.
+If your data contains markers not found in this listing, they will be
+ignored at inference time.
+There are two ways to add support for additional channels:</p>
+<ul>
+<li><p>To add a new alias for a marker name that is currently supported, add the
+alias to <code class="docutils literal notranslate"><span class="pre">deepcell_types/dct_kit/config/channel_mapping.yaml</span></code>. For example,
+if your data contains a channel named <code class="docutils literal notranslate"><span class="pre">FP3</span></code> representing the <code class="docutils literal notranslate"><span class="pre">FoxP3</span></code> marker,
+add the following line to <code class="docutils literal notranslate"><span class="pre">channel_mapping.yaml</span></code>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>FP3: FoxP3
+</pre></div>
+</div>
+<p>Note that the target name (<code class="docutils literal notranslate"><span class="pre">FoxP3</span></code> in this example) must be one of the
+names already found in <code class="docutils literal notranslate"><span class="pre">master_channels.yaml</span></code></p>
+</li>
+<li><p>Adding new markers to the model can be achieved by manually acquiring
+embeddings for additional channels via DeepSeek (model and prompt details
+can be found in the paper).</p></li>
+</ul>
+</li>
+<li><p><strong>Image preprocessing</strong></p>
+<p>The model requires users to preprocess input images to align with the
+distribution of our training data for optimal performance and generalization.
+See the paper for details.</p>
+</li>
+</ol>
 <div class="toctree-wrapper compound">
 </div>
 </section>
@@ -419,6 +457,7 @@ and select <code class="docutils literal notranslate"><span class="pre">Open</sp
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pre-trained-models">Pre-trained models</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running">Running</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#limitations">Limitations</a></li>
 </ul>
   </nav></div>
 
