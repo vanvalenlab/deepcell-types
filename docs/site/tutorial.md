@@ -45,11 +45,18 @@ The hubmap data mirror uses zarr format v3, thus requires `zarr>2` to be
 installed.
 ```
 
-### Exploring the archive
-
 ```{code-cell} ipython3
 import zarr
 
+if not zarr.__version__.startswith("3"):
+    raise EnvironmentError(
+        f"The tutorail requires `zarr>3`, version {zarr.__version__} found."
+    )
+```
+
+### Exploring the archive
+
+```{code-cell} ipython3
 z = zarr.open_group(
     store="s3://deepcelltypes-demo-datasets/hubmap.zarr",
     mode="r",
