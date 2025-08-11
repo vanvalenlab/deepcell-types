@@ -31,7 +31,7 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
   
   <!-- So that users can add custom icons -->
   <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -384,13 +384,23 @@ dependencies:</p>
 <p>The hubmap data mirror uses zarr format v3, thus requires <code class="docutils literal notranslate"><span class="pre">zarr&gt;2</span></code> to be
 installed.</p>
 </div>
-<section id="exploring-the-archive">
-<h3>Exploring the archive<a class="headerlink" href="#exploring-the-archive" title="Link to this heading">#</a></h3>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
 
-<span class="n">z</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">zarr</span><span class="o">.</span><span class="n">__version__</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;3&quot;</span><span class="p">):</span>
+    <span class="k">raise</span> <span class="ne">EnvironmentError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;The tutorial requires `zarr&gt;3`, version </span><span class="si">{</span><span class="n">zarr</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2"> found.&quot;</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<section id="exploring-the-archive">
+<h3>Exploring the archive<a class="headerlink" href="#exploring-the-archive" title="Link to this heading">#</a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">z</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span>
     <span class="n">store</span><span class="o">=</span><span class="s2">&quot;s3://deepcelltypes-demo-datasets/hubmap.zarr&quot;</span><span class="p">,</span>
     <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">,</span>
     <span class="n">storage_options</span><span class="o">=</span><span class="p">{</span>
@@ -590,7 +600,7 @@ models to construct a full cell-type inference pipeline.</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/cellSAM/model.py:12: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools&lt;81.
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/cellSAM/model.py:12: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools&lt;81.
   from pkg_resources import resource_filename
 </pre></div>
 </div>
@@ -643,10 +653,10 @@ See the <a class="reference external" href="https://vanvalenlab.github.io/cellSA
 </pre></div>
 </div>
 </div>
-<details class="hide below-input">
+<details class="admonition hide below-input">
 <summary aria-label="Toggle hidden content">
-<span class="collapsed">Show code cell output</span>
-<span class="expanded">Hide code cell output</span>
+<p class="collapsed admonition-title">Show code cell output</p>
+<p class="expanded admonition-title">Hide code cell output</p>
 </summary>
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Total blocks: 16
@@ -655,64 +665,64 @@ See the <a class="reference external" href="https://vanvalenlab.github.io/cellSA
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>0it [00:00, ?it/s]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>1it [00:02,  2.05s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>1it [00:01,  1.93s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2it [00:03,  1.80s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2it [00:03,  1.70s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>3it [00:05,  1.99s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>3it [00:05,  1.87s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>4it [00:07,  1.96s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>4it [00:07,  1.83s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>5it [00:09,  1.89s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>5it [00:08,  1.77s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>6it [00:11,  1.91s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>6it [00:10,  1.79s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>7it [00:13,  2.01s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>7it [00:12,  1.88s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>8it [00:15,  1.96s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>8it [00:14,  1.83s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>9it [00:17,  1.90s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>9it [00:16,  1.77s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>10it [00:19,  1.91s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>10it [00:18,  1.78s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>11it [00:21,  1.95s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>11it [00:19,  1.82s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>12it [00:23,  1.96s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>12it [00:21,  1.83s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>13it [00:25,  1.93s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>13it [00:23,  1.81s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>14it [00:26,  1.87s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>14it [00:25,  1.75s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>15it [00:28,  1.89s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>15it [00:26,  1.76s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>16it [00:30,  1.88s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>16it [00:28,  1.76s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>16it [00:30,  1.92s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>16it [00:28,  1.79s/it]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  0%|                                                           | 0/24 [00:00&lt;?, ?it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  0%|                                                                                                                     | 0/24 [00:00&lt;?, ?it/s]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|█████████████████████████████████████████████████| 24/24 [00:00&lt;00:00, 492.26it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [00:00&lt;00:00, 461.11it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -775,10 +785,10 @@ visualization.</p>
 </div>
 </div>
 <div class="cell tag_hide-cell docutils container">
-<details class="hide above-input">
+<details class="admonition hide above-input">
 <summary aria-label="Toggle hidden content">
-<span class="collapsed">Show code cell content</span>
-<span class="expanded">Hide code cell content</span>
+<p class="collapsed admonition-title">Show code cell content</p>
+<p class="expanded admonition-title">Hide code cell content</p>
 </summary>
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># For static rendering - can safely be ignored if running notebook interactively</span>
@@ -843,43 +853,43 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 </pre></div>
 </div>
 </div>
-<details class="hide below-input">
+<details class="admonition hide below-input">
 <summary aria-label="Toggle hidden content">
-<span class="collapsed">Show code cell output</span>
-<span class="expanded">Hide code cell output</span>
+<p class="collapsed admonition-title">Show code cell output</p>
+<p class="expanded admonition-title">Hide code cell output</p>
 </summary>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel CD14 is not in the channel mapping. This channel will be masked out.
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel CD14 is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel CD80 is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel CD80 is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel DCSIGN is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel DCSIGN is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel ECAD is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel ECAD is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel FOXP3 is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel FOXP3 is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel GALECTIN9 is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel GALECTIN9 is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel GRB is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel GRB is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel H3 is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel H3 is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel HLAG is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel HLAG is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel HO1 is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel HO1 is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel LCK is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel LCK is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel TIGIT is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel TIGIT is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel TIM3 is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel TIM3 is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel TRYPTASE is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel TRYPTASE is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel VIM is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel VIM is not in the channel mapping. This channel will be masked out.
   warnings.warn(
-/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel INOS is not in the channel mapping. This channel will be masked out.
+/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel INOS is not in the channel mapping. This channel will be masked out.
   warnings.warn(
 </pre></div>
 </div>
@@ -889,7 +899,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  0%|                                                         | 0/1646 [00:00&lt;?, ?it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  0%|                                                                                                                   | 0/1646 [00:00&lt;?, ?it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -898,7 +908,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  5%|██▏                                            | 75/1646 [00:00&lt;00:02, 745.61it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  5%|█████▎                                                                                                   | 83/1646 [00:00&lt;00:01, 829.62it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -907,7 +917,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  9%|████▏                                         | 150/1646 [00:00&lt;00:02, 622.80it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 10%|██████████▍                                                                                             | 166/1646 [00:00&lt;00:02, 683.50it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -916,7 +926,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 13%|█████▉                                        | 214/1646 [00:00&lt;00:02, 610.29it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 14%|██████████████▉                                                                                         | 236/1646 [00:00&lt;00:02, 665.85it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -925,7 +935,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 17%|███████▋                                      | 276/1646 [00:01&lt;00:07, 187.94it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 18%|███████████████████▏                                                                                    | 304/1646 [00:01&lt;00:06, 197.05it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -934,7 +944,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 20%|█████████▎                                    | 331/1646 [00:01&lt;00:05, 237.32it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 22%|██████████████████████▉                                                                                 | 363/1646 [00:01&lt;00:05, 248.65it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -943,7 +953,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 23%|██████████▊                                   | 386/1646 [00:01&lt;00:04, 287.61it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 26%|██████████████████████████▊                                                                             | 425/1646 [00:01&lt;00:03, 306.61it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -952,40 +962,22 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 27%|████████████▍                                 | 446/1646 [00:01&lt;00:03, 345.60it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 30%|███████████████████████████████                                                                         | 491/1646 [00:01&lt;00:03, 371.33it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 31%|██████████████▏                               | 507/1646 [00:01&lt;00:02, 400.67it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/administrator/repos/deepcell-types/dct13-env/lib/python3.13/site-packages/torch/nn/modules/transformer.py:505: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at /pytorch/aten/src/ATen/NestedTensorImpl.cpp:178.)
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/torch/nn/modules/transformer.py:505: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at /pytorch/aten/src/ATen/NestedTensorImpl.cpp:178.)
   output = torch._nested_tensor_from_mask(
 
-(inference): 1it [00:07,  7.80s/it]
+(inference): 1it [00:07,  7.62s/it]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 34%|███████████████▋                              | 562/1646 [00:02&lt;00:06, 176.62it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 38%|█████████████████▎                            | 619/1646 [00:02&lt;00:04, 222.95it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 33%|██████████████████████████████████▋                                                                     | 549/1646 [00:02&lt;00:06, 178.18it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -994,7 +986,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 41%|██████████████████▊                           | 673/1646 [00:02&lt;00:03, 268.67it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 37%|██████████████████████████████████████▌                                                                 | 611/1646 [00:02&lt;00:04, 228.00it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1003,19 +995,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 44%|████████████████████▍                         | 732/1646 [00:02&lt;00:02, 323.48it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 2it [00:08,  3.69s/it]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 48%|█████████████████████▉                        | 784/1646 [00:03&lt;00:05, 161.02it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 41%|██████████████████████████████████████████▍                                                             | 671/1646 [00:02&lt;00:03, 279.36it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1024,7 +1004,19 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 51%|███████████████████████▋                      | 846/1646 [00:03&lt;00:03, 211.56it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 45%|██████████████████████████████████████████████▍                                                         | 734/1646 [00:02&lt;00:02, 336.76it/s]
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 2it [00:08,  3.64s/it]
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 48%|█████████████████████████████████████████████████▊                                                      | 789/1646 [00:03&lt;00:05, 169.79it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1033,7 +1025,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 55%|█████████████████████████▏                    | 900/1646 [00:03&lt;00:02, 256.22it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 52%|██████████████████████████████████████████████████████                                                  | 855/1646 [00:03&lt;00:03, 223.05it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1042,7 +1034,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 58%|██████████████████████████▋                   | 956/1646 [00:03&lt;00:02, 305.23it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 56%|█████████████████████████████████████████████████████████▋                                              | 914/1646 [00:03&lt;00:02, 272.20it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1051,28 +1043,19 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 62%|███████████████████████████▊                 | 1016/1646 [00:03&lt;00:01, 360.86it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 59%|█████████████████████████████████████████████████████████████▊                                          | 978/1646 [00:03&lt;00:02, 330.80it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 3it [00:09,  2.50s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 3it [00:09,  2.45s/it]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 65%|█████████████████████████████▏               | 1069/1646 [00:04&lt;00:03, 171.02it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 68%|██████████████████████████████▊              | 1126/1646 [00:04&lt;00:02, 217.00it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 63%|████████████████████████████████████████████████████████████████▋                                      | 1033/1646 [00:04&lt;00:03, 165.81it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1081,7 +1064,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 72%|████████████████████████████████▎            | 1182/1646 [00:04&lt;00:01, 265.57it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 67%|█████████████████████████████████████████████████████████████████████▏                                 | 1106/1646 [00:04&lt;00:02, 225.69it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1090,19 +1073,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 75%|█████████████████████████████████▊           | 1239/1646 [00:04&lt;00:01, 316.30it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 4it [00:10,  1.95s/it]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 78%|███████████████████████████████████▎         | 1290/1646 [00:05&lt;00:02, 159.42it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 71%|████████████████████████████████████████████████████████████████████████▉                              | 1166/1646 [00:04&lt;00:01, 274.63it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1111,7 +1082,19 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 82%|█████████████████████████████████████        | 1355/1646 [00:05&lt;00:01, 213.69it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 75%|████████████████████████████████████████████████████████████████████████████▉                          | 1229/1646 [00:04&lt;00:01, 330.23it/s]
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 4it [00:10,  1.92s/it]
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 78%|████████████████████████████████████████████████████████████████████████████████▍                      | 1285/1646 [00:05&lt;00:02, 166.67it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1120,7 +1103,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 86%|██████████████████████████████████████▌      | 1409/1646 [00:05&lt;00:00, 257.68it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 83%|█████████████████████████████████████████████████████████████████████████████████████                  | 1360/1646 [00:05&lt;00:01, 227.86it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1129,7 +1112,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 89%|████████████████████████████████████████     | 1464/1646 [00:05&lt;00:00, 304.64it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 86%|████████████████████████████████████████████████████████████████████████████████████████▊              | 1420/1646 [00:05&lt;00:00, 276.06it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1138,19 +1121,19 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 93%|█████████████████████████████████████████▋   | 1523/1646 [00:05&lt;00:00, 357.61it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 90%|████████████████████████████████████████████████████████████████████████████████████████████▋          | 1482/1646 [00:05&lt;00:00, 329.58it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 5it [00:11,  1.63s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 5it [00:11,  1.60s/it]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 96%|███████████████████████████████████████████  | 1576/1646 [00:06&lt;00:00, 167.62it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 93%|████████████████████████████████████████████████████████████████████████████████████████████████▏      | 1538/1646 [00:06&lt;00:00, 175.44it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1159,25 +1142,34 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 99%|████████████████████████████████████████████▋| 1633/1646 [00:06&lt;00:00, 213.40it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 96%|███████████████████████████████████████████████████████████████████████████████████████████████████    | 1583/1646 [00:06&lt;00:00, 205.50it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|█████████████████████████████████████████████| 1646/1646 [00:06&lt;00:00, 246.86it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 1646/1646 [00:06&lt;00:00, 262.58it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 6it [00:12,  1.45s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 1646/1646 [00:06&lt;00:00, 251.05it/s]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 7it [00:13,  1.11s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 7it [00:13,  1.92s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 6it [00:12,  1.43s/it]
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 7it [00:13,  1.10s/it]
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 7it [00:13,  1.89s/it]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1355,10 +1347,10 @@ on a particular cell type during interactive visualization.</p>
 </div>
 </div>
 <div class="cell tag_hide-cell docutils container">
-<details class="hide above-input">
+<details class="admonition hide above-input">
 <summary aria-label="Toggle hidden content">
-<span class="collapsed">Show code cell content</span>
-<span class="expanded">Hide code cell content</span>
+<p class="collapsed admonition-title">Show code cell content</p>
+<p class="expanded admonition-title">Hide code cell content</p>
 </summary>
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># For static rendering - can safely be ignored if running notebook interactively</span>
