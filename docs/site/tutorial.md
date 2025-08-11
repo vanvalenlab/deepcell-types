@@ -50,7 +50,7 @@ import zarr
 
 if not zarr.__version__.startswith("3"):
     raise EnvironmentError(
-        f"The tutorail requires `zarr>3`, version {zarr.__version__} found."
+        f"The tutorial requires `zarr>3`, version {zarr.__version__} found."
     )
 ```
 
