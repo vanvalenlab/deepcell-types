@@ -71,14 +71,19 @@ and select `Open with -> Jupytext notebook`.
 
 1. **Maximum channel limit**
 
-   The model currently supports a maximum of **75** channels per dataset. If you
-   have a dataset with more than 75 marker channels, it will be necessary to
-   remove channels to get below this limit. Note that (by default) nuclear and
-   non-recognized channel names are automatically dropped.
+   The latest canonical checkpoints support a maximum of **80** channels per
+   dataset. Legacy checkpoints, including the current registered public release,
+   support **75** channels. If your dataset has more channels than the selected
+   checkpoint supports, it will be necessary to remove channels to get below
+   that limit. Note that (by default) nuclear and non-recognized channel names
+   are automatically dropped.
 
 2. **Recognized channels**
 
-   The model maintains a registry of natively-supported channels at
+   The latest canonical model maintains a registry of natively-supported
+   channels at
+   [`deepcell_types/dct_kit/config/canonical_channels.yaml`][canonical_channels_gh].
+   Legacy checkpoints use
    [`deepcell_types/dct_kit/config/master_channels.yaml`][master_channels_gh].
    If your data contains markers not found in this listing, they will be
    ignored at inference time.
@@ -92,7 +97,7 @@ and select `Open with -> Jupytext notebook`.
          FP3: FoxP3
 
      Note that the target name (`FoxP3` in this example) must be one of the
-     names already found in `master_channels.yaml`
+     names already found in the selected checkpoint's channel registry.
 
    - Adding new markers to the model can be achieved by manually acquiring
      embeddings for additional channels via DeepSeek (model and prompt details
@@ -105,6 +110,7 @@ and select `Open with -> Jupytext notebook`.
    See the paper for details.
 
 [master_channels_gh]: https://github.com/vanvalenlab/deepcell-types/blob/master/deepcell_types/dct_kit/config/master_channels.yaml
+[canonical_channels_gh]: https://github.com/vanvalenlab/deepcell-types/blob/master/deepcell_types/dct_kit/config/canonical_channels.yaml
 
 ```{toctree}
 ---

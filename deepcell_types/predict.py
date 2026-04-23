@@ -1,19 +1,24 @@
-import numpy as np
-from tqdm import tqdm
 from pathlib import Path
+
+import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from .dct_kit.config import DCTConfig
-
-from .model import CellTypeCLIPModel
+from .annotator_model import create_model as create_annotator_model
 from .dataset import PatchDataset
+from .dct_kit.config import DCTConfig
+from .model import CellTypeCLIPModel
 
-dct_config = DCTConfig()
+
+LEGACY_EMBEDDING_MODEL = "deepseek-r1-70b-llama-distill-q4_K_M"
+LEGACY_EMBEDDING_DIM = 8192
 
 
 class PredLogger:
-    def __init__(self):
+    def __init__(self, dct_config):
+        self.dct_config = dct_config
         self.probs = []
         self.cell_index = []
 
@@ -22,18 +27,174 @@ class PredLogger:
         self.cell_index.append(cell_index)
 
     def get_result(self):
-        idx2ct = {v: k for k, v in dct_config.ct2idx.items()}
+        idx2ct = {v: k for k, v in self.dct_config.ct2idx.items()}
         probs = np.concatenate(self.probs)
         cell_index = np.concatenate(self.cell_index)
-        
+
         top_probs = np.max(probs, axis=1)
         cell_type_int_pred = np.argmax(probs, axis=1)
         cell_type_str_pred = [idx2ct[i] for i in cell_type_int_pred]
-        
+
         return cell_type_str_pred, top_probs, cell_index
 
 
-def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=256, num_workers=24, tissue_exclude=None): 
+def _torch_load_weights(path, device):
+    try:
+        return torch.load(path, map_location=device, weights_only=True)
+    except TypeError:
+        return torch.load(path, map_location=device)
+
+
+def _model_path(model_name):
+    candidate = Path(model_name).expanduser()
+    if candidate.exists() or candidate.suffix or candidate.parent != Path("."):
+        return candidate
+    return Path.home() / ".deepcell" / "models" / f"{model_name}.pt"
+
+
+def _state_dict(checkpoint):
+    if isinstance(checkpoint, dict) and "model" in checkpoint:
+        return checkpoint["model"]
+    return checkpoint
+
+
+def _is_canonical_checkpoint(state_dict):
+    return (
+        isinstance(state_dict, dict)
+        and "channel_encoder.stem.0.weight" in state_dict
+        and "ct_head.6.weight" in state_dict
+    )
+
+
+def _count_transformer_layers(state_dict):
+    indices = set()
+    prefix = "transformer_layers."
+    for key in state_dict:
+        if key.startswith(prefix):
+            parts = key.split(".")
+            if len(parts) > 1 and parts[1].isdigit():
+                indices.add(int(parts[1]))
+    return max(indices) + 1 if indices else 4
+
+
+def _infer_spatial_pool_size(state_dict):
+    fusion_in = state_dict["fusion.weight"].shape[1]
+    channel_dim = state_dict["channel_encoder.proj.weight"].shape[0]
+    spatial_dim = fusion_in - channel_dim
+    if spatial_dim <= 0:
+        return 1
+    pool_area = max(1, spatial_dim // 64)
+    return int(round(pool_area**0.5))
+
+
+def _build_canonical_model(checkpoint, dct_config, device):
+    state_dict = _state_dict(checkpoint)
+    marker_weight = state_dict["marker_embedder.embed_layer.weight"]
+    n_markers = marker_weight.shape[0] - 1
+    embedding_dim = marker_weight.shape[1]
+    n_celltypes = state_dict["ct_head.6.weight"].shape[0]
+
+    if n_markers != len(dct_config.marker2idx):
+        raise ValueError(
+            f"Checkpoint expects {n_markers} markers, but the canonical config "
+            f"has {len(dct_config.marker2idx)}."
+        )
+    if n_celltypes != len(dct_config.ct2idx):
+        raise ValueError(
+            f"Checkpoint expects {n_celltypes} cell types, but the canonical "
+            f"config has {len(dct_config.ct2idx)}."
+        )
+
+    marker_embeddings = np.zeros((n_markers, embedding_dim), dtype=np.float32)
+    lora_rank = (
+        state_dict["marker_embedder.lora_A.weight"].shape[0]
+        if "marker_embedder.lora_A.weight" in state_dict
+        else 0
+    )
+    use_conditioned_mp_head = "marker_pos_head.film_scale.weight" in state_dict
+    has_tumor_head = any(key.startswith("tumor_head.") for key in state_dict)
+
+    model = create_annotator_model(
+        dct_config,
+        marker_embeddings,
+        d_model=state_dict["cls_token"].shape[-1],
+        n_layers=_count_transformer_layers(state_dict),
+        resnet_base_channels=state_dict["channel_encoder.stem.0.weight"].shape[0],
+        lora_rank=lora_rank,
+        spatial_pool_size=_infer_spatial_pool_size(state_dict),
+        tumor_head=has_tumor_head,
+        use_conditioned_mp_head=use_conditioned_mp_head,
+    )
+    model.load_state_dict(state_dict)
+    return model.to(device)
+
+
+def _load_legacy_embeddings(dct_config):
+    ct2embedding = dct_config.get_celltype_embedding(
+        embedding_model_name=LEGACY_EMBEDDING_MODEL
+    )
+    ct_embeddings = np.zeros(
+        (len(dct_config.ct2idx), LEGACY_EMBEDDING_DIM), dtype=np.float32
+    )
+    for cell_type, embedding in ct2embedding.items():
+        if cell_type in dct_config.ct2idx:
+            ct_embeddings[dct_config.ct2idx[cell_type]] = embedding
+
+    marker2embedding = dct_config.get_channel_embedding(
+        embedding_model_name=LEGACY_EMBEDDING_MODEL
+    )
+    marker_embeddings = np.zeros(
+        (len(marker2embedding), LEGACY_EMBEDDING_DIM), dtype=np.float32
+    )
+    for marker, embedding in marker2embedding.items():
+        if marker in dct_config.marker2idx:
+            marker_embeddings[dct_config.marker2idx[marker]] = embedding
+
+    return ct_embeddings, marker_embeddings
+
+
+def _build_legacy_model(checkpoint, dct_config, device):
+    ct_embeddings, marker_embeddings = _load_legacy_embeddings(dct_config)
+    model = CellTypeCLIPModel(
+        n_filters=256,
+        n_heads=4,
+        n_celltypes=len(dct_config.ct2idx),
+        n_domains=dct_config.NUM_DOMAINS,
+        marker_embeddings=marker_embeddings,
+        embedding_dim=LEGACY_EMBEDDING_DIM,
+        ct_embeddings=ct_embeddings,
+        img_feature_extractor="conv",
+    )
+    model.load_state_dict(_state_dict(checkpoint))
+    return model.to(device)
+
+
+def _excluded_celltype_indices(dct_config, tissue, batch_size):
+    if tissue is None:
+        return None
+    tct = dct_config.get_tct_mapping()
+    if tissue not in tct:
+        raise ValueError(f"Unknown tissue_exclude={tissue!r}")
+    allowed = {
+        dct_config.ct2idx[name] for name in tct[tissue] if name in dct_config.ct2idx
+    }
+    return [
+        [idx for idx in range(len(dct_config.ct2idx)) if idx not in allowed]
+        for _ in range(batch_size)
+    ]
+
+
+def predict(
+    raw,
+    mask,
+    channel_names,
+    mpp,
+    model_name,
+    device_num,
+    batch_size=256,
+    num_workers=24,
+    tissue_exclude=None,
+):
     """Run the cell-type prediction pipeline.
 
     Given a spatial proteomics image `raw`, a corresponding segmentation `mask`,
@@ -55,7 +216,8 @@ def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=25
         removing scale variability.
     model_name : str
         Name of the pre-trained model to use for inference. Models are searched for
-        at ``Path.home() / ".deepcell/models"``.
+        at ``Path.home() / ".deepcell/models"``. A filesystem path to a ``.pt`` file
+        is also accepted.
     device_num : `torch.device` or `str`
         Which device to run inference on. For example, ``"cpu"`` or ``"cuda"``.
         To specify a specific GPU on multi-GPU systems, try ``"cuda:<device_num>``,
@@ -78,87 +240,68 @@ def predict(raw, mask, channel_names, mpp, model_name, device_num, batch_size=25
         A list whose ``len`` is equal to the number of unique cell indices in `mask`,
         ordered by ascending cell index.
     """
-
-
     device = torch.device(device_num)
+    checkpoint = _torch_load_weights(_model_path(model_name), device)
+    state_dict = _state_dict(checkpoint)
+    canonical = _is_canonical_checkpoint(state_dict)
 
-    embedding_model_name = "deepseek-r1-70b-llama-distill-q4_K_M"
-    embedding_dim = 8192
-
-    # Load ct2embedding
-    ct2embedding_dict = dct_config.get_celltype_embedding(
-        embedding_model_name=embedding_model_name
+    dct_config = DCTConfig(profile="canonical" if canonical else "legacy")
+    model = (
+        _build_canonical_model(checkpoint, dct_config, device)
+        if canonical
+        else _build_legacy_model(checkpoint, dct_config, device)
     )
 
-    # ct_embeddings = np.zeros_like(list(ct2embedding_dict.values()), dtype=np.float32)
-    ct_embeddings = np.zeros((len(dct_config.ct2idx), embedding_dim), dtype=np.float32)
-    for ct, ebd in ct2embedding_dict.items():
-        if ct not in dct_config.ct2idx:
-            continue
-        idx = dct_config.ct2idx[ct]
-        ct_embeddings[idx] = ebd
-
-    # Load marker2embedding
-    marker2embedding = dct_config.get_channel_embedding(
-        embedding_model_name=embedding_model_name
+    pred_logger = PredLogger(dct_config)
+    dataset = PatchDataset(
+        raw,
+        mask,
+        channel_names,
+        mpp,
+        dct_config,
+        output_mode="canonical" if canonical else "legacy",
+    )
+    data_loader = DataLoader(
+        dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )
 
-    tct = dct_config.get_tct_mapping()
-    
-
-    marker_embeddings = np.zeros_like(list(marker2embedding.values()), dtype=np.float32)
-    # marker_embeddings = np.zeros((len(dct_config.marker2idx), embedding_dim), dtype=np.float32)
-    for marker, ebd in marker2embedding.items():
-        if marker not in dct_config.marker2idx:
-            print("bad_marker?", marker)
-        idx = dct_config.marker2idx[marker]
-        marker_embeddings[idx] = ebd
-    
-    # Load model
-    model = CellTypeCLIPModel(
-        n_filters=256,
-        n_heads=4,
-        n_celltypes=len(dct_config.ct2idx),
-        n_domains=9,
-        marker_embeddings=marker_embeddings,
-        embedding_dim=embedding_dim,
-        ct_embeddings=ct_embeddings,
-        img_feature_extractor="conv"
-    )
-
-    model_path = str(Path.home() / ".deepcell" / "models" / f"{model_name}.pt")
-    model.load_state_dict(torch.load(model_path, map_location=device))
-    model.to(device)
-
-    pred_logger = PredLogger()
-
-    # Initialize dataset
-    dataset = PatchDataset(raw, mask, channel_names, mpp, dct_config)
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-
-    # Run prediction on test set
     model.eval()
     with torch.no_grad():
-        for sample, ch_idx, attn_mask, cell_index in tqdm(data_loader, desc=f"(inference)"):
-            ct_exclude = None
-            if tissue_exclude:
-                ct_exclude = [[i for i in range(len(ct_embeddings)) if i not in [dct_config.ct2idx[i] for i in tct[tissue_exclude]]] for _ in range(len(sample))]
-            _, _, _, _, probs, _ = model(
-                sample.to(device),
-                ch_idx.to(device),
-                attn_mask.to(device),
-                ct_exclude=ct_exclude
-            )
+        if canonical:
+            for sample, spatial_context, ch_idx, attn_mask, cell_index in tqdm(
+                data_loader, desc="(inference)"
+            ):
+                ct_exclude = _excluded_celltype_indices(
+                    dct_config, tissue_exclude, len(sample)
+                )
+                ct_logits, *_ = model(
+                    sample.to(device),
+                    spatial_context.to(device),
+                    ch_idx.to(device),
+                    attn_mask.to(device),
+                    ct_exclude=ct_exclude,
+                )
+                probs = F.softmax(ct_logits, dim=-1)
+                pred_logger.log(
+                    probs=probs.cpu().detach().numpy(),
+                    cell_index=cell_index.detach().cpu().numpy(),
+                )
+        else:
+            for sample, ch_idx, attn_mask, cell_index in tqdm(
+                data_loader, desc="(inference)"
+            ):
+                ct_exclude = _excluded_celltype_indices(
+                    dct_config, tissue_exclude, len(sample)
+                )
+                _, _, _, _, probs, _ = model(
+                    sample.to(device),
+                    ch_idx.to(device),
+                    attn_mask.to(device),
+                    ct_exclude=ct_exclude,
+                )
+                pred_logger.log(
+                    probs=probs.cpu().detach().numpy(),
+                    cell_index=cell_index.detach().cpu().numpy(),
+                )
 
-            pred_logger.log(
-                probs=probs.cpu().detach().numpy(),
-                cell_index=cell_index.detach().cpu().numpy(),
-            )
-
-
-        result = pred_logger.get_result()
-        cell_types = result[0]
-    
-    return cell_types
-
-
+    return pred_logger.get_result()[0]

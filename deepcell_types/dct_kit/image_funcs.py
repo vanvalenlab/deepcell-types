@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 from skimage.exposure import rescale_intensity, equalize_adapthist
-from skimage.transform import resize, rescale
+from skimage.transform import rescale
 from skimage.measure import regionprops
 
 def normalize_per_channel(image):    
@@ -161,4 +161,3 @@ def patch_generator(raw, mask, mpp, dct_config):
         mask_patch = np.stack([self_mask, neighbor_mask], axis=-1)  # (H, W, 2)
 
         yield raw_patch, mask_patch.astype(np.float32), idx, orig_ct
-

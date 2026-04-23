@@ -15,6 +15,7 @@ dependencies = [
     "requests",
     "pyyaml",
     "numpy",
+    "scipy",
     "scikit-image",
     "tqdm",
     "torch",
@@ -40,3 +41,9 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 deepcell_types = ["dct_kit/config/*.yaml", "dct_kit/config/*.json"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+]
