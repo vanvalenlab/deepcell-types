@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, get_worker_info
 
 import numpy as np
 import warnings
@@ -54,7 +54,7 @@ class PatchDataset(IterableDataset):
         channel_names_standard = []
         channel_masking = []
         for ch_name in channel_names:
-            ch_name_standard = self.channel_mapping.get(ch_name)
+            ch_name_standard = self.dct_config.resolve_channel_name(ch_name)
             if ch_name_standard is None or ch_name_standard not in self.marker2idx:
                 channel_masking.append(True)
                 warnings.warn(
@@ -169,9 +169,16 @@ class PatchDataset(IterableDataset):
         """
         Patchify the raw and mask data into smaller patches
         """
-        for raw_patch, mask_patch, cell_index, _ in patch_generator(
-            self.raw, self.mask, self.mpp, dct_config=self.dct_config
+        worker_info = get_worker_info()
+        for patch_idx, (raw_patch, mask_patch, cell_index, _) in enumerate(
+            patch_generator(self.raw, self.mask, self.mpp, dct_config=self.dct_config)
         ):
+            if (
+                worker_info is not None
+                and patch_idx % worker_info.num_workers != worker_info.id
+            ):
+                continue
+
             if self.output_mode == "legacy":
                 sample = self._combine_masks(raw_patch, mask_patch)  # (C, 3, H, W)
                 attn_mask = self._create_attn_mask(sample)  # (C_max,)

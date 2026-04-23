@@ -15,6 +15,7 @@ dependencies = [
     "requests",
     "pyyaml",
     "numpy",
+    "numcodecs",
     "scipy",
     "scikit-image",
     "tqdm",

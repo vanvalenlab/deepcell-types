@@ -31,6 +31,9 @@ class PredLogger:
         idx2ct = {v: k for k, v in self.dct_config.ct2idx.items()}
         probs = np.concatenate(self.probs)
         cell_index = np.concatenate(self.cell_index)
+        order = np.argsort(cell_index, kind="stable")
+        probs = probs[order]
+        cell_index = cell_index[order]
 
         top_probs = np.max(probs, axis=1)
         cell_type_int_pred = np.argmax(probs, axis=1)
@@ -64,7 +67,11 @@ def _torch_load_weights(path, device):
 
 def _model_path(model_name):
     candidate = Path(model_name).expanduser()
-    if candidate.exists() or candidate.suffix or candidate.parent != Path("."):
+    if (
+        candidate.exists()
+        or candidate.suffix in {".pt", ".pth"}
+        or candidate.parent != Path(".")
+    ):
         return candidate
     return Path.home() / ".deepcell" / "models" / f"{model_name}.pt"
 
@@ -104,6 +111,10 @@ def _infer_spatial_pool_size(state_dict):
     return int(round(pool_area**0.5))
 
 
+def _infer_n_domains(state_dict):
+    return state_dict["domain_head.8.weight"].shape[0]
+
+
 def _build_canonical_model(checkpoint, dct_config, device):
     state_dict = _state_dict(checkpoint)
     marker_weight = state_dict["marker_embedder.embed_layer.weight"]
@@ -136,6 +147,7 @@ def _build_canonical_model(checkpoint, dct_config, device):
         marker_embeddings,
         d_model=state_dict["cls_token"].shape[-1],
         n_layers=_count_transformer_layers(state_dict),
+        n_domains=_infer_n_domains(state_dict),
         resnet_base_channels=state_dict["channel_encoder.stem.0.weight"].shape[0],
         lora_rank=lora_rank,
         spatial_pool_size=_infer_spatial_pool_size(state_dict),
@@ -211,6 +223,7 @@ def predict(
     batch_size=256,
     num_workers=24,
     tissue_exclude=None,
+    zarr_path=None,
 ):
     """Run the cell-type prediction pipeline.
 
@@ -250,6 +263,10 @@ def predict(
     tissue_exclude : str, optional, default=None
         If provided, limit the cell type prediction to only those categories known to
         be associated with the specified tissue type.
+    zarr_path : str or pathlib.Path, optional, default=None
+        Canonical checkpoints now read marker and cell type metadata from a TissueNet
+        zarr archive. Pass the archive path here or set the
+        ``DEEPCELL_TYPES_ZARR_PATH`` environment variable.
 
     Returns
     -------
@@ -262,7 +279,10 @@ def predict(
     state_dict = _state_dict(checkpoint)
     canonical = _is_canonical_checkpoint(state_dict)
 
-    dct_config = DCTConfig(profile="canonical" if canonical else "legacy")
+    dct_config = DCTConfig(
+        profile="canonical" if canonical else "legacy",
+        zarr_path=zarr_path if canonical else None,
+    )
     model = (
         _build_canonical_model(checkpoint, dct_config, device)
         if canonical

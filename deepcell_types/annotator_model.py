@@ -565,12 +565,14 @@ def create_model(
     Returns:
         CellTypeAnnotator instance
     """
+    n_celltypes = kwargs.pop("n_celltypes", dct_config.NUM_CELLTYPES)
+    n_domains = kwargs.pop("n_domains", dct_config.NUM_DOMAINS)
     model = CellTypeAnnotator(
         d_model=d_model,
         n_heads=n_heads,
         n_layers=n_layers,
-        n_celltypes=dct_config.NUM_CELLTYPES,
-        n_domains=dct_config.NUM_DOMAINS,
+        n_celltypes=n_celltypes,
+        n_domains=n_domains,
         marker_embeddings=marker_embeddings,
         dropout=dropout,
         **kwargs,

@@ -35,6 +35,11 @@ pip install git+https://github.com/vanvalenlab/deepcell-types@master
 The `deepcell-types` cell-type inference functionality is provided via
 a simple functional interface, `deepcell_types.predict`.
 
+Canonical checkpoints read their marker and cell-type registry from a
+TissueNet zarr archive at inference time. Pass the archive with
+`zarr_path=...` or set `DEEPCELL_TYPES_ZARR_PATH` before calling
+`deepcell_types.predict`.
+
 For a complete example of the cell-type inference pipeline, check out
 the [tutorial](https://vanvalenlab.github.io/deepcell-types/site/tutorial.html).
 

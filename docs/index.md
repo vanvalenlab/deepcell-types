@@ -80,10 +80,12 @@ and select `Open with -> Jupytext notebook`.
 
 2. **Recognized channels**
 
-   The latest canonical model maintains a registry of natively-supported
-   channels at
-   [`deepcell_types/dct_kit/config/canonical_channels.yaml`][canonical_channels_gh].
-   Legacy checkpoints use
+   Canonical checkpoints read their registry of natively-supported channels and
+   cell types from the TissueNet zarr archive provided at inference time via
+   `zarr_path=...` or `DEEPCELL_TYPES_ZARR_PATH`. In practice this means the
+   recognized canonical channels are whatever the selected archive exposes in
+   its root `attrs.all_standardized_channels`. Legacy checkpoints continue to
+   use
    [`deepcell_types/dct_kit/config/master_channels.yaml`][master_channels_gh].
    If your data contains markers not found in this listing, they will be
    ignored at inference time.
@@ -103,6 +105,10 @@ and select `Open with -> Jupytext notebook`.
      embeddings for additional channels via DeepSeek (model and prompt details
      can be found in the paper).
 
+   Canonical checkpoint loading also validates that the archive and checkpoint
+   agree on marker count and cell-type count. If they do not, inference fails
+   early with a `ValueError`.
+
 3. **Image preprocessing**
 
    The model requires users to preprocess input images to align with the
@@ -110,7 +116,6 @@ and select `Open with -> Jupytext notebook`.
    See the paper for details.
 
 [master_channels_gh]: https://github.com/vanvalenlab/deepcell-types/blob/master/deepcell_types/dct_kit/config/master_channels.yaml
-[canonical_channels_gh]: https://github.com/vanvalenlab/deepcell-types/blob/master/deepcell_types/dct_kit/config/canonical_channels.yaml
 
 ```{toctree}
 ---
