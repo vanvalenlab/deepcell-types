@@ -1,3 +1,4 @@
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -39,9 +40,25 @@ class PredLogger:
 
 
 def _torch_load_weights(path, device):
+    """Load a checkpoint with `weights_only=True`.
+
+    The kwarg landed in PyTorch 1.13. Deserializing without it on an
+    untrusted checkpoint allows arbitrary code execution at load time via
+    pickle. We require a torch new enough to support it; the fallback only
+    fires for the literal `TypeError` from `torch.load` itself rejecting
+    the kwarg, and emits a loud warning. Older torch installs should be
+    upgraded rather than silently bypassing the safety check.
+    """
     try:
         return torch.load(path, map_location=device, weights_only=True)
-    except TypeError:
+    except TypeError as e:
+        warnings.warn(
+            f"torch.load(weights_only=True) unsupported in this torch "
+            f"version ({torch.__version__}); falling back to unsafe pickle "
+            f"load. Upgrade torch to >=1.13 to enable the safety check. "
+            f"Error: {e}",
+            stacklevel=2,
+        )
         return torch.load(path, map_location=device)
 
 

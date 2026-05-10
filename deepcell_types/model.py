@@ -179,9 +179,18 @@ class CellTypeDataEncoder(nn.Module):
         inputs_app: (B, C, 3, H, W)
         inputs_ch_padding_mask: (B, C), True=ignore
         """
-        aug_inputs_ch_padding_masks = nn.functional.pad(
-            inputs_ch_padding_masks.long(), (1, 0), mode="reflect"
-        ).bool()  # (B, C+1) - add padding for CLS token
+        # CLS slot must never be masked. The previous implementation used
+        # `F.pad(..., mode="reflect")` which prepended a copy of the
+        # channel-0 mask bit — correct for inputs whose first channel is
+        # always real, but subtly couples CLS visibility to channel
+        # ordering. Use an explicit constant-False prefix instead.
+        B = inputs_ch_padding_masks.shape[0]
+        cls_pad = torch.zeros(
+            B, 1, dtype=torch.bool, device=inputs_ch_padding_masks.device
+        )
+        aug_inputs_ch_padding_masks = torch.cat(
+            [cls_pad, inputs_ch_padding_masks.bool()], dim=1
+        )  # (B, C+1) - CLS slot always False (visible)
 
         # Apply convolutions
         x = self.img_feature_extractor(inputs_app)  # (B, C, n_filters)
