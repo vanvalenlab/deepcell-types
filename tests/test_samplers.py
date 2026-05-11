@@ -5,7 +5,7 @@ import pickle
 import pytest
 import torch
 
-from deepcell_types.training.dataset import FOVGroupedSampler
+from deepcell_types.training.dataset import CellIndexRecord, FOVGroupedSampler
 
 
 # =============================================================================
@@ -28,15 +28,15 @@ class TestFOVGroupedSampler:
         for ds_idx, n in enumerate(fov_sizes):
             for cell_idx in range(n):
                 indices.append(
-                    (
-                        ds_idx,
-                        "T",
-                        "T_cell",
-                        "CODEX",
-                        cell_idx,
-                        f"FOV{ds_idx}",
-                        f"DS{ds_idx}",
-                        (float(cell_idx), float(cell_idx)),
+                    CellIndexRecord(
+                        ds_idx=ds_idx,
+                        ct_label="T",
+                        ct_label_standard="T_cell",
+                        domain="CODEX",
+                        cell_idx=cell_idx,
+                        fov_name=f"FOV{ds_idx}",
+                        dataset_name=f"DS{ds_idx}",
+                        centroid=(float(cell_idx), float(cell_idx)),
                     )
                 )
         return indices

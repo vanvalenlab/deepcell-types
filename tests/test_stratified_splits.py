@@ -5,6 +5,7 @@ val-only / untrainable. v10's stratified split forces every multi-FOV stratum
 to have both train and val coverage and forces single-FOV strata to train.
 """
 from deepcell_types.training.dataset import (
+    CellIndexRecord,
     create_fov_splits,
     _find_sole_source_fovs,
     _build_fov_strata,
@@ -37,7 +38,7 @@ def _build_dataset(fov_specs):
         ds_name = f"ds_{ds_idx}"
         fov_name = f"fov_{ds_idx}"
         indices.append(
-            (ds_idx, ct_label, ct_label, modality, ds_idx, fov_name, ds_name, (10, 10))
+            CellIndexRecord(ds_idx, ct_label, ct_label, modality, ds_idx, fov_name, ds_name, (10, 10))
         )
         zarr_files.append(
             {"name": ds_name, "channel_names": ["DAPI"],
@@ -82,10 +83,10 @@ class TestStratifiedSplit:
         ])
         # Multiple cell types so no FOV is "sole source"
         ds.indices.extend([
-            (0, "Bcell", "Bcell", "MIBI", 100, "fov_0", "ds_0", (10, 10)),
-            (1, "Bcell", "Bcell", "MIBI", 101, "fov_1", "ds_1", (10, 10)),
-            (2, "Bcell", "Bcell", "CODEX", 102, "fov_2", "ds_2", (10, 10)),
-            (3, "Bcell", "Bcell", "CODEX", 103, "fov_3", "ds_3", (10, 10)),
+            CellIndexRecord(0, "Bcell", "Bcell", "MIBI", 100, "fov_0", "ds_0", (10, 10)),
+            CellIndexRecord(1, "Bcell", "Bcell", "MIBI", 101, "fov_1", "ds_1", (10, 10)),
+            CellIndexRecord(2, "Bcell", "Bcell", "CODEX", 102, "fov_2", "ds_2", (10, 10)),
+            CellIndexRecord(3, "Bcell", "Bcell", "CODEX", 103, "fov_3", "ds_3", (10, 10)),
         ])
         train_idx, val_idx = create_fov_splits(
             ds, train_ratio=0.5, seed=0, stratify_by=("modality", "tissue"),
@@ -108,13 +109,13 @@ class TestStratifiedSplit:
         ])
         # Add other classes to break sole-source forcing
         ds.indices.append(
-            (0, "Bcell", "Bcell", "MIBI", 100, "fov_0", "ds_0", (10, 10))
+            CellIndexRecord(0, "Bcell", "Bcell", "MIBI", 100, "fov_0", "ds_0", (10, 10))
         )
         ds.indices.append(
-            (1, "Bcell", "Bcell", "MIBI", 101, "fov_1", "ds_1", (10, 10))
+            CellIndexRecord(1, "Bcell", "Bcell", "MIBI", 101, "fov_1", "ds_1", (10, 10))
         )
         ds.indices.append(
-            (2, "Bcell", "Bcell", "CODEX", 102, "fov_2", "ds_2", (10, 10))
+            CellIndexRecord(2, "Bcell", "Bcell", "CODEX", 102, "fov_2", "ds_2", (10, 10))
         )
         train_idx, val_idx = create_fov_splits(
             ds, train_ratio=0.5, seed=0, stratify_by=("modality", "tissue"),
@@ -133,10 +134,10 @@ class TestStratifiedSplit:
             (3, "MIBI", "lung", "CD4T"),
         ])
         ds.indices.extend([
-            (0, "Bcell", "Bcell", "MIBI", 100, "fov_0", "ds_0", (10, 10)),
-            (1, "Bcell", "Bcell", "MIBI", 101, "fov_1", "ds_1", (10, 10)),
-            (2, "Bcell", "Bcell", "MIBI", 102, "fov_2", "ds_2", (10, 10)),
-            (3, "Bcell", "Bcell", "MIBI", 103, "fov_3", "ds_3", (10, 10)),
+            CellIndexRecord(0, "Bcell", "Bcell", "MIBI", 100, "fov_0", "ds_0", (10, 10)),
+            CellIndexRecord(1, "Bcell", "Bcell", "MIBI", 101, "fov_1", "ds_1", (10, 10)),
+            CellIndexRecord(2, "Bcell", "Bcell", "MIBI", 102, "fov_2", "ds_2", (10, 10)),
+            CellIndexRecord(3, "Bcell", "Bcell", "MIBI", 103, "fov_3", "ds_3", (10, 10)),
         ])
         train_idx, val_idx = create_fov_splits(
             ds, train_ratio=0.75, seed=0, stratify_by=(),

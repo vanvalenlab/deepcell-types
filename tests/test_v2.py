@@ -17,7 +17,7 @@ from deepcell_types.model import (
 )
 from deepcell_types.training.losses import FocalLoss
 from deepcell_types.training.dataset import (
-    FullImageDataset, DropOutChannels, create_fov_splits,
+    CellIndexRecord, FullImageDataset, DropOutChannels, create_fov_splits,
     compute_sample_weights, AugmentedDataset, create_dataloader,
 )
 from deepcell_types.training.utils import BatchData, seed_everything, get_tissue_ct_exclude
@@ -325,12 +325,12 @@ class TestFOVSplits:
         class MockDataset:
             def __init__(self):
                 self.indices = [
-                    (0, "T", "T_cell", "CODEX", 1, "FOV1", "DS1", (10, 10)),
-                    (0, "T", "T_cell", "CODEX", 2, "FOV1", "DS1", (20, 20)),
-                    (0, "B", "B_cell", "CODEX", 1, "FOV2", "DS1", (10, 10)),
-                    (0, "B", "B_cell", "CODEX", 2, "FOV2", "DS1", (20, 20)),
-                    (0, "M", "Macrophage", "CODEX", 1, "FOV3", "DS1", (10, 10)),
-                    (0, "M", "Macrophage", "CODEX", 2, "FOV3", "DS1", (20, 20)),
+                    CellIndexRecord(0, "T", "T_cell", "CODEX", 1, "FOV1", "DS1", (10, 10)),
+                    CellIndexRecord(0, "T", "T_cell", "CODEX", 2, "FOV1", "DS1", (20, 20)),
+                    CellIndexRecord(0, "B", "B_cell", "CODEX", 1, "FOV2", "DS1", (10, 10)),
+                    CellIndexRecord(0, "B", "B_cell", "CODEX", 2, "FOV2", "DS1", (20, 20)),
+                    CellIndexRecord(0, "M", "Macrophage", "CODEX", 1, "FOV3", "DS1", (10, 10)),
+                    CellIndexRecord(0, "M", "Macrophage", "CODEX", 2, "FOV3", "DS1", (20, 20)),
                 ]
 
         dataset = MockDataset()
@@ -353,11 +353,11 @@ class TestFOVSplits:
         class MockDataset:
             def __init__(self):
                 self.indices = [
-                    (0, "T", "T_cell", "CODEX", 1, "FOV1", "DS1", (10, 10)),
-                    (0, "T", "T_cell", "CODEX", 2, "FOV2", "DS1", (20, 20)),
-                    (0, "T", "T_cell", "CODEX", 3, "FOV3", "DS1", (30, 30)),
-                    (1, "B", "B_cell", "MIBI", 1, "FOV4", "DS2", (10, 10)),
-                    (1, "B", "B_cell", "MIBI", 2, "FOV5", "DS2", (20, 20)),
+                    CellIndexRecord(0, "T", "T_cell", "CODEX", 1, "FOV1", "DS1", (10, 10)),
+                    CellIndexRecord(0, "T", "T_cell", "CODEX", 2, "FOV2", "DS1", (20, 20)),
+                    CellIndexRecord(0, "T", "T_cell", "CODEX", 3, "FOV3", "DS1", (30, 30)),
+                    CellIndexRecord(1, "B", "B_cell", "MIBI", 1, "FOV4", "DS2", (10, 10)),
+                    CellIndexRecord(1, "B", "B_cell", "MIBI", 2, "FOV5", "DS2", (20, 20)),
                 ]
 
         dataset = MockDataset()
@@ -378,10 +378,10 @@ class TestComputeSampleWeights:
                 # 5000 T_cells, 100 B_cells — both above the 1000-sample cap floor,
                 # so B_cell (rarer) should get a higher weight than T_cell.
                 self.indices = [
-                    (0, "T", "T_cell", "CODEX", i, "FOV1", "DS1", (10, 10))
+                    CellIndexRecord(0, "T", "T_cell", "CODEX", i, "FOV1", "DS1", (10, 10))
                     for i in range(5000)
                 ] + [
-                    (0, "B", "B_cell", "CODEX", i + 5000, "FOV1", "DS1", (20, 20))
+                    CellIndexRecord(0, "B", "B_cell", "CODEX", i + 5000, "FOV1", "DS1", (20, 20))
                     for i in range(100)
                 ]
 
@@ -403,10 +403,10 @@ class TestComputeSampleWeights:
             def __init__(self):
                 # 10 T_cells, 1 B_cell — both below the 1000-sample cap floor
                 self.indices = [
-                    (0, "T", "T_cell", "CODEX", i, "FOV1", "DS1", (10, 10))
+                    CellIndexRecord(0, "T", "T_cell", "CODEX", i, "FOV1", "DS1", (10, 10))
                     for i in range(10)
                 ] + [
-                    (0, "B", "B_cell", "CODEX", 11, "FOV1", "DS1", (20, 20))
+                    CellIndexRecord(0, "B", "B_cell", "CODEX", 11, "FOV1", "DS1", (20, 20))
                 ]
 
         dataset = MockDataset()
@@ -1349,7 +1349,7 @@ class TestComputeSampleWeightsCorrectness:
             def __init__(self, labels):
                 # indices tuple: (ds_idx, tissue, ct_label_standard, modality, cell_idx, fov, ds_name, shape)
                 self.indices = [
-                    (0, "T", label, "CODEX", i, "FOV1", "DS1", (10, 10))
+                    CellIndexRecord(0, "T", label, "CODEX", i, "FOV1", "DS1", (10, 10))
                     for i, label in enumerate(labels)
                 ]
         return _MockDataset(ct_labels)

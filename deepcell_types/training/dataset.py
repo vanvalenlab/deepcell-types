@@ -4,8 +4,10 @@ import os
 import pickle
 import random
 from collections import OrderedDict, defaultdict
+from dataclasses import dataclass, field, fields
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, List, NamedTuple, Optional, Tuple
 
 import numpy as np
 import torch
@@ -26,6 +28,33 @@ from .annotations import (
 logger = logging.getLogger(__name__)
 
 _ADVISORY_SPLIT_METADATA_KEYS = {"zarr_path"}
+
+
+class CellIndexRecord(NamedTuple):
+    """One per-cell entry in ``FullImageDataset.indices``.
+
+    Replaces a positional 8-tuple. Pickles compactly (NamedTuple is
+    serialized as a regular tuple), so existing cell-data caches that
+    stored raw 8-tuples still deserialize correctly — and code that
+    treats this as a tuple (indexing by integer, unpacking by position)
+    continues to work too. The named accessors prevent the
+    "positional magic number" footgun called out by complexity H8.
+
+    Field 5 (``fov_name``) and field 6 (``dataset_name``) both currently
+    hold ``dataset_key`` because the v8 archive layout encodes the FOV
+    path in the dataset key itself; the two attributes are kept distinct
+    so that downstream code can later differentiate them without another
+    rename.
+    """
+
+    ds_idx: int
+    ct_label: str
+    ct_label_standard: str
+    domain: str
+    cell_idx: int
+    fov_name: str
+    dataset_name: str
+    centroid: Tuple[float, ...]
 
 
 class _Compose:
@@ -172,9 +201,8 @@ class FullImageDataset(Dataset):
         # Count cell types
         self.ct_counts = {}
         for idx in self.indices:
-            ct_label_standard = idx[2]
-            self.ct_counts[ct_label_standard] = (
-                self.ct_counts.get(ct_label_standard, 0) + 1
+            self.ct_counts[idx.ct_label_standard] = (
+                self.ct_counts.get(idx.ct_label_standard, 0) + 1
             )
 
         # Store metadata
@@ -412,15 +440,15 @@ class FullImageDataset(Dataset):
                     continue
 
                 self.indices.append(
-                    (
-                        ds_idx,
-                        ct_label,
-                        ct_label_standard,
-                        domain,
-                        cell_idx,
-                        dataset_key,
-                        dataset_key,
-                        tuple(centroid),
+                    CellIndexRecord(
+                        ds_idx=ds_idx,
+                        ct_label=ct_label,
+                        ct_label_standard=ct_label_standard,
+                        domain=domain,
+                        cell_idx=cell_idx,
+                        fov_name=dataset_key,
+                        dataset_name=dataset_key,
+                        centroid=tuple(centroid),
                     )
                 )
 
@@ -703,16 +731,15 @@ class FullImageDataset(Dataset):
         return len(self.indices)
 
     def __getitem__(self, idx):
-        (
-            ds_idx,
-            ct_label,
-            ct_label_standard,
-            domain,
-            cell_idx,
-            fov_name,
-            dataset_name,
-            centroid,
-        ) = self.indices[idx]
+        record = self.indices[idx]
+        ds_idx = record.ds_idx
+        ct_label = record.ct_label
+        ct_label_standard = record.ct_label_standard
+        domain = record.domain
+        cell_idx = record.cell_idx
+        fov_name = record.fov_name
+        dataset_name = record.dataset_name
+        centroid = record.centroid
 
         ds_info = self.zarr_files[ds_idx]
         ch_names = ds_info["channel_names"]
@@ -968,7 +995,7 @@ def _find_sole_source_fovs(dataset, fov_to_indices):
     for fov_key, indices in fov_to_indices.items():
         fov_classes = set()
         for idx in indices:
-            ct_label = dataset.indices[idx][2]  # ct_label_standard
+            ct_label = dataset.indices[idx].ct_label_standard
             fov_classes.add(ct_label)
         for ct in fov_classes:
             class_to_fovs[ct].add(fov_key)
@@ -1002,9 +1029,9 @@ def _build_fov_strata(dataset, fov_to_indices, stratify_by):
     fov_to_stratum = {}
     for fov_key, idxs in fov_to_indices.items():
         sample_i = idxs[0]
-        sample_tuple = dataset.indices[sample_i]
-        ds_idx = sample_tuple[0]
-        modality = sample_tuple[3]
+        record = dataset.indices[sample_i]
+        ds_idx = record.ds_idx
+        modality = record.domain
         zf_entry = dataset.zarr_files[ds_idx]
         tissue = zf_entry.get("tissue", "")
         parts = []
@@ -1167,16 +1194,16 @@ def save_fov_splits(dataset, split_file, train_ratio=0.8, seed=42, stratify_by=(
     val_split: dict = {}
     train_fov_keys: set = set()
     for i in train_indices:
-        idx_tuple = dataset.indices[i]
-        fov_key = (idx_tuple[6], idx_tuple[5])
+        record = dataset.indices[i]
+        fov_key = (record.dataset_name, record.fov_name)
         if fov_key in train_fov_keys:
             continue
         train_fov_keys.add(fov_key)
         train_split.setdefault(fov_key[0], []).append(fov_key[1])
     val_fov_keys: set = set()
     for i in val_indices:
-        idx_tuple = dataset.indices[i]
-        fov_key = (idx_tuple[6], idx_tuple[5])
+        record = dataset.indices[i]
+        fov_key = (record.dataset_name, record.fov_name)
         if fov_key in val_fov_keys:
             continue
         val_fov_keys.add(fov_key)
@@ -1186,8 +1213,8 @@ def save_fov_splits(dataset, split_file, train_ratio=0.8, seed=42, stratify_by=(
     num_single_fov_strata = 0
     if stratify_by:
         fov_to_indices = defaultdict(list)
-        for i, idx_tuple in enumerate(dataset.indices):
-            fov_to_indices[(idx_tuple[6], idx_tuple[5])].append(i)
+        for i, record in enumerate(dataset.indices):
+            fov_to_indices[(record.dataset_name, record.fov_name)].append(i)
         forced = _find_sole_source_fovs(dataset, fov_to_indices)
         fov_to_stratum = _build_fov_strata(dataset, fov_to_indices, stratify_by)
         by_stratum: dict = defaultdict(list)
@@ -1374,7 +1401,7 @@ def compute_sample_weights(dataset, indices):
     # Count cell types in the given indices
     ct_counts = defaultdict(int)
     for i in indices:
-        ct_label = dataset.indices[i][2]  # ct_label_standard
+        ct_label = dataset.indices[i].ct_label_standard
         ct_counts[ct_label] += 1
 
     # Compute sqrt-inverse-frequency weights with a minimum effective count cap.
@@ -1390,7 +1417,7 @@ def compute_sample_weights(dataset, indices):
     # Assign per-sample weight
     weights = torch.zeros(len(indices))
     for i, idx in enumerate(indices):
-        ct_label = dataset.indices[idx][2]
+        ct_label = dataset.indices[idx].ct_label_standard
         weights[i] = ct_weights[ct_label]
 
     return weights
@@ -1439,7 +1466,10 @@ class FOVGroupedSampler(Sampler):
         # drawn[i] is a position in [0, len(train_indices)), so _ds_idx_map[drawn[i]]
         # gives the correct ds_idx for FOV grouping.
         self._ds_idx_map = torch.tensor(
-            [dataset_indices[train_indices[i]][0] for i in range(len(train_indices))],
+            [
+                dataset_indices[train_indices[i]].ds_idx
+                for i in range(len(train_indices))
+            ],
             dtype=torch.long,
         )
 
@@ -1727,3 +1757,55 @@ def create_dataloader(
     metadata["num_val"] = len(val_subset) if hasattr(val_subset, "__len__") else 0
 
     return train_loader, val_loader, metadata
+
+
+@dataclass
+class DataLoaderConfig:
+    """Bundle the 20+ knobs ``create_dataloader`` accepts into a single object.
+
+    Use ``create_dataloader_from_config(zarr_dir, dct_config, cfg)`` when a
+    caller has many parameters to set — it's more readable than 20+ keyword
+    arguments at the call site, and it gives the IDE / type checker a
+    discoverable home for new options.
+
+    Field defaults exactly mirror ``create_dataloader``'s defaults; passing a
+    bare ``DataLoaderConfig()`` is equivalent to calling ``create_dataloader``
+    with no overrides.
+    """
+
+    skip_datasets: Optional[List[str]] = None
+    keep_datasets: Optional[List[str]] = None
+    batch_size: int = 256
+    num_dropout_channels: int = 8
+    num_workers: int = 16
+    only_test: bool = False
+    keep_fovs: Optional[List[str]] = None
+    lengths: Optional[List[float]] = None
+    use_fov_splits: bool = True
+    train_ratio: float = 0.8
+    seed: int = 42
+    use_weighted_sampler: bool = True
+    split_file: Optional[str] = None
+    skip_distance_transform: bool = False
+    persistent_workers: bool = False
+    max_samples_per_epoch: Optional[int] = None
+    max_val_samples: Optional[int] = None
+    multiprocessing_context: Optional[Any] = None
+    pin_memory: bool = False
+    min_channels: int = 0
+    numpy_cache_max_bytes: Optional[int] = None
+
+
+def create_dataloader_from_config(zarr_dir, dct_config, config: DataLoaderConfig):
+    """Dataclass-based wrapper around :func:`create_dataloader`.
+
+    Identical behaviour; the keyword forms exist side-by-side so existing
+    callers do not need to be touched. New code is encouraged to use this
+    entry point — the dataclass makes the 20+ knobs greppable and
+    refactor-safe.
+    """
+    return create_dataloader(
+        zarr_dir=zarr_dir,
+        dct_config=dct_config,
+        **{f.name: getattr(config, f.name) for f in fields(config)},
+    )

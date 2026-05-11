@@ -12,6 +12,7 @@ from collections import defaultdict
 import pytest
 
 from deepcell_types.training.dataset import (
+    CellIndexRecord,
     FullImageDataset,
     _find_sole_source_fovs,
     create_fov_splits,
@@ -87,7 +88,7 @@ def _make_indices(fovs_by_class):
     for ct_name, fovs in fovs_by_class.items():
         for ds_name, fov_name in fovs:
             tuples.append(
-                (0, ct_name, ct_name, "CODEX", cell_idx, fov_name, ds_name, (10, 10))
+                CellIndexRecord(0, ct_name, ct_name, "CODEX", cell_idx, fov_name, ds_name, (10, 10))
             )
             cell_idx += 1
     return tuples
