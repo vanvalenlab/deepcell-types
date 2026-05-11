@@ -169,3 +169,10 @@ cython_debug/
 /data/
 /model/
 /output/
+
+# uv lockfile — regenerated when switching between branches whose
+# pyproject.toml differs (e.g. master vs training).
+uv.lock
+
+# /deep-review outputs (local report artifacts)
+/reviews/
