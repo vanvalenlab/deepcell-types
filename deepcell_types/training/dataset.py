@@ -203,7 +203,7 @@ class FullImageDataset(Dataset):
         """
         self._zarr_path = str(zarr_path)
         zf = zarr.open_group(zarr_path, mode="r")
-        from deepcelltypes.config import _discover_fov_keys
+        from deepcell_types.training.config import _discover_fov_keys
 
         all_dataset_keys = _discover_fov_keys(zf)
 
@@ -471,7 +471,7 @@ class FullImageDataset(Dataset):
         during the ~50min cache build cannot leave a half-written pickle that
         would later be misread as valid.
         """
-        from deepcelltypes.utils import _atomic_pickle_dump
+        from deepcell_types.training.utils import _atomic_pickle_dump
 
         payload = {"fingerprint": fingerprint, "data": cell_data}
         try:
@@ -745,7 +745,7 @@ class FullImageDataset(Dataset):
                 f"Dataset {dataset_name!r} has no tissue attr; "
                 f"every archive entry must declare a tissue. Pan-M "
                 f"gold-standard FOVs should be routed through "
-                f"deepcelltypes.gold_metadata.resolve_gold_metadata, "
+                f"deepcell_types.training.gold_metadata.resolve_gold_metadata, "
                 f"not loaded via FullImageDataset."
             )
         if tissue_str not in self._tissue2idx:
@@ -1620,7 +1620,7 @@ def create_dataloader(
         # `DropOutChannels`) is reproducible across runs with the same --seed.
         # Without this, two runs with --seed 42 differ by ~0.1-0.3pp macro
         # because PyTorch's default per-worker seed varies per process.
-        from deepcelltypes.utils import make_generator, worker_init_fn
+        from deepcell_types.training.utils import make_generator, worker_init_fn
 
         train_gen = make_generator(seed)
         val_gen = make_generator(seed + 1)
@@ -1672,7 +1672,7 @@ def create_dataloader(
             train_subset, train_transform, dropout_transform
         )
 
-        from deepcelltypes.utils import make_generator, worker_init_fn
+        from deepcell_types.training.utils import make_generator, worker_init_fn
 
         train_gen = make_generator(seed)
         val_gen = make_generator(seed + 1)

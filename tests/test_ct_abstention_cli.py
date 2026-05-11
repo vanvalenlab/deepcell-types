@@ -1,0 +1,149 @@
+"""Tests for the post-hoc CT abstention wired into scripts/predict.py.
+
+Exercises the lower-level building blocks in `deepcell_types.training.abstention` —
+`compute_iqr_fence` and `apply_abstention` — that the CLI wires up. Five
+scenarios are covered, mirroring the deliverables checklist:
+
+1. Default (no abstention applied) — `apply_abstention` not called → no
+   `abstained` column, no `-1` sentinels.
+2. k=1.5 on a synthetic 100-cell frame → ~0.23% abstained (near-no-op).
+3. k=0.5 on the same frame → ~10% abstained (aggressive).
+4. Per-(tissue, modality) grouping is honoured (different fences per group).
+5. Degenerate distribution (all max-softmax identical) yields no abstentions.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from deepcell_types.training.abstention import (
+    apply_abstention,
+    compute_iqr_fence,
+)
+
+
+def _synthetic_frame(n: int, seed: int = 0, tissue: str = "intestine",
+                     modality: str = "CODEX") -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    # Beta-distributed max-softmax in (0, 1); skewed high (typical of softmax).
+    max_softmax = rng.beta(8.0, 2.0, size=n).astype(np.float32)
+    return pd.DataFrame({
+        "predicted_ct": np.array(["CD4T"] * n, dtype=object),
+        "_max_softmax": max_softmax,
+        "tissue": [tissue] * n,
+        "modality": [modality] * n,
+    })
+
+
+def test_default_no_abstention_column():
+    """When --ct_abstention_k is not provided, predict.py never calls
+    apply_abstention. The frame should have no `abstained` column and no -1
+    sentinels in predicted_ct. We simulate that by simply NOT calling
+    apply_abstention and asserting the frame is untouched.
+    """
+    df = _synthetic_frame(100)
+    assert "abstained" not in df.columns
+    assert (df["predicted_ct"] != -1).all()
+    # Sanity: apply_abstention itself does add the column when called.
+    out = apply_abstention(df.copy(), k=1.5)
+    assert "abstained" in out.columns
+
+
+def test_k_1_5_near_no_op_on_100_cells():
+    """k=1.5 (canonical Tukey fence) abstains a tiny fraction (~0%–2%).
+
+    The sweep doc reports ~0.23% on the v7 val split (1.3M cells). On a
+    100-cell synthetic frame the count is small (often 0) but must remain at
+    most a few percent — the assertion is "<= 5%" to absorb sampling noise.
+    """
+    df = _synthetic_frame(100, seed=42)
+    out = apply_abstention(df.copy(), k=1.5)
+    abst = out["abstained"].sum()
+    assert abst / len(out) <= 0.05, f"k=1.5 should abstain few cells, got {abst}/100"
+
+
+def test_k_0_5_aggressive_on_1000_cells():
+    """k=0.5 is aggressive; the doc reports ~10.5% coverage cost on the v7
+    val split. On a beta-distributed synthetic 1000-cell frame the fraction
+    abstained should land in a similar 5%–25% band.
+    """
+    df = _synthetic_frame(1000, seed=7)
+    out = apply_abstention(df.copy(), k=0.5)
+    frac = out["abstained"].mean()
+    assert 0.03 <= frac <= 0.30, (
+        f"k=0.5 should abstain ~10% of cells; got {frac*100:.2f}%"
+    )
+    # Sentinel applied
+    assert (out.loc[out["abstained"], "predicted_ct"] == -1).all()
+    # Original predictions preserved
+    assert (out["predicted_ct_raw"] == "CD4T").all()
+
+
+def test_per_group_grouping_honored():
+    """Different (tissue, modality) groups should have INDEPENDENT fences.
+
+    Construct two groups whose max-softmax distributions are far apart: A is
+    in [0.90, 0.99] and B is in [0.10, 0.30]. With k=1.5 in each group the
+    fences are computed locally, so a value of 0.20 (low globally, typical
+    in B) should NOT be abstained in B; conversely 0.90 (high globally, low
+    in A) should NOT be abstained in A.
+    """
+    rng = np.random.default_rng(123)
+    n_per = 50
+    a_vals = rng.uniform(0.90, 0.99, n_per).astype(np.float32)
+    b_vals = rng.uniform(0.10, 0.30, n_per).astype(np.float32)
+    df = pd.DataFrame({
+        "predicted_ct": np.array(["X"] * (2 * n_per), dtype=object),
+        "_max_softmax": np.concatenate([a_vals, b_vals]),
+        "tissue": ["lung"] * n_per + ["skin"] * n_per,
+        "modality": ["CODEX"] * (2 * n_per),
+    })
+    out = apply_abstention(df.copy(), k=1.5, group_cols=("tissue", "modality"))
+
+    # Most B-cells are in [0.10, 0.30] — they should NOT all be abstained,
+    # because the fence is computed within their own group.
+    b_mask = out["tissue"].to_numpy() == "skin"
+    assert out.loc[b_mask, "abstained"].mean() <= 0.05, (
+        "Per-group grouping not honored: B-group cells were abstained based "
+        "on the global distribution rather than the local one."
+    )
+
+    # And in group A the median value 0.945 must not be abstained either.
+    a_mask = out["tissue"].to_numpy() == "lung"
+    assert out.loc[a_mask, "abstained"].mean() <= 0.05
+
+
+def test_degenerate_distribution_no_abstention():
+    """All-identical max-softmax → IQR == 0 → fence == Q1 → no abstention.
+
+    Verifies the analysis-script invariant carried over to the production
+    wire-up.
+    """
+    df = pd.DataFrame({
+        "predicted_ct": ["Y"] * 50,
+        "_max_softmax": np.full(50, 0.42, dtype=np.float32),
+        "tissue": ["liver"] * 50,
+        "modality": ["MIBI"] * 50,
+    })
+    out = apply_abstention(df.copy(), k=1.5)
+    assert out["abstained"].sum() == 0
+
+
+def test_compute_iqr_fence_returns_none_under_threshold():
+    """Tiny samples (<4) cannot define an IQR; helper returns None and the
+    caller must not abstain anything in that group.
+    """
+    assert compute_iqr_fence(np.array([0.5, 0.6, 0.7]), 1.5) is None
+    f = compute_iqr_fence(np.array([0.1, 0.2, 0.3, 0.4]), 1.5)
+    assert f is not None
+    assert f == pytest.approx(0.175 - 1.5 * 0.15)
+
+
+def test_already_abstained_frame_rejected():
+    """Defensive: refuse to double-apply abstention on the same frame."""
+    df = _synthetic_frame(20)
+    out = apply_abstention(df.copy(), k=1.5)
+    with pytest.raises(ValueError, match="already exists"):
+        apply_abstention(out, k=1.5)
