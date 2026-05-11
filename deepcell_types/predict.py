@@ -12,7 +12,13 @@ from .dataset import PatchDataset
 from .dct_kit.config import DCTConfig
 
 
-class PredLogger:
+class _InferenceResultBuffer:
+    """Private accumulator for per-batch inference outputs.
+
+    Not part of the public API — see training/utils.py:PredLogger for the
+    training-side logger with a different (5-field, CSV-saving) interface.
+    """
+
     def __init__(self, dct_config):
         self.dct_config = dct_config
         self.probs = []
@@ -168,7 +174,7 @@ def predict(
     model_name,
     device_num,
     batch_size=256,
-    num_workers=24,
+    num_workers=0,
     tissue_exclude=None,
     zarr_path=None,
 ):
@@ -203,10 +209,12 @@ def predict(
         Batch size to be used for inference. Larger `batch_size` will increase
         performance by increasing VRAM usage. Default value of 256 is conservative
         and should be appropriate for systems with <16GB VRAM.
-    num_workers : int, default=24
-        Number of threads to use for loading data. Increasing `num_workers` may result
-        in large increases in CPU memory footprint. Only recommended for systems with
-        ``>64 GB`` RAM.
+    num_workers : int, default=0
+        Number of DataLoader worker processes. Default ``0`` runs the patch
+        generator in-process (safe on all machines). ``PatchDataset`` is an
+        ``IterableDataset`` that holds the full FOV in memory, so each worker
+        is an extra copy AND re-runs the per-FOV preprocessing — only raise
+        this on machines with abundant RAM and CPU.
     tissue_exclude : str, optional, default=None
         If provided, limit the cell type prediction to only those categories known to
         be associated with the specified tissue type.
@@ -227,7 +235,7 @@ def predict(
     dct_config = DCTConfig(zarr_path=zarr_path)
     model = _build_model(checkpoint, dct_config, device)
 
-    pred_logger = PredLogger(dct_config)
+    pred_logger = _InferenceResultBuffer(dct_config)
     dataset = PatchDataset(raw, mask, channel_names, mpp, dct_config)
     data_loader = DataLoader(
         dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers

@@ -324,8 +324,16 @@ def summarize_mp_per_marker(per_marker_counts: dict) -> dict:
         "mp_micro_f1": float(2 * total_tp / denom_f1) if denom_f1 > 0 else 0.0,
         "mp_micro_precision": float(total_tp / denom_prec) if denom_prec > 0 else 0.0,
         "mp_micro_recall": float(total_tp / denom_rec) if denom_rec > 0 else 0.0,
-        "mp_macro_precision": float(np.mean(precisions)),
-        "mp_macro_recall": float(np.mean(recalls)),
+        "mp_macro_precision": (
+            float(np.nanmean(precisions))
+            if len(precisions) > 0 and not np.all(np.isnan(precisions))
+            else 0.0
+        ),
+        "mp_macro_recall": (
+            float(np.nanmean(recalls))
+            if len(recalls) > 0 and not np.all(np.isnan(recalls))
+            else 0.0
+        ),
         "mp_macro_accuracy": float(np.mean(accuracies)),
         "mp_num_markers": len(per_marker_counts),
         "mp_num_markers_excluded_from_macro_f1": excluded,
@@ -550,8 +558,8 @@ class LossesAndMetrics:
         # Warn if FocalLoss class_weights are active without a frequency floor.
         # WeightedRandomSampler (compute_sample_weights in dataset.py) floors
         # per-class counts at 1000 to prevent sqrt-inv-frequency from producing
-        # runaway amplification (see MEMORY.md v2_fix_0: 19,000x boost for
-        # rarest classes). If FocalLoss class_weights are derived from raw
+        # runaway amplification (raw sqrt-inv-frequency would otherwise boost
+        # the rarest classes ~19000x). If FocalLoss class_weights are derived from raw
         # sqrt-inv-frequency without the same floor and the sampler is also
         # on, rare classes get double-weighted.
         alpha = getattr(self.ct_loss_fn, "alpha", None)
@@ -569,8 +577,8 @@ class LossesAndMetrics:
                 "LossesAndMetrics: FocalLoss class_weights are active "
                 "(max/min=%.1fx across %d classes). If WeightedRandomSampler "
                 "is also enabled, you are double-weighting rare classes "
-                "(see MEMORY.md v2_fix_0 — sampler floors counts at 1000 "
-                "but FocalLoss does not). Use --no_class_weights when the "
+                "(sampler floors counts at 1000 but FocalLoss does not). "
+                "Use --no_class_weights when the "
                 "sampler is on, or match the sampler's floor when computing "
                 "class_weights.",
                 ratio,

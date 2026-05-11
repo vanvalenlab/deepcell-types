@@ -10,7 +10,7 @@ from deepcell_types.model import create_model
 from deepcell_types.dataset import PatchDataset
 from deepcell_types.dct_kit.config import DCTConfig
 from deepcell_types.predict import (
-    PredLogger,
+    _InferenceResultBuffer,
     _model_path,
     predict,
 )
@@ -167,7 +167,7 @@ def test_model_path_treats_dotted_model_names_as_cached_models():
 def test_pred_logger_returns_results_ordered_by_cell_index(tmp_path):
     archive_path = _make_archive(tmp_path)
     config = DCTConfig(zarr_path=archive_path)
-    logger = PredLogger(config)
+    logger = _InferenceResultBuffer(config)
 
     logger.log(
         np.asarray([[0.0, 1.0], [1.0, 0.0]], dtype=np.float32),

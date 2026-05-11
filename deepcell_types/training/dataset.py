@@ -256,10 +256,20 @@ class FullImageDataset(Dataset):
                         "channel_names": channel_names,
                         "cell_data": cell_data,
                     }
-                except Exception:
+                except (
+                    KeyError,
+                    AttributeError,
+                    TypeError,
+                    ValueError,
+                    OSError,
+                    json.JSONDecodeError,
+                    zarr.errors.GroupNotFoundError,
+                ):
+                    # Narrowed from a bare ``except Exception``: schema/logic
+                    # bugs (anything outside this set) should crash loudly.
                     # Routes through logging (was bare ``print("WARNING:...")``)
-                    # so a bug that silently drops hundreds of datasets shows up
-                    # in CI/wandb log capture with a real traceback.
+                    # so the failure shows up in CI/wandb log capture with a
+                    # real traceback.
                     logger.warning(
                         "Failed to load dataset %s; recording as empty entry",
                         key,
@@ -283,6 +293,16 @@ class FullImageDataset(Dataset):
                     len(cache_dataset_keys),
                     failed_keys[:10],
                 )
+                fail_rate = len(failed_keys) / max(1, len(cache_dataset_keys))
+                if fail_rate > 0.01:
+                    raise RuntimeError(
+                        f"cell-data cache build dropped {len(failed_keys)} of "
+                        f"{len(cache_dataset_keys)} datasets ({fail_rate:.1%}, "
+                        "above the 1% safety threshold). This usually means a "
+                        "schema regression. Inspect the warning tracebacks "
+                        "above and either fix the archive or relax the "
+                        "threshold deliberately."
+                    )
 
             if using_filtered_cache_keys:
                 logger.info(
@@ -335,7 +355,17 @@ class FullImageDataset(Dataset):
                     modality_attr = str(
                         zf[dataset_key].attrs.get("modality", "")
                     ).upper().strip()
-                except Exception:
+                except (
+                    AttributeError,
+                    KeyError,
+                    TypeError,
+                    zarr.errors.GroupNotFoundError,
+                ):
+                    logger.warning(
+                        "Could not read modality attr for %s",
+                        dataset_key,
+                        exc_info=True,
+                    )
                     modality_attr = ""
                 if not modality_attr:
                     continue
@@ -346,8 +376,18 @@ class FullImageDataset(Dataset):
             tissue_attr = ""
             try:
                 tissue_attr = str(zf[dataset_key].attrs.get("tissue", "")).lower().strip()
-            except Exception:
-                pass
+            except (
+                AttributeError,
+                KeyError,
+                TypeError,
+                zarr.errors.GroupNotFoundError,
+            ):
+                logger.warning(
+                    "Could not read tissue attr for %s",
+                    dataset_key,
+                    exc_info=True,
+                )
+                tissue_attr = ""
             self.zarr_files.append(
                 {
                     "name": dataset_key,

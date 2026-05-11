@@ -37,7 +37,7 @@ def test_predict_import_does_not_pull_training_deps():
         import sys
         import deepcell_types  # noqa: F401
         from deepcell_types import predict  # noqa: F401
-        from deepcell_types.predict import predict, PredLogger  # noqa: F401
+        from deepcell_types.predict import predict, _InferenceResultBuffer  # noqa: F401
         from deepcell_types.dct_kit.config import DCTConfig  # noqa: F401
         from deepcell_types.dataset import PatchDataset  # noqa: F401
         from deepcell_types.model import CellTypeAnnotator, create_model  # noqa: F401

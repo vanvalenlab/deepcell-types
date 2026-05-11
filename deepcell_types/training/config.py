@@ -1,11 +1,8 @@
-"""
-Configuration module for deepcelltypes-cell-type-assignment-pytorch.
+"""Training-side configuration for ``deepcell_types.training``.
 
-Loads configuration from TissueNet zarr v3 archive, removing dependency on deepcelltypes_kit.
-All mappings and metadata are read directly from the zarr archive attributes.
-
-The zarr v3 archive stores all group/array metadata in zarr.json files and
-serializes attribute keys as strings (including centroid indices).
+Reads all mappings and metadata directly from a TissueNet zarr v3 archive
+(group/array metadata in ``zarr.json``; attribute keys serialized as strings,
+including centroid indices).
 """
 
 import hashlib
@@ -22,9 +19,10 @@ from skimage.transform import resize
 
 logger = logging.getLogger(__name__)
 
-# Default paths using DATA_DIR environment variable
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
-DEFAULT_ZARR_PATH = DATA_DIR / "tissuenet-caitlin-labels.zarr"
+# Archive resolution: explicit zarr_path > DEEPCELL_TYPES_ZARR_PATH env var.
+# No hardwired filesystem default — a lab-internal NFS path here would only
+# work on one host and produce confusing FileNotFoundError elsewhere.
+ARCHIVE_ENV_VAR = "DEEPCELL_TYPES_ZARR_PATH"
 
 # Config directory — sibling of this file inside the package:
 # deepcell_types/training/config.py -> deepcell_types/training/config/.
@@ -49,7 +47,7 @@ def _patch_zarr_v3_alpha_metadata() -> None:
     try:
         from zarr.core.group import GroupMetadata
         from zarr.core.metadata.v3 import ArrayV3Metadata
-    except Exception:
+    except ImportError:
         return
 
     if not getattr(GroupMetadata.from_dict, "_dct_compat", False):
@@ -443,15 +441,24 @@ class TissueNetConfig:
     OUTPUT_SIZE = 32  # Final patch size (no resize when equal to CROP_SIZE)
     STANDARD_MPP_RESOLUTION = 0.5
 
-    def __init__(self, zarr_path: Path = DEFAULT_ZARR_PATH):
+    def __init__(self, zarr_path: Optional[Path] = None):
         """
         Initialize config from zarr archive.
 
         Args:
-            zarr_path: Path to TissueNet zarr archive
+            zarr_path: Path to TissueNet zarr archive. If None, falls back to
+                the ``DEEPCELL_TYPES_ZARR_PATH`` environment variable.
         """
         import zarr
 
+        if zarr_path is None:
+            env_path = os.environ.get(ARCHIVE_ENV_VAR)
+            if not env_path:
+                raise FileNotFoundError(
+                    f"No zarr_path provided and {ARCHIVE_ENV_VAR} is unset. "
+                    "Pass zarr_path=... explicitly or set the env var."
+                )
+            zarr_path = env_path
         self.zarr_path = Path(zarr_path)
         if not self.zarr_path.exists():
             raise FileNotFoundError(f"Zarr archive not found: {self.zarr_path}")
@@ -596,7 +603,7 @@ class TissueNetConfig:
                 ds_attrs = ds_data.get("attributes", {})
                 result["domain"] = ds_attrs.get("modality", "unknown").upper()
                 result["tissue"] = ds_attrs.get("tissue", "unknown").lower().strip()
-            except (FileNotFoundError, OSError):
+            except (FileNotFoundError, OSError, UnicodeDecodeError):
                 pass
 
             # Annotation attrs (large files, avg 504KB each)
@@ -613,7 +620,7 @@ class TissueNetConfig:
                     )
                 if ct_names:
                     result["ct_names"] = ct_names
-            except (FileNotFoundError, OSError):
+            except (FileNotFoundError, OSError, UnicodeDecodeError):
                 pass
 
             # Marker positivity presence check — a plain os.path.exists
@@ -621,7 +628,7 @@ class TissueNetConfig:
             # try/except is needed around it.
             mp_json_path = f"{zarr_dir_str}/{key}/marker_positivity/zarr.json"
             result["has_mp"] = os.path.exists(mp_json_path)
-        except (FileNotFoundError, OSError, json.JSONDecodeError) as e:
+        except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
             logger.warning("_read_dataset_metadata failed for %s: %s", key, e)
         return result
 
@@ -832,16 +839,10 @@ class TissueNetConfig:
         embeddings = self._zf.attrs.get(f"marker_embeddings_{embedding_model_name}")
         if embeddings is not None:
             return dict(embeddings)
-        # Fallback: search known locations. Narrow the except so that bugs
-        # in the JSON structure (e.g. schema drift causing KeyError/TypeError
-        # later in the caller) are NOT hidden here.
-        search_paths = [
-            Path(__file__).parent.parent / "config",
-            Path(__file__).parent.parent
-            / "deepcelltypes-kit"
-            / "deepcelltypes_kit"
-            / "config",
-        ]
+        # Fallback: look for the embeddings file shipped alongside the
+        # training subpackage. Narrow the except so bugs in JSON structure
+        # (KeyError/TypeError downstream) are NOT hidden here.
+        search_paths = [CONFIG_DIR]
         for config_path in search_paths:
             json_path = config_path / f"marker_embeddings-{embedding_model_name}.json"
             if json_path.exists():
@@ -864,13 +865,9 @@ class TissueNetConfig:
         embeddings = self._zf.attrs.get(f"celltype_embeddings_{embedding_model_name}")
         if embeddings is not None:
             return dict(embeddings)
-        # Fallback to JSON file. Narrow except to only IO / JSON-decode errors.
-        config_path = (
-            Path(__file__).parent.parent
-            / "deepcelltypes-kit"
-            / "deepcelltypes_kit"
-            / "config"
-        )
+        # Fallback to the embeddings JSON shipped alongside the training
+        # subpackage. Narrow except to only IO / JSON-decode errors.
+        config_path = CONFIG_DIR
         json_path = config_path / f"celltype_embeddings-{embedding_model_name}.json"
         if json_path.exists():
             try:

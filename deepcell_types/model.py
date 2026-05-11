@@ -552,7 +552,9 @@ def create_model(
     """Factory function to create CellTypeAnnotator from config.
 
     Args:
-        dct_config: TissueNetConfig (or mock) with NUM_CELLTYPES and NUM_DOMAINS
+        dct_config: DCTConfig or any config object with ``.NUM_CELLTYPES``,
+            ``.NUM_DOMAINS``, and ``.marker2idx`` (training callers pass
+            ``TissueNetConfig``; inference passes ``DCTConfig``).
         marker_embeddings: numpy array of marker embeddings
         d_model: transformer hidden dimension
         n_heads: number of attention heads
