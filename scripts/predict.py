@@ -205,7 +205,6 @@ def main(
                     batch_data.sample, batch_data.spatial_context,
                     batch_data.ch_idx, batch_data.mask, None,
                     domain_idx=batch_data.domain_idx,
-                    tissue_idx=batch_data.tissue_idx,
                 )
                 valid_mp_channels = ~batch_data.mask & batch_data.marker_positivity_mask
                 if valid_mp_channels.any():
@@ -332,7 +331,6 @@ def main(
                 ct_exclude,
                 return_attn_weights=save_attention,
                 domain_idx=batch_data.domain_idx,
-                tissue_idx=batch_data.tissue_idx,
             )
             if save_attention:
                 ct_logits, domain_logits, marker_pos_logits, cls_embedding, _, tumor_logit, cls_to_channels = outputs

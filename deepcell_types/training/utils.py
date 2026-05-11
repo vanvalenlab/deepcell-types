@@ -424,11 +424,25 @@ from .metrics import (  # noqa: F401, E402
     LossesAndMetrics,
     build_label_remap,
 )
-from .baseline_features import (  # noqa: F401, E402
-    _extract_all_dataset_features,
-    compute_baseline_metrics,
-    save_baseline_predictions,
-    extract_features_from_zarr,
-)
+# Lazy re-exports from baseline_features. A direct ``from .baseline_features
+# import ...`` here would create a circular import when baseline_features is
+# imported first (it imports private helpers from this module): utils.py
+# would still be mid-load when baseline_features tries to come back through
+# this line, and the names below wouldn't yet be defined. The module-level
+# __getattr__ defers the lookup until the attribute is actually accessed,
+# by which point both modules have finished initializing.
+_BASELINE_FEATURES_REEXPORTS = {
+    "_extract_all_dataset_features",
+    "compute_baseline_metrics",
+    "save_baseline_predictions",
+    "extract_features_from_zarr",
+}
+
+
+def __getattr__(name):  # noqa: E402  (intentional module-level definition)
+    if name in _BASELINE_FEATURES_REEXPORTS:
+        from . import baseline_features
+        return getattr(baseline_features, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
