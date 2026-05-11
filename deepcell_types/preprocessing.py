@@ -1,0 +1,219 @@
+"""Canonical preprocessing for raw multiplex imaging data → archive format.
+
+Single source of truth for transforming an ingested raw FOV
+(``(C, H, W)`` int/float intensity at a native MPP) into the format the
+training pipeline consumes from ``preprocessed/raw`` + ``preprocessed/mask``:
+
+1. Resample to ``TissueNetConfig.STANDARD_MPP_RESOLUTION`` (0.5 µm/pixel).
+2. **Per-channel percentile threshold** at p99.9 of nonzero pixels —
+   clip values above the per-FOV-per-channel p99.9 to that threshold.
+3. **Per-channel min-max normalize** to ``[0, 1]``.
+4. Cast mask to ``uint32``; compute centroids in resampled coordinates.
+
+This recipe was recovered from
+``hubmap-to-zarr@origin/deepcell-types:preprocess_for_training.py`` —
+the script that originally produced the production archive's
+``preprocessed/raw`` arrays. A snapshot test
+(``tests/test_preprocessing.py::test_snapshot_against_production``)
+confirms it reproduces production output within sub-pixel resampling
+noise (max per-channel mean drift ~0.05 on
+``HBM222_WQKC_382`` MIBI).
+
+The pipeline is **per-FOV self-contained** — no archive-level statistics
+are needed; each FOV normalizes against its own per-channel min/max
+after the percentile clip. Reproducibility comes from the formula
+itself being fixed.
+
+## Public API
+
+- ``preprocess_fov(raw, mask, native_mpp, channel_names) → PreprocessedFov``
+- ``DEFAULT_PERCENTILE = 99.9``
+- ``TARGET_MPP = 0.5``
+
+The function is deterministic given the input — equal inputs produce
+bit-equal outputs (modulo float precision noise from skimage.rescale,
+which is the same noise present in the historical pipeline).
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from typing import Dict, List, Sequence
+
+import numpy as np
+from skimage.measure import regionprops
+from skimage.transform import rescale
+
+logger = logging.getLogger(__name__)
+
+
+TARGET_MPP: float = 0.5
+"""Microns-per-pixel that all ingested FOVs are resampled to. Must equal
+``TissueNetConfig.STANDARD_MPP_RESOLUTION`` — the dataloader assumes
+this everywhere."""
+
+
+DEFAULT_PERCENTILE: float = 99.9
+"""Per-channel percentile (over nonzero pixels) used for the bright-spot
+clip step. Matches the production-pipeline value recovered from
+``preprocess_for_training.py`` on the deepcell-types branch."""
+
+
+# ---------------------------------------------------------------------------
+# Result
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class PreprocessedFov:
+    """Result of ``preprocess_fov``.
+
+    All arrays are at ``target_mpp`` (0.5 µm/pixel). The ``raw`` field is
+    pre-multiplication-by-self-mask (the dataloader's
+    ``extract_patch_from_zarr`` does that during patch extraction).
+    """
+
+    raw: np.ndarray            # (C, H', W') float32 in [0, 1]
+    mask: np.ndarray           # (H', W') uint32
+    centroids: Dict[str, List[float]]  # str(cell_id) -> [row, col]
+    channel_names: List[str]
+    target_mpp: float = TARGET_MPP
+    native_mpp: float = 0.0
+    scale_factor: float = 1.0  # native_mpp / target_mpp
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers (each is independently testable)
+# ---------------------------------------------------------------------------
+
+
+def _resample(
+    raw: np.ndarray, mask: np.ndarray, scale: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Resample raw (bilinear) and mask (nearest neighbor) by ``scale``.
+
+    Operates on the (H, W, C) layout for raw to match
+    ``deepcell-types:preprocess_for_training.py`` exactly. Returns raw
+    in (C, H', W') float32 and mask in (H', W') uint32.
+    """
+    raw_hwc = np.transpose(raw, (1, 2, 0)).astype(np.float32, copy=False)
+    if abs(scale - 1.0) > 0.01:
+        raw_hwc = rescale(
+            raw_hwc, scale, preserve_range=True, channel_axis=-1
+        ).astype(np.float32)
+        mask = rescale(
+            mask, scale, order=0, preserve_range=True, anti_aliasing=False
+        ).astype(np.uint32)
+    else:
+        mask = mask.astype(np.uint32, copy=False)
+    return np.transpose(raw_hwc, (2, 0, 1)), mask
+
+
+def _percentile_threshold(
+    image_hwc: np.ndarray, percentile: float = DEFAULT_PERCENTILE
+) -> np.ndarray:
+    """Clip values above the per-channel p99.9 of nonzero pixels.
+
+    Zeros are excluded from the percentile calculation via NaN masking
+    (matches the canonical recipe; without this, a sparse channel's
+    threshold would be dominated by background zeros). Channels that
+    are entirely zero get threshold=inf (no clipping; min-max
+    normalization later returns all zeros for the channel).
+    """
+    masked = np.where(image_hwc > 0, image_hwc, np.nan)
+    thresholds = np.nanpercentile(masked, percentile, axis=(0, 1))  # (C,)
+    thresholds = np.nan_to_num(thresholds, nan=np.inf)
+    out = image_hwc.copy()
+    np.minimum(out, thresholds, out=out)
+    return out
+
+
+def _min_max_normalize(image_hwc: np.ndarray) -> np.ndarray:
+    """Per-channel min-max normalize to [0, 1].
+
+    For all-zero channels (range == 0), output is identically zero.
+    """
+    mn = np.min(image_hwc, axis=(0, 1), keepdims=True)
+    mx = np.max(image_hwc, axis=(0, 1), keepdims=True)
+    # ``np.ptp`` is being removed as a free function in future NumPy; compute
+    # max - min directly. Same numerical behaviour.
+    pt = mx - mn
+    pt = np.where(pt == 0, 1.0, pt)
+    return (image_hwc - mn) / pt
+
+
+def _compute_centroids(mask: np.ndarray) -> Dict[str, List[float]]:
+    out: Dict[str, List[float]] = {}
+    for prop in regionprops(mask):
+        label = int(prop.label)
+        if label == 0:
+            continue
+        out[str(label)] = [float(prop.centroid[0]), float(prop.centroid[1])]
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
+
+
+def preprocess_fov(
+    raw: np.ndarray,
+    mask: np.ndarray,
+    *,
+    native_mpp: float,
+    channel_names: Sequence[str],
+    percentile: float = DEFAULT_PERCENTILE,
+    target_mpp: float = TARGET_MPP,
+) -> PreprocessedFov:
+    """Canonical preprocessing for a single FOV.
+
+    Args:
+        raw: (C, H, W) numeric, native intensity values.
+        mask: (H, W) integer cell-id labels (0 = background).
+        native_mpp: microns-per-pixel of the input.
+        channel_names: list of length C, canonical marker names.
+        percentile: per-channel percentile used for the bright-spot
+            clip. Default 99.9 matches the production recipe.
+        target_mpp: output MPP (default 0.5 = ``TARGET_MPP``).
+
+    Returns:
+        ``PreprocessedFov`` with raw/mask resampled to ``target_mpp``,
+        raw normalized to ``[0, 1]`` per channel.
+
+    Raises:
+        ValueError: shape/length/sign mismatches.
+    """
+    if raw.ndim != 3:
+        raise ValueError(f"raw must be (C, H, W), got {raw.shape}")
+    if mask.ndim != 2:
+        raise ValueError(f"mask must be (H, W), got {mask.shape}")
+    if raw.shape[1:] != mask.shape:
+        raise ValueError(
+            f"raw spatial {raw.shape[1:]} != mask spatial {mask.shape}"
+        )
+    if len(channel_names) != raw.shape[0]:
+        raise ValueError(
+            f"len(channel_names)={len(channel_names)} != raw.shape[0]={raw.shape[0]}"
+        )
+    if native_mpp <= 0.0:
+        raise ValueError(f"native_mpp must be positive, got {native_mpp}")
+
+    scale = native_mpp / target_mpp
+    raw_chw, mask_r = _resample(raw, mask, scale)
+    raw_hwc = np.transpose(raw_chw, (1, 2, 0))
+    raw_hwc = _percentile_threshold(raw_hwc, percentile=percentile)
+    raw_hwc = _min_max_normalize(raw_hwc)
+    raw_norm = np.transpose(raw_hwc, (2, 0, 1)).astype(np.float32)
+    centroids = _compute_centroids(mask_r)
+
+    return PreprocessedFov(
+        raw=raw_norm,
+        mask=mask_r,
+        centroids=centroids,
+        channel_names=list(channel_names),
+        target_mpp=target_mpp,
+        native_mpp=native_mpp,
+        scale_factor=scale,
+    )
