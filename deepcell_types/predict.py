@@ -1,5 +1,7 @@
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
+from typing import List, Optional
 
 import numpy as np
 import torch
@@ -10,6 +12,26 @@ from tqdm import tqdm
 from .model import create_model
 from .dataset import PatchDataset
 from .dct_kit.config import DCTConfig
+
+
+@dataclass(frozen=True)
+class PredictionResult:
+    """Structured ``predict()`` output when ``return_probabilities=True``.
+
+    cell_types : list[str]
+        Predicted cell-type name for each unique cell index in ``mask``,
+        ordered by ascending cell index.
+    probabilities : np.ndarray, shape (n_cells, n_celltypes)
+        Per-cell softmax probabilities across all cell-type classes (same
+        order as ``cell_types``). Column ``i`` corresponds to cell type
+        ``i`` in ``dct_config.ct2idx``.
+    cell_indices : np.ndarray, shape (n_cells,)
+        The unique mask indices, in the same order as ``cell_types``.
+    """
+
+    cell_types: List[str]
+    probabilities: np.ndarray
+    cell_indices: np.ndarray
 
 
 class _InferenceResultBuffer:
@@ -29,6 +51,11 @@ class _InferenceResultBuffer:
         self.cell_index.append(cell_index)
 
     def get_result(self):
+        """Return (cell_type_str_pred, top_probs, cell_index, probs).
+
+        ``probs`` is the full per-cell softmax matrix in cell_index order; the
+        first three elements stay as before for back-compat with callers.
+        """
         idx2ct = {v: k for k, v in self.dct_config.ct2idx.items()}
         probs = np.concatenate(self.probs)
         cell_index = np.concatenate(self.cell_index)
@@ -40,7 +67,7 @@ class _InferenceResultBuffer:
         cell_type_int_pred = np.argmax(probs, axis=1)
         cell_type_str_pred = [idx2ct[i] for i in cell_type_int_pred]
 
-        return cell_type_str_pred, top_probs, cell_index
+        return cell_type_str_pred, top_probs, cell_index, probs
 
 
 def _torch_load_weights(path, device):
@@ -166,6 +193,15 @@ def _excluded_celltype_indices(dct_config, tissue, batch_size):
     ]
 
 
+_TISSUE_EXCLUDE_DEPRECATION_MSG = (
+    "predict(tissue_exclude=...) is deprecated and will be removed in a future "
+    "release; use tissue_filter=... instead. The semantics are unchanged — the "
+    "parameter restricts predictions to the cell types associated with the named "
+    "tissue. The old name was confusing because it reads as 'exclude this tissue' "
+    "when in fact it 'filters to this tissue'."
+)
+
+
 def predict(
     raw,
     mask,
@@ -175,8 +211,11 @@ def predict(
     device_num,
     batch_size=256,
     num_workers=0,
-    tissue_exclude=None,
+    tissue_filter=None,
     zarr_path=None,
+    return_probabilities=False,
+    *,
+    tissue_exclude=None,
 ):
     """Run the cell-type prediction pipeline.
 
@@ -215,20 +254,43 @@ def predict(
         ``IterableDataset`` that holds the full FOV in memory, so each worker
         is an extra copy AND re-runs the per-FOV preprocessing — only raise
         this on machines with abundant RAM and CPU.
-    tissue_exclude : str, optional, default=None
-        If provided, limit the cell type prediction to only those categories known to
-        be associated with the specified tissue type.
+    tissue_filter : str, optional, default=None
+        If provided, restrict predictions to the cell types associated with
+        the named tissue (e.g. ``"colon"`` → predict only from colon-associated
+        cell types). Previously named ``tissue_exclude``; that name is still
+        accepted for back-compat but emits a ``DeprecationWarning``.
     zarr_path : str or pathlib.Path, optional, default=None
         Canonical checkpoints read marker and cell type metadata from a TissueNet
         zarr archive. Pass the archive path here or set the
         ``DEEPCELL_TYPES_ZARR_PATH`` environment variable.
+    return_probabilities : bool, default=False
+        If False (default, back-compat), returns a list of cell-type names.
+        If True, returns a :class:`PredictionResult` with the full per-cell
+        softmax probability matrix and the cell indices.
+    tissue_exclude : str, optional, default=None
+        Deprecated alias for ``tissue_filter``. Keyword-only; emits a
+        ``DeprecationWarning`` on use.
 
     Returns
     -------
     list of str
-        A list whose ``len`` is equal to the number of unique cell indices in `mask`,
-        ordered by ascending cell index.
+        (default) Predicted cell-type name for each unique cell index in
+        ``mask``, ordered by ascending cell index.
+    PredictionResult
+        (when ``return_probabilities=True``) Full per-cell probabilities,
+        cell indices, and the predicted names. See :class:`PredictionResult`.
     """
+    if tissue_exclude is not None:
+        if tissue_filter is not None:
+            raise TypeError(
+                "Pass either tissue_filter= or tissue_exclude= (the deprecated "
+                "alias), not both."
+            )
+        warnings.warn(
+            _TISSUE_EXCLUDE_DEPRECATION_MSG, DeprecationWarning, stacklevel=2
+        )
+        tissue_filter = tissue_exclude
+
     device = torch.device(device_num)
     checkpoint = _torch_load_weights(_model_path(model_name), device)
 
@@ -247,7 +309,7 @@ def predict(
             data_loader, desc="(inference)"
         ):
             ct_exclude = _excluded_celltype_indices(
-                dct_config, tissue_exclude, len(sample)
+                dct_config, tissue_filter, len(sample)
             )
             ct_logits, *_ = model(
                 sample.to(device),
@@ -262,4 +324,11 @@ def predict(
                 cell_index=cell_index.detach().cpu().numpy(),
             )
 
-    return pred_logger.get_result()[0]
+    cell_types, _top_probs, cell_indices, full_probs = pred_logger.get_result()
+    if return_probabilities:
+        return PredictionResult(
+            cell_types=cell_types,
+            probabilities=full_probs,
+            cell_indices=cell_indices,
+        )
+    return cell_types

@@ -178,7 +178,12 @@ class MarkerEmbeddingLayer(nn.Module):
             nn.init.zeros_(self.lora_B.weight)
 
     def forward(self, ch_idx):
-        """ch_idx: (B, C_max) -> (B, C_max, d_model), always normalized"""
+        """ch_idx: (B, C_max) -> (B, C_max, d_model), always normalized.
+
+        Padding positions (ch_idx == -1) get exactly zero output so that
+        ``proj.bias``/``lora_B`` contamination cannot reach the transformer
+        for masked tokens.
+        """
         out = ch_idx + 1  # shift for padding
         raw_emb = self.embed_layer(out)
         out = self.proj(raw_emb)
@@ -186,6 +191,11 @@ class MarkerEmbeddingLayer(nn.Module):
             out = out + self.lora_B(self.lora_A(raw_emb))
         # Always normalize (no train/eval mismatch)
         out = F.normalize(out, p=2, dim=-1)
+        # Zero padding positions: F.normalize of a zero vector is zero, but
+        # the post-proj output for padding is proj.bias (non-zero after
+        # training), which would otherwise carry a unit-norm direction
+        # into the transformer for masked channels.
+        out = out * (ch_idx != -1).unsqueeze(-1).to(out.dtype)
         return out
 
 
@@ -389,10 +399,15 @@ class CellTypeAnnotator(nn.Module):
         # Zero out padded channel features to prevent them from affecting downstream computation.
         channel_feat[padding_mask] = 0.0
 
-        # 3. Fusion: broadcast spatial features across channels and concatenate
+        # 3. Fusion: broadcast spatial features across channels and concatenate.
+        # Zero spatial features for padding positions BEFORE concat. Without
+        # this, padding tokens enter ``self.fusion`` with [0, spatial_feat] and
+        # emerge as ``W_spatial @ spatial_feat + bias`` — non-trivial features
+        # for tokens that should be invisible to the transformer.
         spatial_expanded = spatial_feat.unsqueeze(1).expand(
             -1, C_max, -1
-        )  # (B, C_max, 64)
+        ).clone()  # (B, C_max, 64); clone so we can write through padding rows
+        spatial_expanded[padding_mask] = 0.0
         fused = torch.cat([channel_feat, spatial_expanded], dim=-1)  # (B, C_max, 192)
         fused = self.fusion(fused)  # (B, C_max, d_model)
 

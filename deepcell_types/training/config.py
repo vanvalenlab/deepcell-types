@@ -234,7 +234,10 @@ class TissueNetConfig:
         self._domain_mapping_cache: Optional[Dict[str, str]] = None
         self._celltype_mapping_cache: Optional[Dict[str, Dict[str, str]]] = None
         self._tissue_celltype_mapping_cache: Optional[Dict[str, List[str]]] = None
-        self._marker_positivity_cache: Dict[str, pd.DataFrame] = {}
+        # Single source of truth for per-dataset MP DataFrames. Initialized
+        # to None and replaced by LazyMarkerPositivityDict on first access of
+        # the marker_positivity_labels property (or get_marker_positivity).
+        self._marker_positivity_cache: Optional["LazyMarkerPositivityDict"] = None
         self._mp_keys: Optional[List[str]] = None  # Keys with marker_positivity groups
         self._dataset_keys: Optional[List[str]] = None
 
@@ -486,7 +489,7 @@ class TissueNetConfig:
         Individual datasets are loaded on first access (__contains__ / __getitem__),
         not all at once. Iteration (keys/values/items) triggers full load.
         """
-        if not isinstance(self._marker_positivity_cache, LazyMarkerPositivityDict):
+        if self._marker_positivity_cache is None:
             # Ensure _compute_all_mappings has run to discover MP keys
             if self._mp_keys is None:
                 self._compute_all_mappings()
@@ -778,14 +781,15 @@ class TissueNetConfig:
         Returns:
             DataFrame with cell types as index, markers as columns,
             or None if not available.
-        """
-        if dataset_key in self._marker_positivity_cache:
-            return self._marker_positivity_cache[dataset_key]
 
-        df = self._load_marker_positivity(dataset_key)
-        if df is not None:
-            self._marker_positivity_cache[dataset_key] = df
-        return df
+        Both this method and ``marker_positivity_labels[key]`` share a single
+        lazy cache — calling either first does not silently lose entries
+        populated by the other.
+        """
+        labels = self.marker_positivity_labels
+        if dataset_key not in labels:
+            return None
+        return labels[dataset_key]
 
     def _load_marker_positivity(self, dataset_key: str) -> Optional[pd.DataFrame]:
         """Load marker positivity from zarr for a dataset.

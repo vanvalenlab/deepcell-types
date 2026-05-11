@@ -177,7 +177,7 @@ def test_pred_logger_returns_results_ordered_by_cell_index(tmp_path):
         np.asarray([2, 1], dtype=np.int64),
     )
 
-    cell_types, top_probs, cell_index = logger.get_result()
+    cell_types, top_probs, cell_index, probs = logger.get_result()
 
     assert list(cell_index) == [1, 2]
     assert list(top_probs) == [1.0, 1.0]
@@ -294,6 +294,84 @@ def test_patch_dataset_rejects_only_unknown_channel_names(tmp_path):
     mask[12:28, 12:28] = 1
     with pytest.raises(ValueError, match="No input channels matched"):
         PatchDataset(raw, mask, ["FAKE_MARKER_XYZ_000"], 0.5, config)
+
+
+def test_predict_returns_prediction_result_when_requested(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+
+    raw = np.ones((1, 40, 40), dtype=np.float32)
+    mask = np.zeros((40, 40), dtype=np.int32)
+    mask[12:28, 12:28] = 1
+
+    from deepcell_types import PredictionResult, predict as top_predict
+
+    result = top_predict(
+        raw,
+        mask,
+        ["CD45"],
+        0.5,
+        str(ckpt_path),
+        "cpu",
+        batch_size=1,
+        num_workers=0,
+        zarr_path=archive_path,
+        return_probabilities=True,
+    )
+    assert isinstance(result, PredictionResult)
+    assert len(result.cell_types) == 1
+    assert result.probabilities.shape == (1, len(config.ct2idx))
+    assert result.cell_indices.tolist() == [1]
+    assert np.isclose(result.probabilities.sum(), 1.0)
+
+
+def test_predict_tissue_exclude_alias_emits_deprecation(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+
+    raw = np.ones((1, 40, 40), dtype=np.float32)
+    mask = np.zeros((40, 40), dtype=np.int32)
+    mask[12:28, 12:28] = 1
+
+    with pytest.warns(DeprecationWarning, match="tissue_filter"):
+        predict(
+            raw,
+            mask,
+            ["CD45"],
+            0.5,
+            str(ckpt_path),
+            "cpu",
+            batch_size=1,
+            num_workers=0,
+            tissue_exclude="lung",
+            zarr_path=archive_path,
+        )
+
+
+def test_predict_rejects_both_tissue_args(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+    raw = np.ones((1, 40, 40), dtype=np.float32)
+    mask = np.zeros((40, 40), dtype=np.int32)
+    mask[12:28, 12:28] = 1
+
+    with pytest.raises(TypeError, match="not both"):
+        predict(
+            raw,
+            mask,
+            ["CD45"],
+            0.5,
+            str(ckpt_path),
+            "cpu",
+            batch_size=1,
+            num_workers=0,
+            tissue_filter="lung",
+            tissue_exclude="lung",
+            zarr_path=archive_path,
+        )
 
 
 def test_dct_and_tissuenet_config_agree_on_shared_constants(tmp_path):
