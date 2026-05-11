@@ -154,7 +154,12 @@ def test_idempotence():
 def test_stage7_synthetic_gold_validation(tmp_path):
     """End-to-end gold-validation test on a tiny synthetic fixture."""
     import pandas as pd
+    import pytest
 
+    pytest.importorskip(
+        "analysis.validate_mp_refinement",
+        reason="analysis/ lives in the research workspace (sibling), not this repo",
+    )
     from analysis.validate_mp_refinement import (
         evaluate_acceptance, score_predictions, two_fold_cv)
 
