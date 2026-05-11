@@ -74,12 +74,18 @@ def read_v3_1d_array(array_dir: Path):
     if n == 0:
         return out
 
-    codecs = [codec.get("name") for codec in meta.get("codecs", [])]
+    # Read the zstd level from codec config (NOT hardcoded 0). Mirrors the
+    # inference-side read in dct_kit/config.py — keeping these in sync
+    # prevents a latent correctness bug if archives are ever written at a
+    # different compression level.
     zstd = None
-    if "zstd" in codecs:
-        from numcodecs import Zstd
+    for codec in meta.get("codecs", []):
+        if codec.get("name") == "zstd":
+            from numcodecs import Zstd
 
-        zstd = Zstd(level=0)
+            config = codec.get("configuration", {})
+            zstd = Zstd(level=config.get("level", 0))
+            break
 
     for chunk_idx, start in enumerate(range(0, n, chunk_len)):
         chunk_path = array_dir / "c" / str(chunk_idx)

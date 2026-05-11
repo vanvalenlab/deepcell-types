@@ -560,21 +560,6 @@ class FullImageDataset(Dataset):
         return build_centroid_tree(centroids_raw)
 
     @staticmethod
-    def _centroid_to_cell_idx_fast(tree, keys, target_centroid, tol=1.0):
-        """Reverse-lookup cell index using KDTree nearest-neighbor search."""
-        return centroid_to_cell_idx_fast(tree, keys, target_centroid, tol=tol)
-
-    @staticmethod
-    def _group_filesystem_path(group):
-        """Return the local filesystem path for a zarr group, when available."""
-        return group_filesystem_path(group)
-
-    @staticmethod
-    def _read_v3_1d_array(array_dir: Path):
-        """Read simple one-dimensional zarr v3 arrays without zarr's alpha parser."""
-        return read_v3_1d_array(array_dir)
-
-    @staticmethod
     def _array_nbytes(arr) -> int:
         """Return array byte size across numpy and zarr 3 alpha arrays."""
         nbytes = getattr(arr, "nbytes", None)

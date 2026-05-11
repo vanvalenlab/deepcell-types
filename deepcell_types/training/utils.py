@@ -17,58 +17,6 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def _zarr_group_filesystem_path(group):
-    """Return the local filesystem path for a zarr group, when available."""
-    store_path = getattr(group, "store_path", None)
-    store = getattr(store_path, "store", None)
-    root = getattr(store, "root", None)
-    if root is None:
-        return None
-    path = getattr(store_path, "path", "")
-    return Path(root) / path if path else Path(root)
-
-
-def _read_v3_1d_array(array_dir: Path):
-    """Read simple one-dimensional zarr v3 arrays without zarr's alpha parser."""
-    meta_path = array_dir / "zarr.json"
-    if not meta_path.exists():
-        return None
-    with open(meta_path) as f:
-        meta = json.load(f)
-
-    n = int(meta["shape"][0])
-    data_type = meta["data_type"]
-    if isinstance(data_type, dict) and data_type.get("name") == "fixed_length_utf32":
-        dtype = np.dtype(f"<U{int(data_type['configuration']['length_bytes']) // 4}")
-    else:
-        dtype = np.dtype(data_type)
-
-    chunk_len = int(meta["chunk_grid"]["configuration"]["chunk_shape"][0])
-    fill_value = meta.get("fill_value", 0)
-    out = np.full((n,), fill_value, dtype=dtype)
-    if n == 0:
-        return out
-
-    codecs = [codec.get("name") for codec in meta.get("codecs", [])]
-    zstd = None
-    if "zstd" in codecs:
-        from numcodecs import Zstd
-
-        zstd = Zstd(level=0)
-
-    for chunk_idx, start in enumerate(range(0, n, chunk_len)):
-        chunk_path = array_dir / "c" / str(chunk_idx)
-        if not chunk_path.exists():
-            continue
-        data = chunk_path.read_bytes()
-        if zstd is not None:
-            data = zstd.decode(data)
-        chunk = np.frombuffer(data, dtype=dtype, count=chunk_len)
-        stop = min(start + chunk_len, n)
-        out[start:stop] = chunk[: stop - start]
-    return out
-
-
 def _stable_hash(obj) -> str:
     payload = json.dumps(obj, sort_keys=True, default=str).encode()
     return hashlib.sha256(payload).hexdigest()[:16]
