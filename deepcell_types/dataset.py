@@ -20,12 +20,9 @@ class PatchDataset(IterableDataset):
         channel_names,
         mpp,
         dct_config,
-        output_mode="legacy",
         **kwargs,
     ):
         super(PatchDataset, self).__init__(**kwargs)
-        if output_mode not in {"canonical", "legacy"}:
-            raise ValueError("output_mode must be 'canonical' or 'legacy'")
 
         if raw.ndim != 3:
             raise ValueError("raw must have shape (C, H, W).")
@@ -49,7 +46,6 @@ class PatchDataset(IterableDataset):
         self.mpp = mpp
         self.marker2idx = dct_config.marker2idx
         self.channel_mapping = dct_config.channel_mapping
-        self.output_mode = output_mode
 
         channel_names_standard = []
         channel_masking = []
@@ -82,22 +78,6 @@ class PatchDataset(IterableDataset):
             raise ValueError(
                 "No input channels matched the DeepCell Types marker registry."
             )
-
-    def _pad_images(self, sample):
-        return np.pad(
-            sample,
-            ((0, self.max_channels - sample.shape[0]), (0, 0), (0, 0), (0, 0)),
-            mode="constant",
-            constant_values=self.paddings,
-        )
-
-    def _pad_marker_positivity(self, marker_positivity):
-        return np.pad(
-            marker_positivity,
-            (0, self.max_channels - len(marker_positivity)),
-            mode="constant",
-            constant_values=0,
-        )
 
     def _create_attn_mask(self, sample):
         # True = padding
@@ -133,38 +113,6 @@ class PatchDataset(IterableDataset):
 
         return sample, spatial_context, attn_mask
 
-    def _combine_masks(self, raw, mask):
-        mask = np.swapaxes(mask, 0, 2)  # (2, H, W)
-        mask = np.expand_dims(mask, axis=0)  # (1, 2, H, W)
-        raw_aug_mask = np.concatenate(
-            [
-                np.expand_dims(raw, axis=1),  # (C, 1, H, W)
-                np.tile(mask, (raw.shape[0], 1, 1, 1)),  # (C, 2, H, W)
-            ],
-            axis=1,
-        )  # (C, 3, H, W)
-        return raw_aug_mask
-
-    def _calcualte_marker_positivity(self, raw, mask, threshold=0.05):
-        """Threshold on mean intensity to get marker positivity
-        Input:
-            raw: (C, H, W)
-            mask: (H, W)
-        Output:
-            marker_positivity: (C, )
-        """
-        area = np.sum(mask)
-        if area == 0:  # this should not happen!
-            mean_intensity = np.zeros(len(raw), dtype=np.float32)
-            return mean_intensity
-
-        sum_intensity = np.sum(raw * np.expand_dims(mask, axis=0), axis=(-1, -2))
-        mean_intensity = np.divide(sum_intensity, area)
-
-        marker_positivity = (mean_intensity > threshold).astype(np.float32)
-
-        return marker_positivity
-
     def __iter__(self):
         """
         Patchify the raw and mask data into smaller patches
@@ -177,18 +125,6 @@ class PatchDataset(IterableDataset):
                 worker_info is not None
                 and patch_idx % worker_info.num_workers != worker_info.id
             ):
-                continue
-
-            if self.output_mode == "legacy":
-                sample = self._combine_masks(raw_patch, mask_patch)  # (C, 3, H, W)
-                attn_mask = self._create_attn_mask(sample)  # (C_max,)
-                sample = self._pad_images(sample)  # (C_max, 3, H, W)
-                yield (
-                    torch.as_tensor(sample),
-                    torch.as_tensor(self.ch_idx),
-                    torch.as_tensor(attn_mask),
-                    cell_index,
-                )
                 continue
 
             sample, spatial_context, attn_mask = self._create_canonical_sample(

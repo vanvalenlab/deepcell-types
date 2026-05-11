@@ -71,23 +71,18 @@ and select `Open with -> Jupytext notebook`.
 
 1. **Maximum channel limit**
 
-   The latest canonical checkpoints support a maximum of **80** channels per
-   dataset. Legacy checkpoints, including the current registered public release,
-   support **75** channels. If your dataset has more channels than the selected
-   checkpoint supports, it will be necessary to remove channels to get below
-   that limit. Note that (by default) nuclear and non-recognized channel names
-   are automatically dropped.
+   The model supports a maximum of **80** channels per dataset. If your data has
+   more channels than this limit, it will be necessary to remove channels to get
+   below it. Note that (by default) nuclear and non-recognized channel names are
+   automatically dropped.
 
 2. **Recognized channels**
 
-   Canonical checkpoints read their registry of natively-supported channels and
-   cell types from the TissueNet zarr archive provided at inference time via
-   `zarr_path=...` or `DEEPCELL_TYPES_ZARR_PATH`. In practice this means the
-   recognized canonical channels are whatever the selected archive exposes in
-   its root `attrs.all_standardized_channels`. Legacy checkpoints continue to
-   use
-   [`deepcell_types/dct_kit/config/master_channels.yaml`][master_channels_gh].
-   If your data contains markers not found in this listing, they will be
+   The model reads its registry of natively-supported channels and cell types
+   from the TissueNet zarr archive provided at inference time via `zarr_path=...`
+   or the `DEEPCELL_TYPES_ZARR_PATH` environment variable. In practice the
+   recognized channels are whatever the selected archive exposes in its root
+   `attrs.all_standardized_channels`. Markers not found in this listing are
    ignored at inference time.
    There are two ways to add support for additional channels:
 
@@ -105,17 +100,15 @@ and select `Open with -> Jupytext notebook`.
      embeddings for additional channels via DeepSeek (model and prompt details
      can be found in the paper).
 
-   Canonical checkpoint loading also validates that the archive and checkpoint
-   agree on marker count and cell-type count. If they do not, inference fails
-   early with a `ValueError`.
+   Checkpoint loading validates that the archive and checkpoint agree on marker
+   count and cell-type count. If they do not, inference fails early with a
+   `ValueError`.
 
 3. **Image preprocessing**
 
    The model requires users to preprocess input images to align with the
    distribution of our training data for optimal performance and generalization.
    See the paper for details.
-
-[master_channels_gh]: https://github.com/vanvalenlab/deepcell-types/blob/master/deepcell_types/dct_kit/config/master_channels.yaml
 
 ```{toctree}
 ---

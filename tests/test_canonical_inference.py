@@ -9,9 +9,7 @@ from numcodecs import Zstd
 from deepcell_types.annotator_model import create_model
 from deepcell_types.dataset import PatchDataset
 from deepcell_types.dct_kit.config import DCTConfig
-from deepcell_types.model import CellTypeCLIPModel
 from deepcell_types.predict import (
-    LEGACY_EMBEDDING_DIM,
     PredLogger,
     _model_path,
     predict,
@@ -101,7 +99,7 @@ def _make_archive(tmp_path):
 
 def test_canonical_config_reads_contract_from_archive(tmp_path):
     archive_path = _make_archive(tmp_path)
-    config = DCTConfig(profile="canonical", zarr_path=archive_path)
+    config = DCTConfig(zarr_path=archive_path)
 
     assert config.MAX_NUM_CHANNELS == 80
     assert config.CROP_SIZE == 32
@@ -116,19 +114,12 @@ def test_canonical_config_reads_contract_from_archive(tmp_path):
 
 def test_patch_dataset_can_emit_archive_backed_canonical_batch(tmp_path):
     archive_path = _make_archive(tmp_path)
-    config = DCTConfig(profile="canonical", zarr_path=archive_path)
+    config = DCTConfig(zarr_path=archive_path)
     raw = np.ones((2, 40, 40), dtype=np.float32)
     mask = np.zeros((40, 40), dtype=np.int32)
     mask[12:28, 12:28] = 1
 
-    dataset = PatchDataset(
-        raw,
-        mask,
-        ["cd45", "Pan-Cytokeratin"],
-        0.5,
-        config,
-        output_mode="canonical",
-    )
+    dataset = PatchDataset(raw, mask, ["cd45", "Pan-Cytokeratin"], 0.5, config)
     sample, spatial_context, ch_idx, attn_mask, cell_index = next(iter(dataset))
 
     assert sample.shape == (80, 1, 32, 32)
@@ -144,21 +135,14 @@ def test_patch_dataset_can_emit_archive_backed_canonical_batch(tmp_path):
 
 def test_patch_dataset_shards_iterable_workers_without_duplicates(tmp_path):
     archive_path = _make_archive(tmp_path)
-    config = DCTConfig(profile="canonical", zarr_path=archive_path)
+    config = DCTConfig(zarr_path=archive_path)
     raw = np.ones((1, 80, 80), dtype=np.float32)
     mask = np.zeros((80, 80), dtype=np.int32)
     mask[8:20, 8:20] = 1
     mask[32:44, 32:44] = 2
     mask[56:68, 56:68] = 3
 
-    dataset = PatchDataset(
-        raw,
-        mask,
-        ["CD45"],
-        0.5,
-        config,
-        output_mode="canonical",
-    )
+    dataset = PatchDataset(raw, mask, ["CD45"], 0.5, config)
     data_loader = DataLoader(dataset, batch_size=1, num_workers=2)
 
     cell_indices = []
@@ -167,21 +151,6 @@ def test_patch_dataset_shards_iterable_workers_without_duplicates(tmp_path):
 
     assert sorted(cell_indices) == [1, 2, 3]
     assert len(cell_indices) == len(set(cell_indices)) == len(dataset)
-
-
-def test_patch_dataset_default_preserves_legacy_batch_shape():
-    config = DCTConfig()
-    raw = np.ones((1, 80, 80), dtype=np.float32)
-    mask = np.zeros((80, 80), dtype=np.int32)
-    mask[20:60, 20:60] = 1
-
-    dataset = PatchDataset(raw, mask, ["CD45"], 0.5, config)
-    sample, ch_idx, attn_mask, cell_index = next(iter(dataset))
-
-    assert sample.shape == (75, 3, 64, 64)
-    assert ch_idx.shape == (75,)
-    assert attn_mask.shape == (75,)
-    assert cell_index == 1
 
 
 def test_model_path_treats_dotted_model_names_as_cached_models():
@@ -197,7 +166,7 @@ def test_model_path_treats_dotted_model_names_as_cached_models():
 
 def test_pred_logger_returns_results_ordered_by_cell_index(tmp_path):
     archive_path = _make_archive(tmp_path)
-    config = DCTConfig(profile="canonical", zarr_path=archive_path)
+    config = DCTConfig(zarr_path=archive_path)
     logger = PredLogger(config)
 
     logger.log(
@@ -214,7 +183,7 @@ def test_pred_logger_returns_results_ordered_by_cell_index(tmp_path):
 
 def test_predict_accepts_archive_backed_canonical_checkpoint_path(tmp_path):
     archive_path = _make_archive(tmp_path)
-    config = DCTConfig(profile="canonical", zarr_path=archive_path)
+    config = DCTConfig(zarr_path=archive_path)
     marker_embeddings = np.zeros((len(config.marker2idx), 8), dtype=np.float32)
     model = create_model(
         config,
@@ -241,46 +210,6 @@ def test_predict_accepts_archive_backed_canonical_checkpoint_path(tmp_path):
         batch_size=1,
         num_workers=0,
         zarr_path=archive_path,
-    )
-
-    assert len(cell_types) == 1
-    assert cell_types[0] in config.ct2idx
-
-
-def test_predict_still_accepts_legacy_checkpoint_path(tmp_path):
-    config = DCTConfig(profile="legacy")
-    ct_embeddings = np.zeros(
-        (len(config.ct2idx), LEGACY_EMBEDDING_DIM), dtype=np.float32
-    )
-    marker_embeddings = np.zeros(
-        (len(config.marker2idx), LEGACY_EMBEDDING_DIM), dtype=np.float32
-    )
-    model = CellTypeCLIPModel(
-        n_filters=256,
-        n_heads=4,
-        n_celltypes=len(config.ct2idx),
-        n_domains=config.NUM_DOMAINS,
-        marker_embeddings=marker_embeddings,
-        embedding_dim=LEGACY_EMBEDDING_DIM,
-        ct_embeddings=ct_embeddings,
-        img_feature_extractor="conv",
-    )
-    checkpoint_path = tmp_path / "legacy.pt"
-    torch.save(model.state_dict(), checkpoint_path)
-
-    raw = np.ones((1, 80, 80), dtype=np.float32)
-    mask = np.zeros((80, 80), dtype=np.int32)
-    mask[20:60, 20:60] = 1
-
-    cell_types = predict(
-        raw,
-        mask,
-        ["CD45"],
-        0.5,
-        str(checkpoint_path),
-        "cpu",
-        batch_size=1,
-        num_workers=0,
     )
 
     assert len(cell_types) == 1
