@@ -5,8 +5,20 @@ channel_names but all-zero in raw across the entire FOV. These channels were
 fed to the transformer as constant-zero tokens with a misleading marker
 embedding prior. The fix masks them out at FOV-time. These tests verify the
 mask is applied correctly via the `_zero_channel_cache` mechanism.
+
+The `_apply_zero_channel_mask` helper below is a faithful copy of the
+production block in ``training/dataset.py::__getitem__`` — useful for
+isolating the logic from the rest of the dataset machinery. Because copies
+can drift out of sync with production, ``test_production_masking_still_uses_cache``
+anchors the test file to a concrete substring in the real code; if the
+production masking is refactored, that anchor will fail loudly so the copy
+here can be updated (or this test file deleted) deliberately.
 """
+from pathlib import Path
+
 import numpy as np
+
+REPO = Path(__file__).resolve().parents[1]
 
 
 class _MinimalDataset:
@@ -101,6 +113,25 @@ def test_no_zero_cache_means_no_extra_masking():
     assert (sample[1] == -1.0).all()
     # Channel 0 and 2 untouched
     assert (sample[0] == 5.0).all()
+
+
+def test_production_masking_still_uses_cache():
+    """Regression anchor: the actual __getitem__ must still consult
+    ``_zero_channel_cache`` and merge it into the attention mask.
+
+    If a refactor renames the cache or replaces the merge with a different
+    implementation, the unit-test helper above silently drifts away from
+    production. This anchor pins the helper to the real code path.
+    """
+    text = (REPO / "deepcell_types" / "training" / "dataset.py").read_text()
+    assert "_zero_channel_cache" in text, (
+        "FullImageDataset no longer owns a _zero_channel_cache attribute; "
+        "the helper in this test file may be out of date."
+    )
+    assert "fov_zero_mask" in text, (
+        "FullImageDataset.__getitem__ no longer constructs the "
+        "fov_zero_mask used by the production masking path."
+    )
 
 
 def test_combined_unknown_and_zero_channel():

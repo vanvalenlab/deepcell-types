@@ -21,9 +21,13 @@ automatically halve the scale on inf detection (the CPU scaler is a
 lightweight stub), so we emulate the two outcomes by manipulating the pre/post
 scale values directly — which is exactly what the production gate reads.
 """
+from pathlib import Path
+
 import pytest
 import torch
 import torch.nn as nn
+
+REPO = Path(__file__).resolve().parents[1]
 
 # These tests intentionally call scheduler.step() without optimizer.step()
 # to isolate the gate-predicate logic from the real training loop. The
@@ -49,6 +53,24 @@ def _run_gated_step(scale_before: float, scale_after: float) -> bool:
     Returns True iff the scheduler would advance on this step.
     """
     return scale_after >= scale_before
+
+
+def test_train_py_still_has_scheduler_gate():
+    """Regression anchor: the actual train script must keep the gate.
+
+    `_run_gated_step` above is a 2-line emulator. If a refactor removed the
+    real gate from scripts/train.py the emulator tests would still pass
+    while training silently desynchronized OneCycleLR. This anchor ties
+    the emulator to a concrete substring in the production script — same
+    pattern used by tests/test_post_v7_strip.py.
+    """
+    train_py = (REPO / "scripts" / "train.py").read_text()
+    assert "scale_after >= scale_before" in train_py, (
+        "scripts/train.py no longer contains the AMP scheduler gate "
+        "'scale_after >= scale_before' — either restore the gate or "
+        "delete this test along with the emulator if the gate has been "
+        "intentionally retired."
+    )
 
 
 def _build_onecycle(model, steps=20):
