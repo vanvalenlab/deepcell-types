@@ -5,17 +5,26 @@ Reads all mappings and metadata directly from a TissueNet zarr v3 archive
 including centroid indices).
 """
 
-import hashlib
 import json
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 import yaml
-from scipy.ndimage import distance_transform_edt
-from skimage.transform import resize
+
+from .archive import (
+    _FINGERPRINT_CACHE,
+    _FOV_KEYS_CACHE,
+    _patch_zarr_v3_alpha_metadata,
+    _local_zarr_root_path,
+    cached_archive_metadata_fingerprint,
+    archive_metadata_fingerprint,
+    archive_array_fingerprint,
+    _discover_fov_keys,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,265 +50,6 @@ CELL_TYPE_HIERARCHY = {
 # Training constants
 WARMUP_PCT = 0.05  # Warmup percentage for OneCycleLR scheduler
 
-
-def _patch_zarr_v3_alpha_metadata() -> None:
-    """Allow the installed zarr 3 alpha to read metadata emitted by newer writers."""
-    try:
-        from zarr.core.group import GroupMetadata
-        from zarr.core.metadata.v3 import ArrayV3Metadata
-    except ImportError:
-        return
-
-    if not getattr(GroupMetadata.from_dict, "_dct_compat", False):
-        group_from_dict = GroupMetadata.from_dict.__func__
-
-        def _group_from_dict_compat(cls, data):
-            data = data.copy()
-            data.pop("consolidated_metadata", None)
-            return group_from_dict(cls, data)
-
-        _group_from_dict_compat._dct_compat = True
-        GroupMetadata.from_dict = classmethod(_group_from_dict_compat)
-
-    if not getattr(ArrayV3Metadata.from_dict, "_dct_compat", False):
-        array_from_dict = ArrayV3Metadata.from_dict.__func__
-
-        def _array_from_dict_compat(cls, data):
-            data = data.copy()
-            storage_transformers = data.pop("storage_transformers", [])
-            if storage_transformers not in (None, []):
-                raise ValueError(
-                    f"unsupported storage_transformers={storage_transformers!r}"
-                )
-            return array_from_dict(cls, data)
-
-        _array_from_dict_compat._dct_compat = True
-        ArrayV3Metadata.from_dict = classmethod(_array_from_dict_compat)
-
-
-_patch_zarr_v3_alpha_metadata()
-
-
-def _local_zarr_root_path(zarr_obj_or_path) -> Optional[Path]:
-    """Return a local filesystem root for a zarr object/path when available."""
-    if isinstance(zarr_obj_or_path, (str, os.PathLike, Path)):
-        return Path(zarr_obj_or_path)
-
-    store_path = getattr(zarr_obj_or_path, "store_path", None)
-    store = getattr(store_path, "store", None)
-    root = getattr(store, "root", None)
-    if root is None:
-        return None
-    path = getattr(store_path, "path", "")
-    root_path = Path(root)
-    return root_path / path if path else root_path
-
-
-_FOV_KEYS_CACHE: Dict[str, List[str]] = {}
-_FINGERPRINT_CACHE: Dict[str, str] = {}
-
-
-def cached_archive_metadata_fingerprint(zarr_obj_or_path) -> str:
-    """Per-process memoized wrapper around ``archive_metadata_fingerprint``.
-
-    Production archives are immutable for the lifetime of a single process,
-    and full-archive fingerprinting reads all chunk contents under
-    ``cell_type_info`` (~8s on a 2.7k-FOV archive). Loaders that construct
-    multiple datasets/predictors against the same archive should call this
-    wrapper. Unit tests that exercise the mutate-and-rehash contract should
-    keep calling ``archive_metadata_fingerprint`` directly.
-    """
-    root_path = _local_zarr_root_path(zarr_obj_or_path)
-    if root_path is None:
-        return archive_metadata_fingerprint(zarr_obj_or_path)
-    key = str(root_path.resolve()) if root_path.exists() else str(root_path)
-    cached = _FINGERPRINT_CACHE.get(key)
-    if cached is not None:
-        return cached
-    fp = archive_metadata_fingerprint(zarr_obj_or_path)
-    _FINGERPRINT_CACHE[key] = fp
-    return fp
-
-
-def archive_metadata_fingerprint(zarr_obj_or_path) -> str:
-    """Fingerprint archive metadata files for cache/split provenance.
-
-    The cell-data and baseline-feature caches depend mostly on nested zarr
-    metadata attrs (annotations, centroids, scale factors, channel names), not
-    just root attrs. For local stores, hash every v3 ``zarr.json`` path plus
-    size and mtime. This is intentionally cheaper than reading the large
-    annotation JSON payloads on every startup, while still invalidating normal
-    in-place repairs that touch nested metadata files.
-    """
-    h = hashlib.sha256()
-    h.update(b"archive-metadata-fingerprint-v2")
-
-    root_path = _local_zarr_root_path(zarr_obj_or_path)
-    if root_path is not None and root_path.exists():
-        # Single os.walk collects both lists; two separate ``**/`` globs each
-        # cost ~10s on a 45k-file archive and dominate the fingerprint cost.
-        meta_files: list[Path] = []
-        cti_dirs: list[Path] = []
-        for dirpath, dirnames, filenames in os.walk(root_path):
-            dirnames.sort()
-            if "zarr.json" in filenames:
-                meta_files.append(Path(dirpath) / "zarr.json")
-            parts = dirpath.split(os.sep)
-            if len(parts) >= 2 and parts[-1] == "cell_type_info" and parts[-2] == "preprocessed":
-                cti_dirs.append(Path(dirpath))
-        meta_files.sort()
-        cti_dirs.sort()
-        if meta_files:
-            for path in meta_files:
-                try:
-                    stat = path.stat()
-                except OSError:
-                    continue
-                rel = path.relative_to(root_path).as_posix()
-                h.update(rel.encode())
-                h.update(str(stat.st_size).encode())
-                h.update(str(stat.st_mtime_ns).encode())
-            for info_dir in cti_dirs:
-                for array_name in ("cell_type", "cell_index"):
-                    _hash_zarr_array_files(
-                        h,
-                        info_dir / array_name,
-                        root_path,
-                        include_chunk_contents=True,
-                    )
-            return h.hexdigest()[:16]
-
-    attrs = dict(getattr(zarr_obj_or_path, "attrs", {}))
-    blob = json.dumps(attrs, sort_keys=True, default=str).encode()
-    h.update(blob)
-    return h.hexdigest()[:16]
-
-
-def _hash_file_stat(h: "hashlib._Hash", path: Path, root_path: Path) -> None:
-    """Add stable file stat metadata to an existing hash."""
-    try:
-        stat = path.stat()
-    except OSError:
-        return
-    rel = path.relative_to(root_path).as_posix()
-    h.update(rel.encode())
-    h.update(str(stat.st_size).encode())
-    h.update(str(stat.st_mtime_ns).encode())
-
-
-def _hash_file_contents(h: "hashlib._Hash", path: Path, root_path: Path) -> None:
-    """Add file path and contents to an existing hash."""
-    try:
-        rel = path.relative_to(root_path).as_posix()
-        with open(path, "rb") as f:
-            h.update(rel.encode())
-            for chunk in iter(lambda: f.read(1024 * 1024), b""):
-                h.update(chunk)
-    except OSError:
-        return
-
-
-def _iter_files_sorted(root_path: Path) -> Iterable[Path]:
-    """Yield files below root_path in deterministic order without glob overhead."""
-    for dirpath, dirnames, filenames in os.walk(root_path):
-        dirnames.sort()
-        for filename in sorted(filenames):
-            yield Path(dirpath) / filename
-
-
-def _hash_zarr_array_files(
-    h: "hashlib._Hash",
-    array_path: Path,
-    root_path: Path,
-    *,
-    include_chunk_contents: bool = False,
-) -> None:
-    """Add zarr array metadata and chunk file stats to an existing hash."""
-    _hash_file_stat(h, array_path / "zarr.json", root_path)
-    chunk_root = array_path / "c"
-    if not chunk_root.exists():
-        return
-    for chunk_path in _iter_files_sorted(chunk_root):
-        if include_chunk_contents:
-            _hash_file_contents(h, chunk_path, root_path)
-        else:
-            _hash_file_stat(h, chunk_path, root_path)
-
-
-def archive_array_fingerprint(
-    zarr_obj_or_path, dataset_keys: Optional[Iterable[str]] = None
-) -> str:
-    """Fingerprint archive metadata plus preprocessed raw/mask chunk metadata.
-
-    Baseline feature caches depend on raw intensity and mask chunks. Metadata-only
-    fingerprints are insufficient after in-place chunk repairs that preserve
-    zarr.json files, so this hashes path/size/mtime for the relevant
-    ``preprocessed/raw`` and ``preprocessed/mask`` chunks.
-    """
-    h = hashlib.sha256()
-    h.update(b"archive-array-fingerprint-v1")
-    h.update(archive_metadata_fingerprint(zarr_obj_or_path).encode())
-
-    root_path = _local_zarr_root_path(zarr_obj_or_path)
-    if root_path is None or not root_path.exists():
-        return h.hexdigest()[:16]
-
-    if dataset_keys is None:
-        preprocessed_paths = sorted(
-            path.parent for path in root_path.glob("**/preprocessed/zarr.json")
-        )
-    else:
-        preprocessed_paths = sorted(
-            root_path / key / "preprocessed" for key in dataset_keys
-        )
-
-    for preprocessed_path in preprocessed_paths:
-        if not preprocessed_path.exists():
-            continue
-        for array_name in ("raw", "mask"):
-            _hash_zarr_array_files(h, preprocessed_path / array_name, root_path)
-
-    return h.hexdigest()[:16]
-
-
-def _discover_fov_keys(zarr_root) -> List[str]:
-    """Enumerate leaf FOV keys across v7 (flat) and v8 (5-level) layouts.
-
-    v8 archives set ``schema_version`` at the root and organize datasets as
-    ``modality/tissue/cohort/sample/fov``. v7 archives predate this and
-    store flat dataset keys directly under the root. Both zarr (via
-    ``zf[key]``) and the filesystem resolve ``a/b/c`` the same way, so the
-    returned slash-joined keys are drop-in replacements for the old flat
-    keys throughout the loader.
-    """
-    store_path = getattr(zarr_root, "store_path", None)
-    store = getattr(store_path, "store", None)
-    root = getattr(store, "root", None)
-    path = getattr(store_path, "path", "")
-    if root is not None:
-        root_path = Path(root)
-        if path:
-            root_path = root_path / path
-        # The ``**/preprocessed/zarr.json`` glob costs ~10s on a 45k-file
-        # archive; memoize per-process. Archives are immutable for the
-        # lifetime of a single loader process. Tests use unique tmp_paths.
-        cache_key = str(root_path.resolve()) if root_path.exists() else str(root_path)
-        cached = _FOV_KEYS_CACHE.get(cache_key)
-        if cached is not None:
-            return cached
-        keys = sorted(
-            preproc_json.parent.parent.relative_to(root_path).as_posix()
-            for preproc_json in root_path.glob("**/preprocessed/zarr.json")
-        )
-        if keys:
-            _FOV_KEYS_CACHE[cache_key] = keys
-            return keys
-
-    if "schema_version" in zarr_root.attrs:
-        raise RuntimeError(
-            "Could not discover FOV keys from filesystem for nested zarr archive"
-        )
-    return list(zarr_root.group_keys())
 
 
 class LazyMarkerPositivityDict(dict):
@@ -1180,164 +930,21 @@ class TissueNetConfig:
         return True
 
 
-def compute_distance_transform(self_mask: np.ndarray) -> np.ndarray:
-    """Compute normalized distance transform from cell boundary.
+# Backward-compat re-exports: these were defined here pre-split.
+# Canonical homes are now archive.py and patch.py.
+from .archive import (  # noqa: F401, E402
+    _FINGERPRINT_CACHE,
+    _FOV_KEYS_CACHE,
+    _patch_zarr_v3_alpha_metadata,
+    _local_zarr_root_path,
+    cached_archive_metadata_fingerprint,
+    archive_metadata_fingerprint,
+    archive_array_fingerprint,
+    _discover_fov_keys,
+)
+from .patch import (  # noqa: F401, E402
+    compute_distance_transform,
+    extract_patch,
+    extract_patch_from_zarr,
+)
 
-    Args:
-        self_mask: (H, W) binary mask of the cell
-
-    Returns:
-        dist_transform: (H, W) normalized distance transform (float32, 0-1)
-    """
-    if self_mask.sum() == 0:
-        return np.zeros_like(self_mask, dtype=np.float32)
-    dt = distance_transform_edt(self_mask).astype(np.float32)
-    max_val = dt.max()
-    if max_val > 0:
-        dt /= max_val
-    return dt
-
-
-def extract_patch_from_zarr(
-    raw_zarr,
-    mask_zarr,
-    centroid: Tuple[float, float],
-    cell_idx: int,
-    crop_size: int,
-    output_size: int = 32,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Extract a patch directly from zarr arrays without loading the full image.
-
-    Efficiently reads only the needed region from disk. Extracts crop_size x crop_size patch and resizes
-    to output_size x output_size.
-
-    Args:
-        raw_zarr: zarr array (C, H, W) - NOT loaded, just the zarr reference
-        mask_zarr: zarr array (H, W) - NOT loaded, just the zarr reference
-        centroid: tuple (row, col) - cell centroid coordinates
-        cell_idx: int - cell index for mask extraction
-        crop_size: int - extraction patch size (e.g., 64)
-        output_size: int - final output patch size after resizing (default 32)
-
-    Returns:
-        raw_patch: np.ndarray (C, output_size, output_size) - extracted patch (float32)
-        mask_patch: np.ndarray (output_size, output_size, 2) - [self_mask, neighbor_mask] (float32)
-    """
-    before = crop_size // 2
-    after = crop_size - before
-    C, H, W = raw_zarr.shape
-
-    # Compute crop box center
-    row, col = int(round(centroid[0])), int(round(centroid[1]))
-
-    # Calculate the required padding for edge cases
-    pad_top = max(0, before - row)
-    pad_bottom = max(0, (row + after) - H)
-    pad_left = max(0, before - col)
-    pad_right = max(0, (col + after) - W)
-
-    # Adjust coordinates for valid region extraction
-    r_start = max(0, row - before)
-    r_end = min(H, row + after)
-    c_start = max(0, col - before)
-    c_end = min(W, col + after)
-
-    # Read only the needed region from zarr (this is the key optimization)
-    raw_crop = raw_zarr[:, r_start:r_end, c_start:c_end]  # (C, h, w)
-    mask_crop = mask_zarr[r_start:r_end, c_start:c_end]  # (h, w)
-
-    # Apply padding if needed (for cells near image boundaries)
-    if pad_top or pad_bottom or pad_left or pad_right:
-        raw_crop = np.pad(
-            raw_crop,
-            ((0, 0), (pad_top, pad_bottom), (pad_left, pad_right)),
-            mode="constant",
-            constant_values=0,
-        )
-        mask_crop = np.pad(
-            mask_crop,
-            ((pad_top, pad_bottom), (pad_left, pad_right)),
-            mode="constant",
-            constant_values=0,
-        )
-
-    # Generate self and neighbor masks (before resizing to preserve integer labels)
-    self_mask = (mask_crop == cell_idx).astype(np.float32)
-    neighbor_mask = ((mask_crop != cell_idx) & (mask_crop != 0)).astype(np.float32)
-
-    # Resize if output_size differs from crop_size
-    if output_size != crop_size:
-        # Resize raw: (C, H, W) -> need to transpose for skimage
-        raw_crop = np.transpose(raw_crop, (1, 2, 0))  # (H, W, C)
-        raw_crop = resize(
-            raw_crop,
-            (output_size, output_size),
-            preserve_range=True,
-            anti_aliasing=True,
-        )
-        raw_crop = np.transpose(raw_crop, (2, 0, 1))  # (C, H, W)
-
-        # Resize masks using nearest neighbor to preserve binary values
-        self_mask = resize(
-            self_mask,
-            (output_size, output_size),
-            order=0,  # nearest neighbor
-            preserve_range=True,
-            anti_aliasing=False,
-        )
-        neighbor_mask = resize(
-            neighbor_mask,
-            (output_size, output_size),
-            order=0,  # nearest neighbor
-            preserve_range=True,
-            anti_aliasing=False,
-        )
-
-    mask_patch = np.stack([self_mask, neighbor_mask], axis=-1)
-
-    return raw_crop.astype(np.float32), mask_patch.astype(np.float32)
-
-
-def extract_patch(
-    raw_zarr,
-    mask_zarr,
-    centroid: Tuple[float, float],
-    cell_idx: int,
-    crop_size: int,
-    output_size: int = 32,
-    skip_distance_transform: bool = False,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Extract patch in factored format.
-
-    Args:
-        skip_distance_transform: If True, fill the distance transform channel
-            with zeros instead of computing it. Useful for models that don't
-            use it (e.g., CellSighter) to avoid the expensive scipy EDT call.
-
-    Returns:
-        raw_masked: (C, output_size, output_size) - raw * self_mask per channel
-        spatial_context: (3, output_size, output_size) - [self_mask, neighbor_mask, distance_transform]
-    """
-    raw_crop, mask_patch = extract_patch_from_zarr(
-        raw_zarr, mask_zarr, centroid, cell_idx, crop_size, output_size
-    )
-    # mask_patch: (H, W, 2) -> self_mask, neighbor_mask
-    self_mask = mask_patch[:, :, 0]  # (H, W)
-    neighbor_mask = mask_patch[:, :, 1]  # (H, W)
-
-    # Compute distance transform (or skip it)
-    if skip_distance_transform:
-        dist_transform = np.zeros_like(self_mask, dtype=np.float32)
-    else:
-        dist_transform = compute_distance_transform(self_mask)
-
-    # Build spatial context: (3, H, W)
-    spatial_context = np.stack(
-        [self_mask, neighbor_mask, dist_transform], axis=0
-    ).astype(np.float32)
-
-    # raw * self_mask for each channel → (C, H, W)
-    raw_masked = raw_crop * self_mask[np.newaxis, :, :]
-
-    return raw_masked.astype(np.float32), spatial_context

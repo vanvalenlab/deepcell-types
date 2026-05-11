@@ -12,10 +12,8 @@ import torch
 import zarr
 from torch.utils.data import Dataset, DataLoader, Sampler, random_split
 
-from .config import (
-    cached_archive_metadata_fingerprint,
-    extract_patch,
-)
+from .archive import cached_archive_metadata_fingerprint
+from .patch import extract_patch
 from .annotations import (
     build_centroid_tree,
     centroid_to_cell_idx_fast,
