@@ -28,6 +28,28 @@ classifiers = [
 
 license = {file = "LICENSE"}
 
+[project.optional-dependencies]
+# Training pipeline: required to use anything under deepcell_types.training,
+# including the zarr-backed FullImageDataset, FocalLoss/HierarchicalLoss,
+# wandb logging, and the FOV-grouped sampler. Not needed for inference.
+# zarr is pinned >=3.1 because 3.0.0a* alpha has a metadata-cache bug.
+train = [
+    "matplotlib",
+    "wandb",
+    "zarr>=3.1.0,<4",
+    "torchvision",
+    "torchinfo",
+    "torchmetrics",
+    "pandas",
+    "scikit-learn",
+    "click",
+]
+# Baselines comparison (xgboost / optuna sweeps).
+baselines = ["xgboost", "optuna"]
+# Plotting / analysis stack used by scripts under analysis/.
+analysis = ["plotly", "seaborn", "openpyxl", "kaleido>=0.2.1,<1.0,!=0.2.1.post1"]
+all = ["deepcell-types[train,baselines,analysis]"]
+
 [project.urls]
 "Source Code" = "https://github.com/vanvalenlab/deepcell-types"
 "Issue Tracker" = "https://github.com/vanvalenlab/deepcell-types/issues"
@@ -36,12 +58,16 @@ license = {file = "LICENSE"}
 packages = [
     'deepcell_types',
     'deepcell_types.dct_kit',
+    'deepcell_types.training',
     'deepcell_types.utils'
 ]
 include-package-data = true
 
 [tool.setuptools.package-data]
 deepcell_types = ["dct_kit/config/*.yaml", "dct_kit/config/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [dependency-groups]
 dev = [
