@@ -283,7 +283,7 @@ See {ref}`download_models` for details.
 ```{code-cell} ipython3
 # Model & system-specific configuration
 model = "deepcell-types_2025-06-09"
-zarr_path = "/path/to/tissuenet-v8.zarr"
+zarr_path = "/path/to/tissuenet-v9.zarr"
 
 # NOTE: if you do not have a cuda-capable GPU, try "cpu"
 device = "cuda:0"

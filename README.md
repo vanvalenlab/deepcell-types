@@ -1,13 +1,6 @@
 # DeepCell Types
 
-DeepCell Types is a novel approach to cell phenotyping for spatial proteomics that addresses the challenge of generalization across diverse datasets with varying marker panels. 
-
-
-## Download the model
-```python
-from deepcell_types.utils import download_model
-download_model()
-```
+DeepCell Types is a novel approach to cell phenotyping for spatial proteomics that addresses the challenge of generalization across diverse datasets with varying marker panels.
 
 ## Installation
 
@@ -30,6 +23,12 @@ source dct-env/bin/activate
 pip install git+https://github.com/vanvalenlab/deepcell-types@master
 ```
 
+## Download the model
+```python
+from deepcell_types.utils import download_model
+download_model()
+```
+
 ## Running
 
 The `deepcell-types` cell-type inference functionality is provided via
@@ -42,6 +41,28 @@ TissueNet zarr archive at inference time. Pass the archive with
 
 For a complete example of the cell-type inference pipeline, check out
 the [tutorial](https://vanvalenlab.github.io/deepcell-types/site/tutorial.html).
+
+## Training
+
+To retrain or fine-tune, install the `[train]` extra (pulls in `wandb`,
+`zarr`, `pandas`, `scikit-learn`, `torchvision`, `torchmetrics`, etc.):
+
+```bash
+pip install "deepcell-types[train] @ git+https://github.com/vanvalenlab/deepcell-types@master"
+```
+
+Training entry points live under `scripts/`:
+
+- `scripts/train.py` — main training loop.
+- `scripts/pretrain.py` — masked-marker pretraining.
+- `scripts/predict.py` — batched evaluation over a zarr archive.
+- `scripts/benchmark_gold_standard.py` — gold-standard benchmark suite.
+
+All training scripts read configuration from a TissueNet zarr v3 archive.
+Pass `--zarr_path` or set `DEEPCELL_TYPES_ZARR_PATH`. The training-side
+modules under `deepcell_types.training` (e.g. `TissueNetConfig`,
+`FullImageDataset`, `FocalLoss`, `HierarchicalLoss`) are stable enough to
+import directly for custom training scripts.
 
 ## Citation
 ```

@@ -41,7 +41,7 @@ outputs of the cell-type inference pipeline.
 
 This tutorial can also be run locally with `jupyter`.
 
-Start by cloning the sorce repository:
+Start by cloning the source repository:
 
 ```bash
 git clone https://github.com/vanvalenlab/deepcell-types.git && cd deepcell-types
@@ -109,6 +109,33 @@ and select `Open with -> Jupytext notebook`.
    The model requires users to preprocess input images to align with the
    distribution of our training data for optimal performance and generalization.
    See the paper for details.
+
+## Training
+
+The repository also ships the training pipeline used to produce the canonical
+checkpoints. Training-only code lives under `deepcell_types.training` and is
+gated behind the `[train]` install extra so plain inference users don't pull
+in `wandb`, `zarr`, `pandas`, `scikit-learn`, `torchvision`, etc.
+
+```bash
+pip install "deepcell-types[train] @ git+https://github.com/vanvalenlab/deepcell-types@master"
+```
+
+The end-to-end training and evaluation scripts live under `scripts/`:
+
+- `scripts/train.py` — main training entry point (DCTConfig + FullImageDataset
+  + FocalLoss / HierarchicalLoss + OneCycleLR; supports the FOV-grouped
+  sampler and the conditioned marker-positivity head).
+- `scripts/predict.py` — batched predictions over a zarr archive, with
+  optional hierarchy-aware evaluation.
+- `scripts/pretrain.py` — masked-marker pretraining stage.
+- `scripts/benchmark_gold_standard.py` — gold-standard benchmark suite.
+- `scripts/ingest_gold_to_zarr.py` — turn a gold-standard CSV+TIFF tree into
+  a TissueNet-compatible zarr archive.
+
+All training scripts read mappings and metadata from a TissueNet zarr v3
+archive (`tissuenet-v8.zarr` or newer). Pass the archive path either with
+`--zarr_path` or via the `DEEPCELL_TYPES_ZARR_PATH` environment variable.
 
 ```{toctree}
 ---
