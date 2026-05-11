@@ -283,6 +283,7 @@ See {ref}`download_models` for details.
 ```{code-cell} ipython3
 # Model & system-specific configuration
 model = "deepcell-types_2025-06-09"
+zarr_path = "/path/to/tissuenet-v9.zarr"
 
 # NOTE: if you do not have a cuda-capable GPU, try "cpu"
 device = "cuda:0"
@@ -290,6 +291,11 @@ device = "cuda:0"
 # increasing for better performance.
 num_data_loader_threads = 1
 ```
+
+If you are using a canonical checkpoint, `zarr_path` must point at the
+TissueNet archive whose root attrs define the current standardized marker and
+cell-type registry. You can also set the same path once via the
+`DEEPCELL_TYPES_ZARR_PATH` environment variable.
 
 With the system all configured, we can now run the pipeline:
 
@@ -304,6 +310,7 @@ cell_types = deepcell_types.predict(
     model_name=model,
     device_num=device,
     num_workers=num_data_loader_threads,
+    zarr_path=zarr_path,
 )
 ```
 

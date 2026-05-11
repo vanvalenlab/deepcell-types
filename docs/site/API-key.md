@@ -53,8 +53,6 @@ network bandwidth before attempting to download.
 Similarly, training data can be downloaded for local use with:
 
 ```python
->>> from utils import download_training_data
-
-
+>>> from deepcell_types.utils import download_training_data
 >>> download_training_data()
 ```

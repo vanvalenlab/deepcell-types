@@ -41,7 +41,7 @@ outputs of the cell-type inference pipeline.
 
 This tutorial can also be run locally with `jupyter`.
 
-Start by cloning the sorce repository:
+Start by cloning the source repository:
 
 ```bash
 git clone https://github.com/vanvalenlab/deepcell-types.git && cd deepcell-types
@@ -71,16 +71,18 @@ and select `Open with -> Jupytext notebook`.
 
 1. **Maximum channel limit**
 
-   The model currently supports a maximum of **75** channels per dataset. If you
-   have a dataset with more than 75 marker channels, it will be necessary to
-   remove channels to get below this limit. Note that (by default) nuclear and
-   non-recognized channel names are automatically dropped.
+   The model supports a maximum of **80** channels per dataset. If your data has
+   more channels than this limit, it will be necessary to remove channels to get
+   below it. Note that (by default) nuclear and non-recognized channel names are
+   automatically dropped.
 
 2. **Recognized channels**
 
-   The model maintains a registry of natively-supported channels at
-   [`deepcell_types/dct_kit/config/master_channels.yaml`][master_channels_gh].
-   If your data contains markers not found in this listing, they will be
+   The model reads its registry of natively-supported channels and cell types
+   from the TissueNet zarr archive provided at inference time via `zarr_path=...`
+   or the `DEEPCELL_TYPES_ZARR_PATH` environment variable. In practice the
+   recognized channels are whatever the selected archive exposes in its root
+   `attrs.all_standardized_channels`. Markers not found in this listing are
    ignored at inference time.
    There are two ways to add support for additional channels:
 
@@ -92,11 +94,15 @@ and select `Open with -> Jupytext notebook`.
          FP3: FoxP3
 
      Note that the target name (`FoxP3` in this example) must be one of the
-     names already found in `master_channels.yaml`
+     names already found in the selected checkpoint's channel registry.
 
    - Adding new markers to the model can be achieved by manually acquiring
      embeddings for additional channels via DeepSeek (model and prompt details
      can be found in the paper).
+
+   Checkpoint loading validates that the archive and checkpoint agree on marker
+   count and cell-type count. If they do not, inference fails early with a
+   `ValueError`.
 
 3. **Image preprocessing**
 
@@ -104,7 +110,32 @@ and select `Open with -> Jupytext notebook`.
    distribution of our training data for optimal performance and generalization.
    See the paper for details.
 
-[master_channels_gh]: https://github.com/vanvalenlab/deepcell-types/blob/master/deepcell_types/dct_kit/config/master_channels.yaml
+## Training
+
+The repository also ships the training pipeline used to produce the canonical
+checkpoints. Training-only code lives under `deepcell_types.training` and is
+gated behind the `[train]` install extra so plain inference users don't pull
+in `wandb`, `zarr`, `pandas`, `scikit-learn`, `torchvision`, etc.
+
+```bash
+pip install "deepcell-types[train] @ git+https://github.com/vanvalenlab/deepcell-types@master"
+```
+
+The end-to-end training and evaluation scripts live under `scripts/`:
+
+- `scripts/train.py` — main training entry point (DCTConfig + FullImageDataset
+  + FocalLoss / HierarchicalLoss + OneCycleLR; supports the FOV-grouped
+  sampler and the conditioned marker-positivity head).
+- `scripts/predict.py` — batched predictions over a zarr archive, with
+  optional hierarchy-aware evaluation.
+- `scripts/pretrain.py` — masked-marker pretraining stage.
+- `scripts/benchmark_gold_standard.py` — gold-standard benchmark suite.
+- `scripts/ingest_gold_to_zarr.py` — turn a gold-standard CSV+TIFF tree into
+  a TissueNet-compatible zarr archive.
+
+All training scripts read mappings and metadata from a TissueNet zarr v3
+archive (`tissuenet-v8.zarr` or newer). Pass the archive path either with
+`--zarr_path` or via the `DEEPCELL_TYPES_ZARR_PATH` environment variable.
 
 ```{toctree}
 ---
