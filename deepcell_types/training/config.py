@@ -26,12 +26,11 @@ logger = logging.getLogger(__name__)
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
 DEFAULT_ZARR_PATH = DATA_DIR / "tissuenet-caitlin-labels.zarr"
 
-# Config directory (relative to repo root: deepcell_types/training/config.py
-# -> deepcell_types/training/ -> deepcell_types/ -> repo root -> config/).
-# After migrating into deepcell-types this is one ``.parent`` deeper than
-# the original deepcelltypes-cell-type-assignment-pytorch layout, where
-# this module sat directly under deepcelltypes/.
-CONFIG_DIR = Path(__file__).parent.parent.parent / "config"
+# Config directory — sibling of this file inside the package:
+# deepcell_types/training/config.py -> deepcell_types/training/config/.
+# Lives inside the package so `pip install` ships the YAMLs as
+# package-data (see [tool.setuptools.package-data] in pyproject.toml).
+CONFIG_DIR = Path(__file__).parent / "config"
 
 # Cell type hierarchy for evaluation.
 # Predictions of child types count as correct when ground truth is a parent type.

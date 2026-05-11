@@ -43,6 +43,9 @@ train = [
     "pandas",
     "scikit-learn",
     "click",
+    # Used by scripts/ingest_gold_to_zarr.py (top-level import) and
+    # by several other gold-standard / refinement scripts.
+    "tifffile",
 ]
 # Baselines comparison (xgboost / optuna sweeps).
 baselines = ["xgboost", "optuna"]
@@ -64,7 +67,15 @@ packages = [
 include-package-data = true
 
 [tool.setuptools.package-data]
-deepcell_types = ["dct_kit/config/*.yaml", "dct_kit/config/*.json"]
+deepcell_types = [
+    "dct_kit/config/*.yaml",
+    "dct_kit/config/*.json",
+    # Training-side YAMLs (e.g. combined_celltypes.yaml used by
+    # TissueNetConfig.combined_celltype_mapping) — must ship with
+    # the wheel since training/config.py resolves them relative to
+    # __file__, not via repo-root paths.
+    "training/config/*.yaml",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
