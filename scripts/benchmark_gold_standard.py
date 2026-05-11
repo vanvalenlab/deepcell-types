@@ -52,15 +52,34 @@ from tqdm import tqdm
 def discover_gold_standard_subsets(gold_dir: Path) -> dict:
     """Discover available subsets in the gold standard directory.
 
+    Supports two layouts:
+
+    (A) Per-subset labels (legacy):
+        <gold_dir>/<subset>/{raw|images}/, <gold_dir>/<subset>/{labels|label}/,
+        <gold_dir>/<subset>/{masks|mask}/
+
+    (B) Central CSV + per-FOV folders (Pan-Multiplex Gold Standard as
+        distributed by Rumberger et al.):
+        <gold_dir>/<subset>/fovs/<fov_name>/<marker>.ome.tif
+        <gold_dir>/<subset>/masks/<fov_name>.ome.tif
+        <gold_dir>/gold_standard_groundtruth.csv  (one row per (fov, cell_id, channel, activity))
+
     Returns:
         Dict mapping subset_name -> {
-            "images_dir": Path to TIFF images,
-            "labels_dir": Path to label CSVs,
+            "images_dir": Path to per-FOV image directories root,
+            "labels_dir": Path to per-subset label CSVs (or None if central CSV),
             "masks_dir": Path to segmentation masks,
+            "central_csv": Path to central CSV (or None),
         }
     """
     subsets = {}
-    # The extracted zip has a top-level directory; search for it
+    central_csv = gold_dir / "gold_standard_groundtruth.csv"
+    if not central_csv.exists():
+        central_csv = None
+
+    # The extracted zip may have a top-level wrapper dir; search both
+    # `gold_dir` and one level down. Subsets are subdirectories that contain
+    # either a labels/ dir (layout A) or a fovs/ dir (layout B).
     for candidate in [gold_dir, *gold_dir.iterdir()]:
         if not candidate.is_dir():
             continue
@@ -68,18 +87,54 @@ def discover_gold_standard_subsets(gold_dir: Path) -> dict:
             if not subset_dir.is_dir():
                 continue
             name = subset_dir.name
-            # Look for expected subdirectories
-            images_dir = subset_dir / "raw" if (subset_dir / "raw").exists() else subset_dir / "images"
-            labels_dir = subset_dir / "labels" if (subset_dir / "labels").exists() else subset_dir / "label"
-            masks_dir = subset_dir / "masks" if (subset_dir / "masks").exists() else subset_dir / "mask"
-            if labels_dir.exists():
+            if name in subsets:
+                continue
+            images_dir = (
+                subset_dir / "raw" if (subset_dir / "raw").exists()
+                else subset_dir / "images" if (subset_dir / "images").exists()
+                else subset_dir / "fovs" if (subset_dir / "fovs").exists()
+                else None
+            )
+            labels_dir = (
+                subset_dir / "labels" if (subset_dir / "labels").exists()
+                else subset_dir / "label" if (subset_dir / "label").exists()
+                else None
+            )
+            masks_dir = (
+                subset_dir / "masks" if (subset_dir / "masks").exists()
+                else subset_dir / "mask" if (subset_dir / "mask").exists()
+                else None
+            )
+            # Accept if either per-subset labels exist OR a central CSV
+            # is present at the gold_dir root and an images_dir exists.
+            if labels_dir is not None or (central_csv is not None and images_dir is not None):
                 subsets[name] = {
                     "root": subset_dir,
-                    "images_dir": images_dir if images_dir.exists() else None,
+                    "images_dir": images_dir,
                     "labels_dir": labels_dir,
-                    "masks_dir": masks_dir if masks_dir.exists() else None,
+                    "masks_dir": masks_dir,
+                    "central_csv": central_csv,
                 }
     return subsets
+
+
+def _load_labels_from_central_csv(central_csv: Path, subset_name: str) -> pd.DataFrame:
+    """Slice the central Pan-Multiplex CSV for one subset and reshape to the
+    (fov, cell_index, marker, label) schema used downstream.
+
+    The central CSV has columns: dataset, fov, cell_id, channel, activity.
+    """
+    df = pd.read_csv(central_csv)
+    sub = df[df["dataset"] == subset_name]
+    if sub.empty:
+        return pd.DataFrame(columns=["fov", "cell_index", "marker", "label"])
+    out = pd.DataFrame({
+        "fov": sub["fov"].astype(str).values,
+        "cell_index": sub["cell_id"].astype(int).values,
+        "marker": sub["channel"].astype(str).values,
+        "label": sub["activity"].astype(int).values,
+    })
+    return out
 
 
 def load_gold_standard_labels(labels_dir: Path) -> pd.DataFrame:
@@ -251,8 +306,14 @@ def run_nimbus_benchmark(gold_dir: Path, device: str = "cuda:0") -> dict:
             print(f"  Skipping (missing images or masks)")
             continue
 
-        # Load gold standard labels
-        labels_df = load_gold_standard_labels(paths["labels_dir"])
+        # Load gold standard labels — prefer per-subset CSVs, fall back to the
+        # central Pan-Multiplex CSV at the gold_dir root.
+        if paths["labels_dir"] is not None:
+            labels_df = load_gold_standard_labels(paths["labels_dir"])
+        elif paths["central_csv"] is not None:
+            labels_df = _load_labels_from_central_csv(paths["central_csv"], subset_name)
+        else:
+            labels_df = pd.DataFrame()
         if labels_df.empty:
             print(f"  Skipping (no labels)")
             continue
@@ -277,18 +338,79 @@ def run_nimbus_benchmark(gold_dir: Path, device: str = "cuda:0") -> dict:
         else:
             input_shape = [1024, 1024]
 
-        segmentation_naming_convention = prep_naming_convention(mask_dir)
+        # Build a naming convention that tolerates the Pan-Multiplex layout
+        # (masks named ``<fov>.ome.tif``) as well as the legacy DeepCell layout
+        # (``<fov>_whole_cell.tiff``). We probe both per FOV.
+        def segmentation_naming_convention(fov_path, _mask_dir=str(mask_dir)):
+            import os as _os
+            fov_name = _os.path.basename(fov_path)
+            # Strip trailing image-suffixes that some Pan-Multiplex subsets append
+            # to FOV folder names but not to mask filenames.
+            for _strip in (
+                ".ome.tiff", ".ome.tif", ".tiff", ".tif",
+                ".tif_image", "_image",
+            ):
+                if fov_name.endswith(_strip):
+                    fov_name = fov_name[: -len(_strip)]
+                    break
+            for cand in (
+                f"{fov_name}.ome.tif",
+                f"{fov_name}.ome.tiff",
+                f"{fov_name}feature_0.ome.tif",
+                f"{fov_name}feature_0.ome.tiff",
+                f"{fov_name}_whole_cell.tiff",
+                f"{fov_name}_whole_cell.tif",
+                f"{fov_name}.tiff",
+                f"{fov_name}.tif",
+            ):
+                p = _os.path.join(_mask_dir, cand)
+                if _os.path.exists(p):
+                    return p
+            # Prefix-match fallback: some Pan-Multiplex subsets append arbitrary
+            # suffixes (e.g. ``feature_0``, ``_image``) between the FOV stem and
+            # the file extension. Pick the unique prefix match if there is one.
+            try:
+                cands = [
+                    f for f in _os.listdir(_mask_dir)
+                    if f.startswith(fov_name)
+                ]
+                if len(cands) == 1:
+                    return _os.path.join(_mask_dir, cands[0])
+            except OSError:
+                pass
+            # Fall back to DeepCell-style name; Nimbus will raise a clean error.
+            return _os.path.join(_mask_dir, f"{fov_name}_whole_cell.tiff")
+
+        # Per-FOV folders in the Pan-Multiplex gold layout hold ``.ome.tif``
+        # files (e.g. ``CD3.ome.tif``); accept either suffix to stay backward-
+        # compatible with the legacy ``.tiff`` layout.
+        sample_fov_files = list(Path(fov_paths[0]).iterdir())
+        suffix = ".ome.tif" if any(
+            p.name.endswith(".ome.tif") for p in sample_fov_files
+        ) else ".tiff"
+        output_dir = str(gold_dir / "nimbus_output" / subset_name)
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
 
         dataset = MultiplexDataset(
             fov_paths=fov_paths,
-            suffix=".tiff",
-            include_channels=None,
+            suffix=suffix,
+            include_channels=[],
             segmentation_naming_convention=segmentation_naming_convention,
+            output_dir=output_dir,
+        )
+
+        # Nimbus v0.0.5: ``prepare_normalization_dict`` lives on the dataset,
+        # not on the ``Nimbus`` instance. ``Nimbus.predict_fovs`` reaches into
+        # the dataset for the normalization dict at inference time and will
+        # auto-prepare lazily, but we trigger it explicitly so progress is
+        # visible and any quantile-related errors surface up front.
+        dataset.prepare_normalization_dict(
+            n_subset=50, multiprocessing=False, overwrite=True
         )
 
         nimbus = Nimbus(
             dataset=dataset,
-            output_dir=str(gold_dir / "nimbus_output" / subset_name),
+            output_dir=output_dir,
             save_predictions=False,
             batch_size=1,
             test_time_aug=True,
@@ -297,7 +419,6 @@ def run_nimbus_benchmark(gold_dir: Path, device: str = "cuda:0") -> dict:
         )
 
         nimbus.check_inputs()
-        nimbus.prepare_normalization_dict(n_subset=50, multiprocessing=False, overwrite=True)
 
         # Run inference
         cell_table = nimbus.predict_fovs()

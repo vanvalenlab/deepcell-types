@@ -397,7 +397,9 @@ class CellTypeAnnotator(nn.Module):
         # 2. Per-channel encoding
         channel_feat = self.channel_encoder(sample)  # (B, C_max, 128)
         # Zero out padded channel features to prevent them from affecting downstream computation.
-        channel_feat[padding_mask] = 0.0
+        # Use out-of-place masked_fill to avoid in-place writes on tensors in
+        # the backward graph under AMP autocast.
+        channel_feat = channel_feat.masked_fill(padding_mask.unsqueeze(-1), 0.0)
 
         # 3. Fusion: broadcast spatial features across channels and concatenate.
         # Zero spatial features for padding positions BEFORE concat. Without

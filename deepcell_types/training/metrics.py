@@ -95,22 +95,24 @@ def summarize_mp_per_marker(per_marker_counts: dict) -> dict:
         f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
         acc = (tp + tn) / (tp + fp + fn + tn) if (tp + fp + fn + tn) > 0 else 0.0
 
-        accuracies.append(acc)
-
-        # Symmetric vacuous-marker exclusion across precision/recall/F1 — otherwise
-        # the triangle identity macro_f1 ≈ 2pr/(p+r) breaks because prec/rec would
-        # include 0.0 for vacuous markers while F1 used nanmean (PR #55 fix).
+        # Symmetric vacuous-marker exclusion across precision/recall/F1/accuracy
+        # — otherwise the triangle identity macro_f1 ≈ 2pr/(p+r) breaks because
+        # prec/rec would include 0.0 for vacuous markers while F1 used nanmean
+        # (PR #55 fix). Accuracy is also excluded so the four macro reductions
+        # share the same denominator (mp_num_markers - excluded).
         n_pos_gt = tp + fn
         n_pos_pred = tp + fp
         if n_pos_gt == 0 and n_pos_pred == 0:
             f1s.append(np.nan)
             precisions.append(np.nan)
             recalls.append(np.nan)
+            accuracies.append(np.nan)
             excluded += 1
         else:
             f1s.append(f1)
             precisions.append(prec)
             recalls.append(rec)
+            accuracies.append(acc)
 
     denom_f1 = 2 * total_tp + total_fp + total_fn
     denom_prec = total_tp + total_fp
@@ -136,7 +138,11 @@ def summarize_mp_per_marker(per_marker_counts: dict) -> dict:
             if len(recalls) > 0 and not np.all(np.isnan(recalls))
             else 0.0
         ),
-        "mp_macro_accuracy": float(np.mean(accuracies)),
+        "mp_macro_accuracy": (
+            float(np.nanmean(accuracies))
+            if len(accuracies) > 0 and not np.all(np.isnan(accuracies))
+            else 0.0
+        ),
         "mp_num_markers": len(per_marker_counts),
         "mp_num_markers_excluded_from_macro_f1": excluded,
     }
