@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 import torch
 from torch.utils.data import DataLoader
 from numcodecs import Zstd
@@ -11,6 +12,8 @@ from deepcell_types.dataset import PatchDataset
 from deepcell_types.dct_kit.config import DCTConfig
 from deepcell_types.predict import (
     _InferenceResultBuffer,
+    _build_model,
+    _excluded_celltype_indices,
     _model_path,
     predict,
 )
@@ -214,3 +217,99 @@ def test_predict_accepts_archive_backed_canonical_checkpoint_path(tmp_path):
 
     assert len(cell_types) == 1
     assert cell_types[0] in config.ct2idx
+
+
+def _build_checkpoint(config, tmp_path, **overrides):
+    marker_embeddings = np.zeros((len(config.marker2idx), 8), dtype=np.float32)
+    model = create_model(
+        config,
+        marker_embeddings,
+        d_model=32,
+        n_heads=8,
+        n_layers=1,
+        resnet_base_channels=4,
+        **overrides,
+    )
+    ckpt_path = tmp_path / "ckpt.pt"
+    torch.save({"model": model.state_dict()}, ckpt_path)
+    return ckpt_path
+
+
+def test_build_model_raises_on_marker_count_mismatch(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+
+    # Hand the checkpoint a config whose marker2idx is missing one entry.
+    config._marker2idx = {k: v for k, v in list(config.marker2idx.items())[:-1]}
+    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    with pytest.raises(ValueError, match="markers"):
+        _build_model(checkpoint, config, torch.device("cpu"))
+
+
+def test_build_model_raises_on_celltype_count_mismatch(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+
+    config._ct2idx = {k: v for k, v in list(config.ct2idx.items())[:-1]}
+    config.NUM_CELLTYPES = len(config._ct2idx)
+    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    with pytest.raises(ValueError, match="cell types"):
+        _build_model(checkpoint, config, torch.device("cpu"))
+
+
+def test_excluded_celltype_indices_rejects_unknown_tissue(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    with pytest.raises(ValueError, match="Unknown tissue_exclude"):
+        _excluded_celltype_indices(config, "not-a-real-tissue", batch_size=2)
+
+
+def test_excluded_celltype_indices_restricts_to_allowed(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    # liver fixture only annotates "Tumor" — the excluded set must include
+    # every index that is NOT Tumor.
+    excluded = _excluded_celltype_indices(config, "liver", batch_size=3)
+    assert excluded is not None
+    assert len(excluded) == 3
+    tumor_idx = config.ct2idx["Tumor"]
+    for row in excluded:
+        assert tumor_idx not in row
+        assert set(row) | {tumor_idx} == set(range(len(config.ct2idx)))
+
+
+def test_excluded_celltype_indices_none_passthrough(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    assert _excluded_celltype_indices(config, None, batch_size=4) is None
+
+
+def test_patch_dataset_rejects_only_unknown_channel_names(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    raw = np.ones((1, 40, 40), dtype=np.float32)
+    mask = np.zeros((40, 40), dtype=np.int32)
+    mask[12:28, 12:28] = 1
+    with pytest.raises(ValueError, match="No input channels matched"):
+        PatchDataset(raw, mask, ["FAKE_MARKER_XYZ_000"], 0.5, config)
+
+
+def test_dct_and_tissuenet_config_agree_on_shared_constants(tmp_path):
+    """DCTConfig (inference) and TissueNetConfig (training) coexist by
+    design but must agree on the constants that affect patch geometry —
+    otherwise inference runs on patches sized differently than training.
+    """
+    zarr = pytest.importorskip("zarr")  # noqa: F841 — training extra gate
+    from deepcell_types.training.config import TissueNetConfig
+
+    archive_path = _make_archive(tmp_path)
+    dct = DCTConfig(zarr_path=archive_path)
+    tnc = TissueNetConfig(zarr_path=archive_path)
+
+    assert dct.MAX_NUM_CHANNELS == tnc.MAX_NUM_CHANNELS
+    assert dct.CROP_SIZE == tnc.CROP_SIZE
+    assert dct.STANDARD_MPP_RESOLUTION == tnc.STANDARD_MPP_RESOLUTION
+    assert dct.marker2idx == tnc.marker2idx
+    assert dct.ct2idx == tnc.ct2idx
