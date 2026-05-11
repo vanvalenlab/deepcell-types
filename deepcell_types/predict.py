@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from .annotator_model import create_model
+from .model import create_model
 from .dataset import PatchDataset
 from .dct_kit.config import DCTConfig
 
