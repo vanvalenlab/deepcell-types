@@ -118,7 +118,6 @@ def forward_one_batch(
             batch_data.mask,
             ct_exclude,
             domain_idx=batch_data.domain_idx,
-            tissue_idx=batch_data.tissue_idx,
         )
 
         # Defensive check: target class should never be in the exclude set
