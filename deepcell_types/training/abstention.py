@@ -107,7 +107,7 @@ def hierarchical_correct(
     """Per-cell binary correctness with parent->child credit.
 
     Mirrors `analysis/ct_abstention_iqr.py::hierarchical_correct` and
-    `deepcelltypes.utils.adjust_conf_mat_hierarchy`: a prediction of a child
+    `deepcell_types.training.utils.adjust_conf_mat_hierarchy`: a prediction of a child
     cell type when the true label is its declared parent counts as correct.
     """
     correct = (true_labels == pred_labels)
