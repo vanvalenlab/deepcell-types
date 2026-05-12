@@ -223,7 +223,7 @@ def forward_one_batch(
 @click.option("--model_name", type=str, default="v2_test_0")
 @click.option("--device_num", type=str, default="cuda:0")
 @click.option("--enable_wandb", type=bool, default=False)
-@click.option("--zarr_dir", type=str, default=str(DATA_DIR / "tissuenet-caitlin-labels.zarr"))
+@click.option("--zarr_dir", type=str, default=str(DATA_DIR))
 @click.option("--skip_datasets", type=str, multiple=True, default=[])
 @click.option("--keep_datasets", type=str, multiple=True, default=[])
 @click.option("--epochs", type=int, default=50)
