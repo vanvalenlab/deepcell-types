@@ -406,10 +406,12 @@ class CellTypeAnnotator(nn.Module):
         # this, padding tokens enter ``self.fusion`` with [0, spatial_feat] and
         # emerge as ``W_spatial @ spatial_feat + bias`` — non-trivial features
         # for tokens that should be invisible to the transformer.
-        spatial_expanded = spatial_feat.unsqueeze(1).expand(
-            -1, C_max, -1
-        ).clone()  # (B, C_max, 64); clone so we can write through padding rows
-        spatial_expanded[padding_mask] = 0.0
+        # Use out-of-place masked_fill (same AMP-safe pattern as channel_feat
+        # above); the expand() view is materialized by masked_fill.
+        spatial_expanded = spatial_feat.unsqueeze(1).expand(-1, C_max, -1)
+        spatial_expanded = spatial_expanded.masked_fill(
+            padding_mask.unsqueeze(-1), 0.0
+        )
         fused = torch.cat([channel_feat, spatial_expanded], dim=-1)  # (B, C_max, 192)
         fused = self.fusion(fused)  # (B, C_max, d_model)
 
