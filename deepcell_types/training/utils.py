@@ -88,7 +88,11 @@ def _feature_cache_metadata(
         pass
 
     return {
-        "cache_version": 5,
+        # v6 adds per-dataset ``present_markers`` so callers can distinguish
+        # ``marker absent in this dataset`` from ``marker present but mean
+        # intensity is 0.0`` and substitute their own missing-value sentinel
+        # (e.g. NaN for XGBoost) without re-extracting from zarr.
+        "cache_version": 6,
         "zarr_dir": str(zarr_path),
         "min_channels": min_channels,
         "dataset_keys_hash": _stable_hash(sorted(dataset_keys)),

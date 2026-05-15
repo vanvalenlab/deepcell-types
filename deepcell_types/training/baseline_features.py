@@ -28,6 +28,51 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
+def _apply_missing_value(out: dict, missing_value: float) -> None:
+    """Replace absent-marker slots in ``X_train`` / ``X_val`` with ``missing_value``.
+
+    The feature matrices stored in ``out`` are 0-filled at absent-marker
+    columns by ``_extract_all_dataset_features``. This helper substitutes
+    the caller-supplied sentinel post-extraction (and post-cache-load) so
+    that the cached matrices stay parameter-agnostic — the same cache
+    serves a MAPS run (``missing_value=0.0``) and an XGBoost run
+    (``missing_value=np.nan``).
+
+    Substitution is a no-op when ``missing_value == 0.0`` (the matrix is
+    already 0-filled at absent slots) or when block metadata is absent
+    (legacy cache prior to ``cache_version=6``).
+    """
+    if missing_value == 0.0:
+        return
+    for split in ("train", "val"):
+        X = out.get(f"X_{split}")
+        block_sizes = out.get(f"{split}_block_sizes")
+        block_absent = out.get(f"{split}_block_absent")
+        if X is None or block_sizes is None or block_absent is None:
+            continue
+        if len(X) == 0 or len(block_sizes) == 0:
+            continue
+        block_sizes = np.asarray(block_sizes)
+        block_absent = np.asarray(block_absent, dtype=bool)
+        if block_sizes.sum() != len(X):
+            logger.warning(
+                "%s block sizes (%d) do not sum to feature row count (%d); "
+                "skipping missing-value substitution",
+                split, int(block_sizes.sum()), len(X),
+            )
+            continue
+        # Ensure we own the array before in-place writes (cached arrays
+        # may be read-only memory-mapped views).
+        if not X.flags.writeable or X.dtype != np.float32:
+            X = np.array(X, dtype=np.float32)
+            out[f"X_{split}"] = X
+        row = 0
+        for n_cells, absent_markers in zip(block_sizes.tolist(), block_absent):
+            if absent_markers.any():
+                X[row:row + int(n_cells), absent_markers] = missing_value
+            row += int(n_cells)
+
+
 # Shared baseline utilities
 def _conf_mat_summary(conf_mat: np.ndarray) -> dict:
     """Shared confusion-matrix → {macro/weighted accuracy, macro/weighted F1}.
@@ -302,12 +347,14 @@ def _extract_all_dataset_features(
         cell_idxs = np.array([vc[1] for vc in valid_cells])
 
         features = np.zeros((len(valid_cells), num_markers), dtype=np.float32)
+        present_markers = np.zeros(num_markers, dtype=bool)
         cell_counts = counts[cell_idxs]
         cell_counts_safe = np.where(cell_counts > 0, cell_counts, 1)
         for c, ch_name in enumerate(channel_names):
             global_idx = resolve_marker_idx(ch_name)
             if global_idx is None:
                 continue
+            present_markers[global_idx] = True
             channel_data = preproc["raw"][c]
             sums = np.bincount(
                 mask_flat,
@@ -326,6 +373,13 @@ def _extract_all_dataset_features(
             # this as an extra input column (paper Methods + canonical README).
             # Stored separately so consumers that don't need it can ignore it.
             "cell_sizes": cell_counts.astype(np.float32),
+            # Bool mask over the global marker vocabulary indicating which
+            # marker slots were populated by a real channel in this dataset.
+            # Lets ``extract_features_from_zarr`` distinguish "absent marker"
+            # from "marker present, mean intensity is 0.0" so that XGBoost
+            # and other baselines can substitute their preferred
+            # missing-value sentinel (e.g. NaN).
+            "present_markers": present_markers,
         }
 
     # Save global cache
@@ -357,6 +411,7 @@ def extract_features_from_zarr(
     min_channels: int = 0,
     global_cache_path: str = None,
     strict_split: bool = True,
+    missing_value: float = 0.0,
 ) -> dict:
     """Extract mean intensity features directly from zarr (fast path for baselines).
 
@@ -382,6 +437,15 @@ def extract_features_from_zarr(
             multiple splits share the same underlying data.
         strict_split: If True, reject split files whose train/val FOVs are
             absent from the archive, absent after feature extraction, or overlap.
+        missing_value: Sentinel written into feature slots whose marker is
+            **absent** from the source dataset (no real channel for that
+            marker). Default ``0.0`` preserves the legacy 0-fill behavior
+            relied on by MAPS / CellSighter. XGBoost should pass
+            ``numpy.nan`` so absent markers route through XGBoost's
+            ``missing=NaN`` default direction at every split, rather than
+            being conflated with real channels whose mean intensity
+            happens to be 0.0. Substitution is applied per-row using the
+            present-marker mask recorded for each row's source dataset.
 
     Returns:
         dict with keys:
@@ -452,6 +516,7 @@ def extract_features_from_zarr(
                         print(
                             f"Loaded {len(out['X_train'])} train, {len(out['X_val'])} val samples from cache"
                         )
+                        _apply_missing_value(out, missing_value)
                         return out
             except (
                 OSError,
@@ -603,6 +668,14 @@ def extract_features_from_zarr(
             "fov_names": [],
             "cell_indices": [],
             "cell_sizes": [],
+            # Per-block (row_count, absent_markers) lists for the
+            # post-concat missing-value substitution. Tracked per block
+            # rather than per row so we don't materialise an (N, M) bool
+            # array for big splits. Persisted alongside ``X_*`` so that
+            # the per-split cache load path can re-apply substitution
+            # without re-extracting features from zarr.
+            "block_sizes": [],
+            "block_absent": [],
         },
         "val": {
             "features": [],
@@ -611,9 +684,12 @@ def extract_features_from_zarr(
             "fov_names": [],
             "cell_indices": [],
             "cell_sizes": [],
+            "block_sizes": [],
+            "block_absent": [],
         },
     }
 
+    num_markers = len(dct_config.marker2idx)
     for dataset_key, data in per_dataset.items():
         if (dataset_key, dataset_key) in train_fov_set:
             split = "train"
@@ -634,9 +710,18 @@ def extract_features_from_zarr(
         if cell_sizes is None:
             cell_sizes = np.ones(n_cells, dtype=np.float32)
         acc["cell_sizes"].append(cell_sizes)
+        # Pre-v6 entries lack ``present_markers``; treat every column as
+        # present so the missing-value substitution is a no-op (matches
+        # legacy 0-fill behavior).
+        present_markers = data.get("present_markers")
+        if present_markers is None:
+            absent_markers = np.zeros(num_markers, dtype=bool)
+        else:
+            absent_markers = ~np.asarray(present_markers, dtype=bool)
+        acc["block_sizes"].append(n_cells)
+        acc["block_absent"].append(absent_markers)
 
     # Concatenate
-    num_markers = len(dct_config.marker2idx)
     out = {"metadata": {"active_datasets": dataset_keys, "num_samples": 0}}
     for split in ("train", "val"):
         acc = results[split]
@@ -644,16 +729,23 @@ def extract_features_from_zarr(
             X = np.concatenate(acc["features"], axis=0)
             y = np.concatenate(acc["labels"], axis=0)
             cell_sizes = np.concatenate(acc["cell_sizes"], axis=0)
+            block_sizes = np.asarray(acc["block_sizes"], dtype=np.int64)
+            block_absent = np.stack(acc["block_absent"], axis=0).astype(bool)
         else:
             X = np.zeros((0, num_markers), dtype=np.float32)
             y = np.zeros(0, dtype=np.int64)
             cell_sizes = np.zeros(0, dtype=np.float32)
+            block_sizes = np.zeros(0, dtype=np.int64)
+            block_absent = np.zeros((0, num_markers), dtype=bool)
+
         out[f"X_{split}"] = X
         out[f"y_{split}"] = y
         out[f"{split}_dataset_names"] = acc["ds_names"]
         out[f"{split}_fov_names"] = acc["fov_names"]
         out[f"{split}_cell_indices"] = acc["cell_indices"]
         out[f"{split}_cell_sizes"] = cell_sizes
+        out[f"{split}_block_sizes"] = block_sizes
+        out[f"{split}_block_absent"] = block_absent
         out["metadata"]["num_samples"] = out["metadata"].get("num_samples", 0) + len(y)
 
     meta = split_data.get("metadata", {})
@@ -682,6 +774,7 @@ def extract_features_from_zarr(
         _atomic_np_savez(cache_file, **save_dict)
         print(f"Cached features to {cache_path}")
 
+    _apply_missing_value(out, missing_value)
     return out
 
 
