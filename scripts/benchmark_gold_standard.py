@@ -539,10 +539,24 @@ def run_ours_benchmark(
     if isinstance(ckpt, dict) and "model" in ckpt:
         has_tumor_head = any(k.startswith("tumor_head.") for k in ckpt["model"])
 
+    # Auto-detect mean_intensity_mode from ckpt keys
+    mean_intensity_mode = "none"
+    if isinstance(ckpt, dict) and "model" in ckpt:
+        has_cls = any(k.startswith("intensity_cls_branch.") for k in ckpt["model"])
+        has_pch = any(k.startswith("intensity_per_channel_proj.") for k in ckpt["model"])
+        if has_cls and has_pch:
+            mean_intensity_mode = "both"
+        elif has_cls:
+            mean_intensity_mode = "cls_residual"
+        elif has_pch:
+            mean_intensity_mode = "per_channel"
+    print(f"  mean_intensity_mode={mean_intensity_mode}")
+
     model = create_model(
         config, marker_embeddings, d_model=256,
         resnet_base_channels=resnet_channels,
         tumor_head=has_tumor_head,
+        mean_intensity_mode=mean_intensity_mode,
     )
     if isinstance(ckpt, dict) and "model" in ckpt:
         model.load_state_dict(ckpt["model"])

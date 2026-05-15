@@ -148,7 +148,7 @@ class MarkerEmbeddingLayer(nn.Module):
     (no train/eval mismatch).
     """
 
-    def __init__(self, d_model, marker_embeddings, lora_rank=0):
+    def __init__(self, d_model, marker_embeddings):
         super().__init__()
 
         # Add padding embedding at index 0
@@ -167,28 +167,25 @@ class MarkerEmbeddingLayer(nn.Module):
         self.embed_layer = nn.Embedding.from_pretrained(
             embeddings, freeze=True, padding_idx=0
         )
+        # Trainable projection from frozen embedding space → d_model. Note: a
+        # LoRA adapter (lora_A, lora_B) was previously offered here but
+        # mathematically redundant when ``proj`` is already trainable from
+        # scratch — ``proj.W + lora_B.W @ lora_A.W`` collapses into
+        # ``proj_eff.W``. LoRA was removed; old checkpoints with lora_A/lora_B
+        # keys can be folded into ``proj`` with
+        # ``scripts/fold_lora_into_proj.py`` before loading.
         self.proj = nn.Linear(embed_dim, d_model)
-
-        # Optional LoRA adapter for task-specific fine-tuning of embeddings
-        self.lora_rank = lora_rank
-        if lora_rank > 0:
-            self.lora_A = nn.Linear(embed_dim, lora_rank, bias=False)
-            self.lora_B = nn.Linear(lora_rank, d_model, bias=False)
-            # Zero init so delta=0 at start (no change to pretrained behavior)
-            nn.init.zeros_(self.lora_B.weight)
 
     def forward(self, ch_idx):
         """ch_idx: (B, C_max) -> (B, C_max, d_model), always normalized.
 
         Padding positions (ch_idx == -1) get exactly zero output so that
-        ``proj.bias``/``lora_B`` contamination cannot reach the transformer
-        for masked tokens.
+        ``proj.bias`` contamination cannot reach the transformer for masked
+        tokens.
         """
         out = ch_idx + 1  # shift for padding
         raw_emb = self.embed_layer(out)
         out = self.proj(raw_emb)
-        if self.lora_rank > 0:
-            out = out + self.lora_B(self.lora_A(raw_emb))
         # Always normalize (no train/eval mismatch)
         out = F.normalize(out, p=2, dim=-1)
         # Zero padding positions: F.normalize of a zero vector is zero, but
@@ -295,12 +292,9 @@ class CellTypeAnnotator(nn.Module):
         # 3. Fusion layer: concat channel features (128) + spatial features (64) -> d_model
         self.fusion = nn.Linear(channel_dim + spatial_dim, d_model)
 
-        # 4. Marker name embeddings
-        lora_rank = kwargs.get("lora_rank", 0)
+        # 4. Marker name embeddings (LoRA removed — redundant with trainable proj)
         if marker_embeddings is not None:
-            self.marker_embedder = MarkerEmbeddingLayer(
-                d_model, marker_embeddings, lora_rank=lora_rank
-            )
+            self.marker_embedder = MarkerEmbeddingLayer(d_model, marker_embeddings)
         else:
             self.marker_embedder = None
 
@@ -358,6 +352,25 @@ class CellTypeAnnotator(nn.Module):
                 nn.Dropout(dropout),
                 nn.Linear(d_model // 4, 1),
             )
+
+        # Mean-intensity-per-channel side input (zero-init → identity warm-start)
+        self.mean_intensity_mode = kwargs.get("mean_intensity_mode", "none")
+        if self.mean_intensity_mode != "none":
+            n_markers = marker_embeddings.shape[0] if marker_embeddings is not None else 278
+            self._n_markers = n_markers
+            if self.mean_intensity_mode in ("cls_residual", "both"):
+                self.intensity_cls_branch = nn.Sequential(
+                    nn.Linear(n_markers, d_model),
+                    nn.GELU(),
+                    nn.Dropout(dropout),
+                    nn.Linear(d_model, d_model),
+                )
+                nn.init.zeros_(self.intensity_cls_branch[-1].weight)
+                nn.init.zeros_(self.intensity_cls_branch[-1].bias)
+            if self.mean_intensity_mode in ("per_channel", "both"):
+                self.intensity_per_channel_proj = nn.Linear(1, d_model)
+                nn.init.zeros_(self.intensity_per_channel_proj.weight)
+                nn.init.zeros_(self.intensity_per_channel_proj.bias)
 
     def forward(
         self,
@@ -420,6 +433,19 @@ class CellTypeAnnotator(nn.Module):
             marker_emb = self.marker_embedder(ch_idx)  # (B, C_max, d_model)
             fused = fused + marker_emb
 
+        # 4b. Mean-intensity-per-channel side input (computed from sample masked by self_mask)
+        mean_intensity = None
+        if self.mean_intensity_mode != "none":
+            # sample is raw * self_mask, so sum / cell_size gives mean over the cell footprint
+            self_mask_2d = spatial_context[:, 0]  # (B, H, W)
+            cell_size = self_mask_2d.sum(dim=(-1, -2)).clamp(min=1.0)  # (B,)
+            mean_intensity = sample.sum(dim=(-1, -2, -3)) / cell_size.unsqueeze(-1)  # (B, C_max)
+            mean_intensity = mean_intensity.masked_fill(padding_mask, 0.0)
+            if self.mean_intensity_mode in ("per_channel", "both"):
+                per_ch = self.intensity_per_channel_proj(mean_intensity.unsqueeze(-1))  # (B, C_max, d_model)
+                per_ch = per_ch.masked_fill(padding_mask.unsqueeze(-1), 0.0)
+                fused = fused + per_ch
+
         # 5. Prepend CLS token
         cls_tokens = self.cls_token.expand(B, -1, -1)  # (B, 1, d_model)
         x = torch.cat([cls_tokens, fused], dim=1)  # (B, C_max+1, d_model)
@@ -445,6 +471,16 @@ class CellTypeAnnotator(nn.Module):
         # 6. Extract outputs
         cls_embedding = x[:, 0, :]  # (B, d_model)
         channel_outputs = x[:, 1:, :]  # (B, C_max, d_model)
+
+        # 6b. Mean-intensity-per-channel CLS residual (scatter per-cell intensities to global marker positions)
+        if self.mean_intensity_mode in ("cls_residual", "both") and mean_intensity is not None:
+            intensity_vec = torch.zeros(B, self._n_markers, device=sample.device, dtype=mean_intensity.dtype)
+            valid = ~padding_mask
+            safe_idx = ch_idx.clone()
+            safe_idx[~valid] = 0
+            masked_int = mean_intensity.masked_fill(~valid, 0.0)
+            intensity_vec.scatter_(1, safe_idx, masked_int)
+            cls_embedding = cls_embedding + self.intensity_cls_branch(intensity_vec)
 
         # Cell type classification from CLS
         ct_logits = self.ct_head(cls_embedding)  # (B, n_celltypes)

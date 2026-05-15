@@ -50,8 +50,9 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
 @click.option("--num_workers", type=int, default=16)
 @click.option("--svd_embeddings_path", type=str, default=None)
 @click.option("--model_path", type=str, default=None, help="Explicit path to model weights")
-@click.option("--resnet_channels", type=int, default=32, help="PerChannelResNet base channels")
-@click.option("--lora_rank", type=int, default=0, help="LoRA rank for marker embeddings (0=disabled)")
+@click.option("--resnet_channels", type=int, default=48, help="PerChannelResNet base channels (canonical: 48)")
+@click.option("--mean_intensity_mode", type=click.Choice(["auto", "none", "cls_residual", "per_channel", "both"]), default="auto",
+              help="Mean-intensity side-input mode (canonical: cls_residual). 'auto' detects from ckpt keys.")
 @click.option("--split_file", type=str, default=None, help="FOV split JSON; evaluates val set only")
 @click.option("--min_channels", type=int, default=3, help="Min model-visible marker channels per dataset")
 @click.option("--spatial_pool_size", type=int, default=1, help="Spatial pooling grid size (must match training)")
@@ -90,7 +91,7 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
 def main(
     model_name, device_num, enable_wandb, zarr_dir, skip_datasets, keep_datasets,
     exclude_ct_tissue, batch_size, num_workers, svd_embeddings_path,
-    model_path, resnet_channels, lora_rank, split_file, min_channels, spatial_pool_size,
+    model_path, resnet_channels, mean_intensity_mode, split_file, min_channels, spatial_pool_size,
     apply_tissue_mask, strict_tissue_mask,
     learn_mp_thresholds, mp_threshold_file,
     save_attention, seed, ct_abstention_k,
@@ -163,10 +164,26 @@ def main(
     elif isinstance(checkpoint, dict):
         has_tumor_head = any(k.startswith("tumor_head.") for k in checkpoint)
 
+    # Auto-detect mean_intensity_mode from ckpt keys when requested
+    state_for_detect = checkpoint["model"] if (isinstance(checkpoint, dict) and "model" in checkpoint) else (checkpoint if isinstance(checkpoint, dict) else {})
+    if mean_intensity_mode == "auto":
+        has_cls = any(k.startswith("intensity_cls_branch.") for k in state_for_detect)
+        has_pch = any(k.startswith("intensity_per_channel_proj.") for k in state_for_detect)
+        if has_cls and has_pch:
+            mean_intensity_mode = "both"
+        elif has_cls:
+            mean_intensity_mode = "cls_residual"
+        elif has_pch:
+            mean_intensity_mode = "per_channel"
+        else:
+            mean_intensity_mode = "none"
+        print(f"Auto-detected mean_intensity_mode = {mean_intensity_mode}")
+
     # Build model
     model = create_model(dct_config, marker_embeddings, d_model=d_model,
-                         resnet_base_channels=resnet_channels, lora_rank=lora_rank,
-                         tumor_head=has_tumor_head, spatial_pool_size=spatial_pool_size)
+                         resnet_base_channels=resnet_channels,
+                         tumor_head=has_tumor_head, spatial_pool_size=spatial_pool_size,
+                         mean_intensity_mode=mean_intensity_mode)
 
     if isinstance(checkpoint, dict) and "model" in checkpoint:
         model.load_state_dict(checkpoint["model"])
@@ -174,8 +191,9 @@ def main(
         # Legacy format: plain state_dict — detect old Linear MP head
         if "marker_pos_head.weight" in checkpoint and "marker_pos_head.film_scale.weight" not in checkpoint:
             model = create_model(dct_config, marker_embeddings, d_model=d_model,
-                                resnet_base_channels=resnet_channels, lora_rank=lora_rank,
-                                use_conditioned_mp_head=False).to(device)
+                                resnet_base_channels=resnet_channels,
+                                use_conditioned_mp_head=False,
+                                mean_intensity_mode=mean_intensity_mode).to(device)
         model.load_state_dict(checkpoint)
         print("Legacy checkpoint")
 

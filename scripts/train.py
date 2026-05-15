@@ -245,7 +245,7 @@ def forward_one_batch(
 @click.option("--max_val_samples", type=int, default=None, help="Cap val set size (fixed random subset, e.g. 200000)")
 @click.option("--skip_distance_transform", is_flag=True, help="Skip distance transform computation (zeros instead)")
 @click.option("--val_every", type=int, default=1, help="Validate every N epochs (default 1, use 10 to match CellSighter). Note: --patience counts validation checks, so effective patience in training epochs = patience * val_every.")
-@click.option("--domain_weight", type=float, default=0.0, help="Weight for domain adversarial loss (0 = disabled, DANN harmful per commit cc07b75)")
+@click.option("--domain_weight", type=float, default=0.1, help="Weight for domain adversarial loss (0 = disabled). Default 0.1 enables DANN as part of the canonical v10 recipe (LoRA-8 + MeanInt-CLS + DANN from scratch).")
 @click.option("--marker_pos_weight", type=float, default=1.0, help="Weight for marker positivity auxiliary loss (0 = disabled)")
 @click.option("--tumor_weight", type=float, default=0.0, help="Weight for binary tumor prediction loss (0 = disabled)")
 @click.option("--no_ct_exclude", is_flag=True, help="Disable tissue-aware cell type exclusion (matches baseline behavior)")
@@ -256,8 +256,13 @@ def forward_one_batch(
 @click.option("--spatial_pool_size", type=int, default=1, help="Spatial pooling grid size (1=global avg, 4=4x4 spatial)")
 @click.option("--focal_gamma", type=float, default=2.0, help="FocalLoss gamma (0=CE, 2=default focal)")
 @click.option("--warmup_pct", type=float, default=None, help="Override warmup percentage for OneCycleLR (default from config.py)")
-@click.option("--resnet_channels", type=int, default=32, help="Base channels for PerChannelResNet (32=default, 48=wider)")
-@click.option("--lora_rank", type=int, default=0, help="LoRA rank for marker embeddings (0=disabled, 8=recommended)")
+@click.option("--resnet_channels", type=int, default=48, help="Base channels for PerChannelResNet (canonical: 48)")
+@click.option("--best_metric", type=click.Choice(["macro_f1", "macro_acc"]), default="macro_f1",
+              help="Val metric used for best-checkpoint selection. macro_f1 (default) is robust to class imbalance; macro_acc can be inflated by over-predicting majority classes.")
+@click.option("--mean_intensity_mode", type=click.Choice(["none", "cls_residual", "per_channel", "both"]), default="cls_residual",
+              help="Add a mean-intensity-per-channel side input. Canonical: cls_residual=scatter intensities to global marker positions, MLP→add to CLS. Other modes: per_channel=project per-channel scalar intensity into d_model and add to fused tokens before the transformer; both=apply both; none=disable. All branches zero-init their output projection so warm-start from a baseline ckpt preserves predictions at step 0.")
+@click.option("--freeze_backbone", is_flag=True,
+              help="Freeze everything except the mean-intensity branches (and re-enable only intensity_cls_branch / intensity_per_channel_proj). Use with a warm-started ckpt to train only the new side input.")
 def main(
     model_name, device_num, enable_wandb, zarr_dir, skip_datasets, keep_datasets,
     epochs, batch_size, lr, patience, seed, debug, num_workers,
@@ -265,7 +270,8 @@ def main(
     split_file,
     max_samples_per_epoch, max_val_samples, skip_distance_transform, val_every,
     domain_weight, marker_pos_weight, tumor_weight, no_ct_exclude, no_class_weights, min_channels, hierarchical_weight, enable_amp,
-    spatial_pool_size, focal_gamma, warmup_pct, resnet_channels, lora_rank,
+    spatial_pool_size, focal_gamma, warmup_pct, resnet_channels,
+    best_metric, mean_intensity_mode, freeze_backbone,
 ):
     # Seed everything
     seed_everything(seed)
@@ -377,12 +383,12 @@ def main(
     model = create_model(dct_config, marker_embeddings, d_model=d_model,
                          spatial_pool_size=spatial_pool_size,
                          resnet_base_channels=resnet_channels,
-                         lora_rank=lora_rank,
-                         tumor_head=(tumor_weight > 0))
+                         tumor_head=(tumor_weight > 0),
+                         mean_intensity_mode=mean_intensity_mode)
     # Load pre-trained backbone weights (from masked marker pre-training)
     if pretrained_path and Path(pretrained_path).exists():
         print(f"Loading pre-trained weights from {pretrained_path}")
-        pretrained_state = torch.load(pretrained_path, map_location=device, weights_only=True)
+        pretrained_state = torch.load(pretrained_path, map_location=device, weights_only=False)
         # Accept both the legacy plain-state_dict and the new bundled checkpoint
         # (which stores the backbone under the "model" key).
         if isinstance(pretrained_state, dict) and "model" in pretrained_state and isinstance(pretrained_state["model"], dict):
@@ -398,10 +404,25 @@ def main(
         print(f"  Loaded {loaded}/{len(model_state)} parameters from pre-trained model")
 
     model.to(device)
+
+    if freeze_backbone:
+        n_total = sum(p.numel() for p in model.parameters())
+        for p in model.parameters():
+            p.requires_grad = False
+        # Re-enable only the mean-intensity branches
+        for name, module in model.named_modules():
+            if name in ("intensity_cls_branch", "intensity_per_channel_proj"):
+                for p in module.parameters():
+                    p.requires_grad = True
+        n_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"  freeze_backbone: trainable params = {n_trainable:,} / {n_total:,} ({100*n_trainable/n_total:.2f}%)")
+        if n_trainable == 0:
+            raise click.UsageError("--freeze_backbone with no branch trainable — did you also pass --mean_intensity_mode?")
+
     summary(model, col_names=["trainable"])
 
     # Optimizer + scheduler
-    optimizer_params = list(model.parameters())
+    optimizer_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(
         optimizer_params,
         lr=lr, weight_decay=0.01,
@@ -430,7 +451,6 @@ def main(
     CKPT_CONFIG = {
         "d_model": d_model,
         "resnet_channels": resnet_channels,
-        "lora_rank": lora_rank,
         "use_conditioned_mp_head": True,  # create_model default; toggled only at inference
         "n_celltypes": dct_config.NUM_CELLTYPES,
         "format_version": "1.1",
@@ -477,7 +497,11 @@ def main(
             "scheduler": scheduler.state_dict(),
             "scaler": scaler.state_dict(),
             "epoch": epoch_val,
+            # Field name kept for backwards-compat with older resume_path
+            # checkpoints; the value now reflects whichever metric is chosen
+            # by --best_metric (macro_f1 by default).
             "best_val_macro_acc": best_val,
+            "best_metric": best_metric,
             "epochs_without_improvement": epochs_no_improve,
             "config": CKPT_CONFIG,
             # Bundle the canonical-channel registry so inference can size
@@ -552,7 +576,7 @@ def main(
         else:
             # Full checkpoint: validate config
             ckpt_config = resume_ckpt.get("config", {})
-            for key in ("resnet_channels", "lora_rank", "d_model"):
+            for key in ("resnet_channels", "d_model"):
                 want = CKPT_CONFIG[key]
                 have = ckpt_config.get(key)
                 if have is not None and have != want:
@@ -673,12 +697,21 @@ def main(
             losses_metrics.reset_metrics()
 
             val_macro_acc = val_epoch_metrics["ct_macro_accuracy"]
-            print(f"Epoch {epoch}: train_macro_acc={train_epoch_metrics['ct_macro_accuracy']:.4f}, "
-                  f"val_macro_acc={val_macro_acc:.4f}")
+            val_macro_f1 = val_epoch_metrics["ct_macro_f1"]
+            val_weighted_acc = val_epoch_metrics["ct_weighted_accuracy"]
+            val_weighted_f1 = val_epoch_metrics["ct_weighted_f1"]
+            print(
+                f"Epoch {epoch}: train_macro_acc={train_epoch_metrics['ct_macro_accuracy']:.4f}, "
+                f"val_macro_acc={val_macro_acc:.4f}, val_macro_f1={val_macro_f1:.4f}, "
+                f"val_weighted_acc={val_weighted_acc:.4f}, val_weighted_f1={val_weighted_f1:.4f}"
+            )
 
-            # Model selection on macro accuracy
-            if val_macro_acc > best_val_macro_acc:
-                best_val_macro_acc = val_macro_acc
+            # Model selection — pick by --best_metric (macro_f1 by default).
+            # macro_f1 is robust to class-balance gaming where over-predicting
+            # majority classes inflates per-class accuracy.
+            current = val_macro_f1 if best_metric == "macro_f1" else val_macro_acc
+            if current > best_val_macro_acc:
+                best_val_macro_acc = current
                 epochs_without_improvement = 0
                 # Atomic save: write to .tmp then os.replace to avoid corrupt files on SIGTERM
                 tmp_path = best_model_path.with_suffix(best_model_path.suffix + ".tmp")
@@ -687,7 +720,7 @@ def main(
                     tmp_path,
                 )
                 os.replace(tmp_path, best_model_path)
-                print(f"  -> New best model saved (macro_acc={val_macro_acc:.4f})")
+                print(f"  -> New best model saved ({best_metric}={current:.4f})")
             else:
                 epochs_without_improvement += 1
                 if epochs_without_improvement >= patience:
@@ -710,9 +743,39 @@ def main(
     model.load_state_dict(checkpoint["model"])
     model.eval()
 
+    # Final eval ALWAYS runs on the full val set (no max_val_samples cap), even when
+    # per-epoch val used a cap for speed. This keeps the headline test number
+    # apples-to-apples with baseline runs (which never cap their val set).
+    if max_val_samples is not None:
+        print(f"\nBuilding full-val dataloader for final eval (per-epoch val was capped at {max_val_samples})...")
+        _, final_val_loader, _ = create_dataloader(
+            zarr_dir=zarr_dir,
+            dct_config=dct_config,
+            skip_datasets=list(skip_datasets) if skip_datasets else None,
+            keep_datasets=list(keep_datasets) if keep_datasets else None,
+            batch_size=batch_size,
+            num_dropout_channels=0,
+            num_workers=num_workers,
+            only_test=False,
+            use_fov_splits=(split_mode == "fov"),
+            train_ratio=0.8,
+            seed=seed,
+            use_weighted_sampler=False,
+            split_file=split_file,
+            skip_distance_transform=skip_distance_transform,
+            persistent_workers=num_workers > 0,
+            max_samples_per_epoch=None,
+            max_val_samples=None,
+            multiprocessing_context="spawn" if num_workers > 0 else None,
+            pin_memory=use_cuda,
+            min_channels=min_channels,
+        )
+    else:
+        final_val_loader = val_loader
+
     predlogger = PredLogger(dct_config.ct2idx)
     with torch.no_grad():
-        for batch in tqdm(val_loader, desc="Final eval"):
+        for batch in tqdm(final_val_loader, desc="Final eval"):
             batch_data = BatchData(*batch)
             ct_exclude = None if no_ct_exclude else get_tissue_ct_exclude(batch_data, dct_config, label_remap)
 

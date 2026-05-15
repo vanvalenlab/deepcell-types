@@ -157,7 +157,6 @@ def main(
     CKPT_CONFIG = {
         "d_model": d_model,
         "resnet_channels": 32,  # pretrain uses create_model defaults
-        "lora_rank": 0,
         "use_conditioned_mp_head": True,
         "n_celltypes": dct_config.NUM_CELLTYPES,
         "format_version": "1.0",
@@ -209,7 +208,7 @@ def main(
             logger.info("Loaded %d/%d params (backbone-only).", loaded, len(model_state))
         else:
             ckpt_config = resume_ckpt.get("config", {})
-            for key in ("resnet_channels", "lora_rank", "d_model"):
+            for key in ("resnet_channels", "d_model"):
                 want = CKPT_CONFIG[key]
                 have = ckpt_config.get(key)
                 if have is not None and have != want:
