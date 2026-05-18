@@ -263,6 +263,9 @@ def forward_one_batch(
               help="Add a mean-intensity-per-channel side input. Canonical: cls_residual=scatter intensities to global marker positions, MLP→add to CLS. Other modes: per_channel=project per-channel scalar intensity into d_model and add to fused tokens before the transformer; both=apply both; none=disable. All branches zero-init their output projection so warm-start from a baseline ckpt preserves predictions at step 0.")
 @click.option("--freeze_backbone", is_flag=True,
               help="Freeze everything except the mean-intensity branches (and re-enable only intensity_cls_branch / intensity_per_channel_proj). Use with a warm-started ckpt to train only the new side input.")
+@click.option("--unfreeze_ct_head", is_flag=True,
+              help="Also keep the CT classifier head and CLS-token / final-norm trainable when --freeze_backbone is set. "
+                   "Lets the CT head adapt to the new adapter output without unfreezing the full transformer / per-channel encoder backbone.")
 def main(
     model_name, device_num, enable_wandb, zarr_dir, skip_datasets, keep_datasets,
     epochs, batch_size, lr, patience, seed, debug, num_workers,
@@ -271,7 +274,7 @@ def main(
     max_samples_per_epoch, max_val_samples, skip_distance_transform, val_every,
     domain_weight, marker_pos_weight, tumor_weight, no_ct_exclude, no_class_weights, min_channels, hierarchical_weight, enable_amp,
     spatial_pool_size, focal_gamma, warmup_pct, resnet_channels,
-    best_metric, mean_intensity_mode, freeze_backbone,
+    best_metric, mean_intensity_mode, freeze_backbone, unfreeze_ct_head,
 ):
     # Seed everything
     seed_everything(seed)
@@ -409,13 +412,23 @@ def main(
         n_total = sum(p.numel() for p in model.parameters())
         for p in model.parameters():
             p.requires_grad = False
-        # Re-enable only the mean-intensity branches
+        # Re-enable the mean-intensity branches (always, under freeze_backbone)
+        unfreeze_modules = {"intensity_cls_branch", "intensity_per_channel_proj"}
+        # Optionally also unfreeze CT-task layers (head + CLS token + final norm).
+        # Leaves the heavy backbone (transformer, per-channel encoder, marker
+        # embedder LoRA, spatial encoder) still frozen.
+        if unfreeze_ct_head:
+            unfreeze_modules.update({"ct_head", "final_norm"})
         for name, module in model.named_modules():
-            if name in ("intensity_cls_branch", "intensity_per_channel_proj"):
+            if name in unfreeze_modules:
                 for p in module.parameters():
                     p.requires_grad = True
+        # cls_token is a top-level Parameter (not a Module), handle separately
+        if unfreeze_ct_head and hasattr(model, "cls_token"):
+            model.cls_token.requires_grad = True
         n_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        print(f"  freeze_backbone: trainable params = {n_trainable:,} / {n_total:,} ({100*n_trainable/n_total:.2f}%)")
+        print(f"  freeze_backbone: trainable params = {n_trainable:,} / {n_total:,} ({100*n_trainable/n_total:.2f}%)"
+              + (" (with --unfreeze_ct_head)" if unfreeze_ct_head else ""))
         if n_trainable == 0:
             raise click.UsageError("--freeze_backbone with no branch trainable — did you also pass --mean_intensity_mode?")
 
