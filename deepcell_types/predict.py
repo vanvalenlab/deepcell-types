@@ -12,6 +12,14 @@ from tqdm import tqdm
 from .model import create_model
 from .dataset import PatchDataset
 from .dct_kit.config import DCTConfig
+from .training.abstention import compute_iqr_fence
+
+
+ABSTENTION_LABEL = "Unknown"
+"""Sentinel cell-type name returned for cells flagged as abstained by the
+IQR-fence post-hoc abstention. Chosen as a human-readable string so the
+default ``predict()`` return (a ``list[str]``) stays a list of strings the
+caller can iterate / filter on directly."""
 
 
 @dataclass(frozen=True)
@@ -20,18 +28,31 @@ class PredictionResult:
 
     cell_types : list[str]
         Predicted cell-type name for each unique cell index in ``mask``,
-        ordered by ascending cell index.
+        ordered by ascending cell index. Cells flagged as abstained by the
+        IQR-fence post-hoc abstention (default ``ct_abstention_k=0.5``) carry
+        the sentinel ``"Unknown"`` here; their original argmax label is in
+        ``cell_types_raw``.
     probabilities : np.ndarray, shape (n_cells, n_celltypes)
         Per-cell softmax probabilities across all cell-type classes (same
         order as ``cell_types``). Column ``i`` corresponds to cell type
         ``i`` in ``dct_config.ct2idx``.
     cell_indices : np.ndarray, shape (n_cells,)
         The unique mask indices, in the same order as ``cell_types``.
+    abstained : np.ndarray, shape (n_cells,), dtype=bool
+        ``True`` for cells whose max-softmax fell below the IQR fence (= the
+        ones rewritten to ``"Unknown"`` in ``cell_types``). All-``False`` when
+        ``ct_abstention_k`` is disabled or when the FOV has fewer than 4 cells
+        (IQR is undefined on a tiny sample).
+    cell_types_raw : list[str]
+        Pre-abstention argmax label for every cell — useful when callers
+        want to inspect what abstained cells would have been classified as.
     """
 
     cell_types: List[str]
     probabilities: np.ndarray
     cell_indices: np.ndarray
+    abstained: np.ndarray
+    cell_types_raw: List[str]
 
 
 class _InferenceResultBuffer:
@@ -218,6 +239,7 @@ def predict(
     tissue_filter=None,
     zarr_path=None,
     return_probabilities=False,
+    ct_abstention_k=0.5,
     *,
     tissue_exclude=None,
 ):
@@ -271,6 +293,16 @@ def predict(
         If False (default, back-compat), returns a list of cell-type names.
         If True, returns a :class:`PredictionResult` with the full per-cell
         softmax probability matrix and the cell indices.
+    ct_abstention_k : float or None, default=0.5
+        IQR-fence post-hoc abstention multiplier. The default ``k=0.5`` is
+        the v10 paper headline operating point (≈9% of cells abstained,
+        substantial macro_F1 lift on kept cells). For each FOV, the fence
+        is ``Q1 - k*IQR`` on the cell-wise max-softmax distribution;
+        cells below it are relabelled to ``"Unknown"``. Pass ``k=0`` or
+        ``k=None`` to disable abstention and get the raw argmax label for
+        every cell. Has no effect on FOVs with fewer than 4 cells (the
+        IQR is undefined). See ``docs/reports/ct_iqr_abstention_test.md``
+        in the research workspace for the Pareto sweep.
     tissue_exclude : str, optional, default=None
         Deprecated alias for ``tissue_filter``. Keyword-only; emits a
         ``DeprecationWarning`` on use.
@@ -279,10 +311,12 @@ def predict(
     -------
     list of str
         (default) Predicted cell-type name for each unique cell index in
-        ``mask``, ordered by ascending cell index.
+        ``mask``, ordered by ascending cell index. Cells flagged by the
+        IQR-fence abstention carry the sentinel ``"Unknown"``.
     PredictionResult
         (when ``return_probabilities=True``) Full per-cell probabilities,
-        cell indices, and the predicted names. See :class:`PredictionResult`.
+        cell indices, predicted names, and an ``abstained`` boolean
+        mask. See :class:`PredictionResult`.
     """
     if tissue_exclude is not None:
         if tissue_filter is not None:
@@ -328,11 +362,29 @@ def predict(
                 cell_index=cell_index.detach().cpu().numpy(),
             )
 
-    cell_types, _top_probs, cell_indices, full_probs = pred_logger.get_result()
+    cell_types_raw, _top_probs, cell_indices, full_probs = pred_logger.get_result()
+
+    # IQR-fence abstention on the FOV's max-softmax distribution. The whole
+    # FOV is one (tissue, modality) group at this API level, so no grouping
+    # column is needed — `compute_iqr_fence` returns None when n_cells < 4,
+    # in which case no cells are abstained.
+    abstained = np.zeros(len(cell_types_raw), dtype=bool)
+    cell_types = list(cell_types_raw)
+    if ct_abstention_k is not None and ct_abstention_k > 0 and len(_top_probs) >= 4:
+        fence = compute_iqr_fence(_top_probs, float(ct_abstention_k))
+        if fence is not None:
+            abstained = _top_probs < fence
+            cell_types = [
+                ABSTENTION_LABEL if was_abstained else ct
+                for ct, was_abstained in zip(cell_types_raw, abstained)
+            ]
+
     if return_probabilities:
         return PredictionResult(
             cell_types=cell_types,
             probabilities=full_probs,
             cell_indices=cell_indices,
+            abstained=abstained,
+            cell_types_raw=list(cell_types_raw),
         )
     return cell_types

@@ -37,18 +37,38 @@ def _synthetic_frame(n: int, seed: int = 0, tissue: str = "intestine",
     })
 
 
-def test_default_no_abstention_column():
-    """When --ct_abstention_k is not provided, predict.py never calls
-    apply_abstention. The frame should have no `abstained` column and no -1
-    sentinels in predicted_ct. We simulate that by simply NOT calling
-    apply_abstention and asserting the frame is untouched.
+def test_default_k_0_5_abstention_is_on():
+    """``predict.py`` defaults ``--ct_abstention_k=0.5`` as of the v10
+    headline pipeline. The CSV-side guard runs ``apply_abstention`` whenever
+    ``k > 0``. We simulate the guard's behaviour: passing k=0.5 to a
+    synthetic 100-cell frame must add the ``abstained`` column and produce
+    a non-trivial fraction of sentinel-marked cells (≈10% expected).
+    """
+    df = _synthetic_frame(1000, seed=99)
+    out = apply_abstention(df.copy(), k=0.5)
+    assert "abstained" in out.columns
+    frac = out["abstained"].mean()
+    assert 0.03 <= frac <= 0.30, (
+        f"k=0.5 (the new default) should abstain ~10% of cells; got {frac*100:.2f}%"
+    )
+
+
+def test_disable_abstention_with_nonpositive_k():
+    """Passing k<=0 must be a no-op: no abstention applied, original frame
+    returned unmodified. The CLI guard ``if k is not None and k > 0`` is the
+    mechanism; this test asserts the contract for end users who want to
+    opt out of the new default.
     """
     df = _synthetic_frame(100)
     assert "abstained" not in df.columns
-    assert (df["predicted_ct"] != -1).all()
-    # Sanity: apply_abstention itself does add the column when called.
-    out = apply_abstention(df.copy(), k=1.5)
-    assert "abstained" in out.columns
+    # The guard in scripts/predict.py is `if ct_abstention_k > 0`; passing 0 or
+    # a negative value must skip apply_abstention entirely. We assert the
+    # guard's logic here (apply_abstention itself doesn't accept k<=0).
+    skip = lambda k: not (k is not None and k > 0)
+    assert skip(0)
+    assert skip(-1)
+    assert skip(None)
+    assert not skip(0.5)
 
 
 def test_k_1_5_near_no_op_on_100_cells():

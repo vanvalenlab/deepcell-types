@@ -78,14 +78,16 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
 @click.option(
     "--ct_abstention_k",
     type=float,
-    default=None,
+    default=0.5,
     help=(
         "Per-(tissue, modality) IQR-fence abstention on max-softmax confidence. "
-        "Off by default (None). When set, cells whose max-softmax falls below "
-        "Q1 - k*IQR within their (tissue, modality) group are flagged as abstained "
-        "(predicted_ct = -1, original kept in predicted_ct_raw). k=1.5 is the "
-        "canonical Tukey fence (~no-op); k=0.5 is aggressive (~10pp coverage cost, "
-        "+3pp macro on kept cells). See docs/audits/ct_abstention_iqr_signal_2026-04-28.md."
+        "Default k=0.5 — the v10 published headline setting (~9%% abstained, "
+        "+5pp macro_F1 on kept cells; sweeps all baselines incl. XGB-tuned). "
+        "Cells whose max-softmax falls below Q1 - k*IQR within their "
+        "(tissue, modality) group are flagged as abstained (predicted_ct = -1, "
+        "original kept in predicted_ct_raw). Set k <= 0 or pass 'none' to "
+        "disable. k=1.5 is the canonical Tukey fence (~no-op). See "
+        "docs/reports/ct_iqr_abstention_test.md."
     ),
 )
 def main(
@@ -440,11 +442,13 @@ def main(
     print(f"Predictions saved to {output_path}")
 
     # ---------------- CT abstention (post-hoc) ----------------
-    # Opt-in via --ct_abstention_k. Reads back the saved CSV, derives per-cell
-    # predicted_ct + max_softmax from the per-class probability columns, joins
-    # (tissue, modality) from the zarr archive, applies an IQR-fence abstention
-    # per (tissue, modality) group, and prints the kept-cell trade summary.
-    if ct_abstention_k is not None:
+    # On by default with k=0.5 (v10 published headline operating point);
+    # set --ct_abstention_k 0 or a negative value to disable. Reads back the
+    # saved CSV, derives per-cell predicted_ct + max_softmax from the per-class
+    # probability columns, joins (tissue, modality) from the zarr archive,
+    # applies an IQR-fence abstention per (tissue, modality) group, and
+    # prints the kept-cell trade summary.
+    if ct_abstention_k is not None and ct_abstention_k > 0:
         import pandas as pd
         import zarr as _zarr
         from deepcell_types.training.abstention import (
