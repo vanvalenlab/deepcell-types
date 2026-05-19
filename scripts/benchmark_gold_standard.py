@@ -771,6 +771,23 @@ def run_ours_benchmark(
     print(f"Total channels mapped: {total_channels_mapped}, unmapped: {total_channels_unmapped}")
     print(f"Total predictions: {len(all_predictions)}")
 
+    # Optionally persist raw predictions so downstream callers can post-hoc
+    # tune per-marker thresholds (single-float threshold is too coarse on the
+    # gold standard, where most markers have heavily imbalanced positivity).
+    preds_csv = os.environ.get("DCT_GOLD_PREDS_CSV")
+    if preds_csv:
+        # Persist raw (fov, cell_id, channel, pred_score) so downstream
+        # callers can post-hoc tune per-marker thresholds (single-float
+        # threshold is too coarse on the gold standard, where most markers
+        # have heavily imbalanced positivity).
+        rows = [
+            {"fov": fov, "cell_id": cell_id,
+             "channel": marker, "pred_score": float(score)}
+            for (fov, cell_id, marker), score in all_predictions.items()
+        ]
+        pd.DataFrame(rows).to_csv(preds_csv, index=False)
+        print(f"Raw predictions → {preds_csv}")
+
     # Build labels DataFrame for evaluate_predictions (expects fov, cell_index, marker, label)
     labels_for_eval = gs_df.rename(columns={
         "cell_id": "cell_index",
