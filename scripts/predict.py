@@ -54,7 +54,7 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
 @click.option("--mean_intensity_mode", type=click.Choice(["auto", "none", "cls_residual", "per_channel", "both"]), default="auto",
               help="Mean-intensity side-input mode (canonical: cls_residual). 'auto' detects from ckpt keys.")
 @click.option("--split_file", type=str, default=None, help="FOV split JSON; evaluates val set only")
-@click.option("--min_channels", type=int, default=3, help="Min model-visible marker channels per dataset")
+@click.option("--min_channels", type=int, default=0, help="Min model-visible marker channels per dataset (default 0 = no filter)")
 @click.option("--spatial_pool_size", type=int, default=1, help="Spatial pooling grid size (must match training)")
 @click.option("--apply_tissue_mask", is_flag=True, help="Mask tissue-inappropriate cell type logits before softmax (post-hoc fix for models trained with --no_ct_exclude)")
 @click.option("--strict_tissue_mask", is_flag=True, help="Use training-split-based tissue mapping (stricter); requires --split_file and implies --apply_tissue_mask")

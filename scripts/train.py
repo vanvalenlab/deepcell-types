@@ -250,7 +250,7 @@ def forward_one_batch(
 @click.option("--tumor_weight", type=float, default=0.0, help="Weight for binary tumor prediction loss (0 = disabled)")
 @click.option("--no_ct_exclude", is_flag=True, help="Disable tissue-aware cell type exclusion (matches baseline behavior)")
 @click.option("--no_class_weights", is_flag=True, help="Disable per-class weights in FocalLoss (use when WeightedRandomSampler is active to avoid double-weighting)")
-@click.option("--min_channels", type=int, default=3, help="Min model-visible marker channels per dataset")
+@click.option("--min_channels", type=int, default=0, help="Min model-visible marker channels per dataset (default 0 = no filter; the filter is vacuous on the labeled v10 corpus and retained as a no-op for legacy split-file compatibility)")
 @click.option("--hierarchical_weight", type=float, default=0.0, help="Weight for hierarchical coarse-grained loss (0 = disabled)")
 @click.option("--enable_amp", type=bool, default=True, help="Enable Automatic Mixed Precision (AMP) training (~2x speedup on CUDA, disabled automatically on CPU)")
 @click.option("--spatial_pool_size", type=int, default=1, help="Spatial pooling grid size (1=global avg, 4=4x4 spatial)")
