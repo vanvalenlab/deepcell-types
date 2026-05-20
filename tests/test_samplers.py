@@ -5,7 +5,11 @@ import pickle
 import pytest
 import torch
 
-from deepcell_types.training.dataset import CellIndexRecord, FOVGroupedSampler
+from deepcell_types.training.dataset import (
+    CellIndexRecord,
+    FOVGroupedSampler,
+    SequentialFOVGroupedSampler,
+)
 
 
 # =============================================================================
@@ -130,6 +134,143 @@ class TestFOVGroupedSampler:
             replacement=True,
         )
 
+        assert list(sampler) == []
+        assert len(sampler) == 0
+
+
+# =============================================================================
+# SequentialFOVGroupedSampler — issue #79 fix: cache-locality-preserving
+# one-pass scan for --learn_mp_thresholds. Same grouping invariant as
+# FOVGroupedSampler but with uniform coverage instead of weighted draws.
+# =============================================================================
+
+
+class TestSequentialFOVGroupedSampler:
+    def _build(self, fov_sizes):
+        # Reuse the synthetic-index helper from TestFOVGroupedSampler.
+        return TestFOVGroupedSampler()._build_dataset(fov_sizes)
+
+    def test_yields_positions_within_train_indices(self):
+        """Sampler must yield ``Subset``-positions (i.e. values in
+        ``[0, len(train_indices))``), not raw indices into ``dataset.indices``.
+        Regression for issue #79: a sampler that yields raw dataset indices
+        crashes ``Subset.__getitem__`` with ``IndexError: list index out of
+        range`` as soon as ``train_indices`` is a strict subset.
+        """
+        # Strict subset: train_indices excludes some dataset indices, so any
+        # confusion between "dataset index" and "position within train_indices"
+        # would emit values >= len(train_indices) and fail this assertion.
+        dataset_indices = self._build([3, 5, 2, 4])  # 14 cells across 4 FOVs
+        train_indices = [0, 1, 2, 3, 4, 8, 9, 10, 11]  # drops FOV1 and FOV3 tails
+        sampler = SequentialFOVGroupedSampler(
+            dataset_indices, train_indices, seed=1
+        )
+        yielded = list(sampler)
+        n = len(train_indices)
+        assert sorted(yielded) == list(range(n)), (
+            f"sampler must yield each position in [0, {n}) exactly once; got "
+            f"{sorted(yielded)}"
+        )
+        # And ALL values must be < n (the Subset contract).
+        assert all(0 <= p < n for p in yielded)
+        assert len(yielded) == n
+        assert len(sampler) == n
+
+    def test_subset_roundtrip_works(self):
+        """Pair the sampler with ``Subset`` exactly as the real DataLoader
+        would and exercise ``Subset[sampler_pos]`` for every emitted value.
+        Catches the issue-#79 bug end-to-end (the unit invariant above
+        already enforces it, but this proves the contract with torch).
+        """
+        from torch.utils.data import Subset
+
+        dataset_indices = self._build([3, 5, 2, 4])
+
+        class _FakeDataset:
+            # Stand-in for FullImageDataset: only needs ``__getitem__`` and
+            # ``__len__`` to satisfy ``Subset`` indirection.
+            def __init__(self, records):
+                self._records = records
+
+            def __len__(self):
+                return len(self._records)
+
+            def __getitem__(self, i):
+                return self._records[i]
+
+        dataset = _FakeDataset(dataset_indices)
+        train_indices = [0, 1, 2, 3, 4, 8, 9, 10, 11]
+        subset = Subset(dataset, train_indices)
+        sampler = SequentialFOVGroupedSampler(
+            dataset_indices, train_indices, seed=42
+        )
+
+        seen = []
+        for pos in sampler:
+            seen.append(subset[pos])  # would raise IndexError on the bug
+        assert len(seen) == len(train_indices)
+
+    def test_each_fov_emitted_contiguously(self):
+        dataset_indices = self._build([3, 5, 2, 4])
+        train_indices = list(range(len(dataset_indices)))
+        sampler = SequentialFOVGroupedSampler(
+            dataset_indices, train_indices, seed=1
+        )
+
+        yielded = list(sampler)
+        seen_blocks = []
+        current_block = None
+        for pos in yielded:
+            # Resolve sampler-position back to ds_idx via train_indices.
+            ds_idx = dataset_indices[train_indices[pos]][0]
+            if current_block is None or ds_idx != current_block:
+                assert ds_idx not in seen_blocks, (
+                    f"ds_idx={ds_idx} re-appeared in a second block — "
+                    f"cache locality would be lost"
+                )
+                seen_blocks.append(ds_idx)
+                current_block = ds_idx
+
+    def test_deterministic_per_seed_advances_each_epoch(self):
+        dataset_indices = self._build([3, 5, 2, 4])
+        train_indices = list(range(len(dataset_indices)))
+
+        s1 = SequentialFOVGroupedSampler(dataset_indices, train_indices, seed=42)
+        s2 = SequentialFOVGroupedSampler(dataset_indices, train_indices, seed=42)
+
+        # Identical seeds → identical order in epoch 0.
+        epoch0_a = list(s1)
+        epoch0_b = list(s2)
+        assert epoch0_a == epoch0_b
+
+        # Successive epochs of the same sampler advance the internal counter,
+        # so we don't lock into one FOV order.
+        epoch1_a = list(s1)
+        # Not strictly required to differ (small sample size, occasional
+        # collision), but the sampler's epoch counter must advance.
+        assert s1._epoch == 2
+
+    def test_partial_train_indices_subset(self):
+        # Only every other dataset index participates. Sampler emits positions
+        # in [0, len(train_indices)) exactly once each — the corresponding
+        # dataset indices reachable via train_indices must equal the input set.
+        dataset_indices = self._build([3, 5, 2, 4])
+        train_indices = list(range(0, len(dataset_indices), 2))
+
+        sampler = SequentialFOVGroupedSampler(
+            dataset_indices, train_indices, seed=0
+        )
+        yielded = list(sampler)
+        n = len(train_indices)
+        assert sorted(yielded) == list(range(n))
+        reached_dataset_idxs = sorted(train_indices[p] for p in yielded)
+        assert reached_dataset_idxs == sorted(train_indices)
+
+    def test_empty_train_indices(self):
+        dataset_indices = self._build([3, 5])
+        sampler = SequentialFOVGroupedSampler(
+            dataset_indices, [], seed=0
+        )
         assert list(sampler) == []
         assert len(sampler) == 0
 

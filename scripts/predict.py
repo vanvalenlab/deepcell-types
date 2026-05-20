@@ -54,7 +54,7 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
 @click.option("--mean_intensity_mode", type=click.Choice(["auto", "none", "cls_residual", "per_channel", "both"]), default="auto",
               help="Mean-intensity side-input mode (canonical: cls_residual). 'auto' detects from ckpt keys.")
 @click.option("--split_file", type=str, default=None, help="FOV split JSON; evaluates val set only")
-@click.option("--min_channels", type=int, default=3, help="Min model-visible marker channels per dataset")
+@click.option("--min_channels", type=int, default=0, help="Min model-visible marker channels per dataset (default 0 = no filter)")
 @click.option("--spatial_pool_size", type=int, default=1, help="Spatial pooling grid size (must match training)")
 @click.option("--apply_tissue_mask", is_flag=True, help="Mask tissue-inappropriate cell type logits before softmax (post-hoc fix for models trained with --no_ct_exclude)")
 @click.option("--strict_tissue_mask", is_flag=True, help="Use training-split-based tissue mapping (stricter); requires --split_file and implies --apply_tissue_mask")
@@ -119,7 +119,12 @@ def main(
 
     use_cuda = device.type == "cuda"
 
-    # Load test data (val split if split_file provided, else all data)
+    # Load test data (val split if split_file provided, else all data).
+    # When --learn_mp_thresholds is on, use the FOV-grouped train sampler so
+    # the one-pass scan over the training split preserves per-worker zarr
+    # cache locality. `shuffle=True` over a multi-thousand-FOV archive forces
+    # each worker to cold-load ~1 GB of zarr per cell, which under spawn
+    # workers manifests as the historical deadlock (issue #79).
     if split_file is not None:
         train_loader, test_loader, metadata = create_dataloader(
             zarr_dir=zarr_dir,
@@ -132,6 +137,7 @@ def main(
             split_file=split_file,
             min_channels=min_channels,
             use_weighted_sampler=False,
+            fov_grouped_train=learn_mp_thresholds,
             persistent_workers=num_workers > 0,
             multiprocessing_context="spawn" if num_workers > 0 else None,
             pin_memory=use_cuda,

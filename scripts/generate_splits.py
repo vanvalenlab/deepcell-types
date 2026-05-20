@@ -43,8 +43,8 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
 @click.option(
     "--min_channels",
     type=int,
-    default=3,
-    help="Min model-visible marker channels per dataset",
+    default=0,
+    help="Min model-visible marker channels per dataset (default 0 = no filter)",
 )
 @click.option(
     "--stratify_by",

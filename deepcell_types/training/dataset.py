@@ -27,7 +27,14 @@ from .annotations import (
 
 logger = logging.getLogger(__name__)
 
-_ADVISORY_SPLIT_METADATA_KEYS = {"zarr_path"}
+_ADVISORY_SPLIT_METADATA_KEYS = {
+    "zarr_path",
+    # min_channels filter is a no-op on the labeled v10 corpus; tolerate
+    # mismatch between split-file metadata and runtime config so that
+    # legacy splits generated with --min_channels=3 load cleanly under the
+    # new default of --min_channels=0 (and vice versa).
+    "min_channels",
+}
 
 
 class CellIndexRecord(NamedTuple):
@@ -1518,6 +1525,63 @@ class FOVGroupedSampler(Sampler):
         return self.num_samples
 
 
+class SequentialFOVGroupedSampler(Sampler):
+    """One-pass sampler that visits every train index in FOV-grouped order.
+
+    Each FOV's cells are emitted contiguously, and the order of FOV groups
+    is shuffled per-epoch with a deterministic seed. This is the unweighted
+    counterpart to ``FOVGroupedSampler`` — same cache-locality guarantee
+    (each worker reads one FOV at a time, so the per-FOV ~1 GB cold zarr
+    load is amortised across all of that FOV's cells), but with uniform
+    coverage instead of weighted multinomial sampling.
+
+    Used by ``predict.py --learn_mp_thresholds`` (and the standalone
+    threshold-learning helper) so that one-shot scans over the training
+    split do not trigger the cold-zarr I/O storm that ``shuffle=True``
+    produces under spawn workers on a large multi-FOV archive.
+    """
+
+    def __init__(self, dataset_indices, train_indices, seed: int = 42):
+        """
+        Args:
+            dataset_indices: ``dataset.indices`` list (full dataset).
+            train_indices: List of integer indices into ``dataset`` that
+                participate in this pass.
+            seed: Base seed for per-epoch group shuffle. Combined with an
+                internal epoch counter so successive epochs visit FOVs in
+                different orders without colliding across runs.
+        """
+        # The sampler is paired with ``Subset(dataset, train_indices)``, whose
+        # ``__getitem__(idx)`` does ``self.dataset[self.indices[idx]]``. So we
+        # MUST yield positions within ``train_indices`` (i.e. values in
+        # ``[0, len(train_indices))``), not raw indices into ``dataset.indices``
+        # — same contract as ``FOVGroupedSampler.__iter__``.
+        train_indices = [int(i) for i in train_indices]
+        self._n = len(train_indices)
+        self._ds_idx_map = [int(dataset_indices[i].ds_idx) for i in train_indices]
+        self._base_seed = int(seed)
+        self._epoch = 0
+
+    def __iter__(self):
+        if self._n == 0:
+            return
+        groups: dict[int, list[int]] = {}
+        for pos, ds_idx in enumerate(self._ds_idx_map):
+            groups.setdefault(ds_idx, []).append(pos)
+
+        epoch_seed = (self._base_seed + self._epoch) & 0xFFFFFFFF
+        self._epoch += 1
+        rng = random.Random(epoch_seed)
+        ordered_ds = list(groups.keys())
+        rng.shuffle(ordered_ds)
+
+        for ds_idx in ordered_ds:
+            yield from groups[ds_idx]
+
+    def __len__(self):
+        return self._n
+
+
 def create_dataloader(
     zarr_dir,
     dct_config,
@@ -1542,6 +1606,7 @@ def create_dataloader(
     pin_memory=False,
     min_channels=0,
     numpy_cache_max_bytes=None,
+    fov_grouped_train: bool = False,
 ):
     """Create dataloaders with factored representation.
 
@@ -1665,6 +1730,17 @@ def create_dataloader(
                 train_indices,
                 replacement=True,
                 seed=seed,
+            )
+            shuffle = False
+        elif fov_grouped_train and len(train_indices) > 0:
+            # One-pass uniform sampler that preserves FOV cache locality.
+            # `shuffle=True` over a multi-thousand-FOV archive forces every
+            # worker to cold-load a fresh ~1 GB FOV per cell, which on spawn
+            # workers manifests as the documented `--learn_mp_thresholds`
+            # deadlock. Same locality guarantee as `FOVGroupedSampler`, but
+            # with uniform coverage instead of weighted draws.
+            sampler = SequentialFOVGroupedSampler(
+                dataset.indices, train_indices, seed=seed,
             )
             shuffle = False
 

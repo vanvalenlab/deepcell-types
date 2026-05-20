@@ -60,7 +60,7 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
 @click.option("--split_file", type=str, default=None,
               help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)")
 @click.option("--enable_amp", type=bool, default=True, help="Enable Automatic Mixed Precision (AMP) training (~2x speedup on CUDA, disabled automatically on CPU)")
-@click.option("--min_channels", type=int, default=3, help="Min model-visible marker channels per dataset")
+@click.option("--min_channels", type=int, default=0, help="Min model-visible marker channels per dataset (default 0 = no filter)")
 @click.option("--max_samples_per_epoch", type=int, default=500000, help="Cap training samples per epoch (random subsample)")
 @click.option("--resume_path", type=str, default=None, help="Path to a full training checkpoint to resume (restores model/optimizer/scheduler/scaler/epoch).")
 def main(
