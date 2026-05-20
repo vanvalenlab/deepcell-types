@@ -119,7 +119,12 @@ def main(
 
     use_cuda = device.type == "cuda"
 
-    # Load test data (val split if split_file provided, else all data)
+    # Load test data (val split if split_file provided, else all data).
+    # When --learn_mp_thresholds is on, use the FOV-grouped train sampler so
+    # the one-pass scan over the training split preserves per-worker zarr
+    # cache locality. `shuffle=True` over a multi-thousand-FOV archive forces
+    # each worker to cold-load ~1 GB of zarr per cell, which under spawn
+    # workers manifests as the historical deadlock (issue #79).
     if split_file is not None:
         train_loader, test_loader, metadata = create_dataloader(
             zarr_dir=zarr_dir,
@@ -132,6 +137,7 @@ def main(
             split_file=split_file,
             min_channels=min_channels,
             use_weighted_sampler=False,
+            fov_grouped_train=learn_mp_thresholds,
             persistent_workers=num_workers > 0,
             multiprocessing_context="spawn" if num_workers > 0 else None,
             pin_memory=use_cuda,
