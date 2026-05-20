@@ -27,7 +27,14 @@ from .annotations import (
 
 logger = logging.getLogger(__name__)
 
-_ADVISORY_SPLIT_METADATA_KEYS = {"zarr_path"}
+_ADVISORY_SPLIT_METADATA_KEYS = {
+    "zarr_path",
+    # min_channels filter is a no-op on the labeled v10 corpus; tolerate
+    # mismatch between split-file metadata and runtime config so that
+    # legacy splits generated with --min_channels=3 load cleanly under the
+    # new default of --min_channels=0 (and vice versa).
+    "min_channels",
+}
 
 
 class CellIndexRecord(NamedTuple):
