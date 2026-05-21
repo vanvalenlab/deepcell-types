@@ -8,7 +8,7 @@ test that:
   (b) a re-ordered npz is reindexed correctly,
   (c) a missing-marker npz logs a warning and zero-fills the gap.
 
-Reference: deepcelltypes/config.py::TissueNetConfig.load_marker_embeddings_array
+Reference: deepcell_types/training/config.py::TissueNetConfig.load_marker_embeddings_array
 """
 import logging
 from types import SimpleNamespace

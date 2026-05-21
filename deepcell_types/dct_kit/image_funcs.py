@@ -57,7 +57,10 @@ def histogram_normalization(image, kernel_size=None):
         numpy.array: Pre-processed image data with dtype float32.
     """
     image = image.astype("float32")
-    assert len(image.shape) == 3
+    if image.ndim != 3:
+        raise ValueError(
+            f"Expected a 3-dimensional (H, W, C) image; got shape {image.shape}."
+        )
 
     for channel in range(image.shape[-1]):
         X = image[..., channel]
@@ -91,7 +94,11 @@ def get_neighbor_masks(mask, cbox, cell_idx):
     """Returns binary masks of a cell and its neighbors. This function expects padding around
     the edges, and will throw an error if you hit a wrap around."""
     minr, minc, maxr, maxc = cbox
-    assert np.issubdtype(mask.dtype, np.integer) and isinstance(cell_idx, int)
+    if not (np.issubdtype(mask.dtype, np.integer) and isinstance(cell_idx, int)):
+        raise TypeError(
+            f"mask must be an integer array and cell_idx must be int; "
+            f"got mask.dtype={mask.dtype!r}, cell_idx={type(cell_idx).__name__}."
+        )
 
     cell_view = mask[minr:maxr, minc:maxc]
     binmask_cell = (cell_view == cell_idx).astype(np.int32)

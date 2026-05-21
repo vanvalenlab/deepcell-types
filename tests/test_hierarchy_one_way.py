@@ -6,7 +6,7 @@ failure from the existing tests in `test_hierarchical_eval.py`. The existing
 tests only check the parent->child direction is credited; they do not verify
 the child->parent direction is NOT credited.
 
-Reference: deepcelltypes/utils.py::adjust_conf_mat_hierarchy
+Reference: deepcell_types/training/utils.py::adjust_conf_mat_hierarchy
 """
 import numpy as np
 

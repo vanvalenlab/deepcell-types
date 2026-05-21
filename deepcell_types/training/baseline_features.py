@@ -191,7 +191,7 @@ def save_baseline_predictions(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
-    print(f"Predictions saved to {output_path}")
+    logger.info("Predictions saved to %s", output_path)
 
 
 def _extract_all_dataset_features(
@@ -264,14 +264,14 @@ def _extract_all_dataset_features(
                 cached = None
                 _load_failed = True
             else:
-                print(f"Loading global feature cache from {global_cache_path}")
+                logger.info("Loading global feature cache from %s", global_cache_path)
                 _load_failed = False
                 try:
                     with open(cache_file, "rb") as f:
                         cached = pickle.load(f)
                 except (OSError, EOFError, pickle.UnpicklingError) as e:
-                    print(
-                        f"Ignoring unreadable global feature cache ({e}); rebuilding"
+                    logger.warning(
+                        "Ignoring unreadable global feature cache (%s); rebuilding", e
                     )
                     _load_failed = True
             if _load_failed:
@@ -283,14 +283,14 @@ def _extract_all_dataset_features(
                     cached = cached.get("datasets", {})
                 mismatches = _cache_metadata_mismatches(saved_meta, expected_cache_meta)
                 if mismatches:
-                    print(
-                        "Ignoring stale global feature cache "
-                        f"({', '.join(mismatches)}); rebuilding"
+                    logger.warning(
+                        "Ignoring stale global feature cache (%s); rebuilding",
+                        ", ".join(mismatches),
                     )
                 else:
                     # Filter to requested datasets
                     result = {k: v for k, v in cached.items() if k in set(dataset_keys)}
-                    print(f"Loaded features for {len(result)} datasets from cache")
+                    logger.info("Loaded features for %d datasets from cache", len(result))
                     return result
 
     zf = zarr.open_group(zarr_dir, mode="r")
@@ -394,8 +394,9 @@ def _extract_all_dataset_features(
             cache_file,
             protocol=4,
         )
-        print(
-            f"Saved global feature cache ({len(per_dataset)} datasets) to {global_cache_path}"
+        logger.info(
+            "Saved global feature cache (%d datasets) to %s",
+            len(per_dataset), global_cache_path,
         )
 
     return per_dataset
@@ -475,7 +476,7 @@ def extract_features_from_zarr(
     else:
         dataset_keys = all_dataset_keys
 
-    print(f"Found {len(dataset_keys)} datasets in tissuenet archive")
+    logger.info("Found %d datasets in tissuenet archive", len(dataset_keys))
 
     expected_cache_meta = _feature_cache_metadata(
         zarr_dir=zarr_dir,
@@ -489,7 +490,7 @@ def extract_features_from_zarr(
     if cache_path is not None:
         cache_file = Path(cache_path)
         if cache_file.exists():
-            print(f"Loading cached features from {cache_path}")
+            logger.info("Loading cached features from %s", cache_path)
             try:
                 with np.load(cache_file, allow_pickle=True) as cached:
                     saved_meta = None
@@ -499,9 +500,9 @@ def extract_features_from_zarr(
                         saved_meta, expected_cache_meta
                     )
                     if mismatches:
-                        print(
-                            "Ignoring stale split-specific feature cache "
-                            f"({', '.join(mismatches)}); rebuilding"
+                        logger.warning(
+                            "Ignoring stale split-specific feature cache (%s); rebuilding",
+                            ", ".join(mismatches),
                         )
                     else:
                         out = {}
@@ -513,8 +514,9 @@ def extract_features_from_zarr(
                                 out[key] = list(val)
                             else:
                                 out[key] = val
-                        print(
-                            f"Loaded {len(out['X_train'])} train, {len(out['X_val'])} val samples from cache"
+                        logger.info(
+                            "Loaded %d train, %d val samples from cache",
+                            len(out["X_train"]), len(out["X_val"]),
                         )
                         _apply_missing_value(out, missing_value)
                         return out
@@ -526,9 +528,9 @@ def extract_features_from_zarr(
                 json.JSONDecodeError,
                 pickle.UnpicklingError,
             ) as e:
-                print(
-                    "Ignoring unreadable split-specific feature cache "
-                    f"({e}); rebuilding"
+                logger.warning(
+                    "Ignoring unreadable split-specific feature cache (%s); rebuilding",
+                    e,
                 )
 
     # Load split file
@@ -749,10 +751,10 @@ def extract_features_from_zarr(
         out["metadata"]["num_samples"] = out["metadata"].get("num_samples", 0) + len(y)
 
     meta = split_data.get("metadata", {})
-    print(
-        f"Loaded FOV splits from {split_file} "
-        f"(created {meta.get('created', 'unknown')}): "
-        f"{len(out['X_train'])} train, {len(out['X_val'])} val"
+    logger.info(
+        "Loaded FOV splits from %s (created %s): %d train, %d val",
+        split_file, meta.get("created", "unknown"),
+        len(out["X_train"]), len(out["X_val"]),
     )
 
     # Save split-specific cache if requested (legacy behavior)
@@ -772,7 +774,7 @@ def extract_features_from_zarr(
             dtype=object,
         )
         _atomic_np_savez(cache_file, **save_dict)
-        print(f"Cached features to {cache_path}")
+        logger.info("Cached features to %s", cache_path)
 
     _apply_missing_value(out, missing_value)
     return out

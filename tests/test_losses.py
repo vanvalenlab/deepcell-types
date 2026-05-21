@@ -195,10 +195,9 @@ class TestHierarchicalLoss:
     def test_smoke_project_hierarchy(self):
         """Forward pass with the project's CELL_TYPE_HIERARCHY and
         combined_celltypes.yaml returns a finite scalar on random inputs."""
-        from deepcell_types.training.config import CELL_TYPE_HIERARCHY  # noqa: F401
+        from deepcell_types.training.config import CELL_TYPE_HIERARCHY, CONFIG_DIR  # noqa: F401
 
-        repo_root = Path(__file__).parent.parent
-        yaml_path = repo_root / "config" / "combined_celltypes.yaml"
+        yaml_path = CONFIG_DIR / "combined_celltypes.yaml"
         if not yaml_path.exists():
             pytest.skip(f"combined_celltypes.yaml not found at {yaml_path}")
 

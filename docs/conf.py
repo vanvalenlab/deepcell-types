@@ -21,7 +21,6 @@ extensions = [
     'sphinx.ext.autodoc',  # Docstring summaries
 ]
 
-templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # Execution conf

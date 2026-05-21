@@ -36,7 +36,7 @@ Why not write into the production archive: gold has no curated CT labels
 write would invalidate the production cache.
 
 Normalization: there is **no** intensity normalization at the data layer.
-``deepcelltypes/config.extract_patch`` only multiplies raw by self_mask
+``deepcell_types.dct_kit.image_funcs.extract_patch`` only multiplies raw by self_mask
 and resizes; the model's PerChannelResNet uses ``InstanceNorm2d`` to
 handle cross-modality intensity scale. Gold OME-TIFFs are stored as raw
 float32, casting through from uint8/uint16 with no rescaling.

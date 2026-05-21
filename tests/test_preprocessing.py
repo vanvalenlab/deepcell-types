@@ -1,4 +1,4 @@
-"""Tests for ``deepcelltypes/preprocessing.py``.
+"""Tests for ``deepcell_types/preprocessing.py``.
 
 The unit tests exercise the public API + private steps with synthetic input.
 The production-snapshot test reads a known FOV from the production archive,
@@ -212,8 +212,11 @@ SNAPSHOT_DATASET = os.environ.get("PRODUCTION_SNAPSHOT_DATASET", "HBM222_WQKC_38
 
 
 @pytest.mark.skipif(
-    not Path(PRODUCTION_ARCHIVE).exists(),
-    reason=f"Production archive not available at {PRODUCTION_ARCHIVE}",
+    not (PRODUCTION_ARCHIVE and Path(PRODUCTION_ARCHIVE).exists()),
+    reason=(
+        "Production archive not available; set PRODUCTION_ARCHIVE_PATH "
+        "to a TissueNet zarr v3 archive to enable this test."
+    ),
 )
 def test_snapshot_against_production():
     """Run preprocess_fov on a real production raw FOV, assert close
