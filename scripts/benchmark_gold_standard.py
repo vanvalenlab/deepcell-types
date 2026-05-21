@@ -23,7 +23,7 @@ Usage:
     # Run benchmark (our model — needs main venv):
     source .venv/bin/activate
     python scripts/benchmark_gold_standard.py --method ours \\
-        --checkpoint models/exp_v7_resnet48_0_best.pth --device cuda:0
+        --checkpoint ~/.deepcell/models/deepcell-types_2026-05-17.pt --device cuda:0
 
     # Run both (two separate runs, then compare):
     python scripts/benchmark_gold_standard.py --method compare \\

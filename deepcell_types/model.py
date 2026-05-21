@@ -14,7 +14,7 @@ class GradReverse(torch.autograd.Function):
 
     Forward is identity; backward multiplies the incoming gradient by -1.
     The DANN reversal factor ``λ`` is hardcoded to 1 (no schedule). The
-    canonical v10 training recipe enables this branch via
+    canonical training recipe enables this branch via
     ``--domain_weight 0.1`` (the current ``train.py`` default); setting
     ``--domain_weight 0`` disables it entirely. The fixed λ has been
     sufficient in practice at this weighting; if the head is ever weighted
@@ -287,8 +287,7 @@ class CellTypeAnnotator(nn.Module):
         # 2. Per-channel feature extractor
         channel_dim = 128
         # Canonical paper recipe is base_channels=48 (matches CLI default in
-        # scripts/train.py and scripts/predict.py). 32 was the pre-v10 default
-        # and is retained as an ablation knob via the kwarg.
+        # scripts/train.py and scripts/predict.py).
         resnet_base_channels = kwargs.get("resnet_base_channels", 48)
         self.channel_encoder = PerChannelResNet(
             out_dim=channel_dim, base_channels=resnet_base_channels

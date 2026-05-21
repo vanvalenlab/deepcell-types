@@ -9,10 +9,10 @@ Analogous to Masked Language Modeling (BERT) but for continuous marker intensity
 values in multiplexed imaging data.
 
 Usage:
-    python pretrain.py --model_name pretrain_0 --epochs 20 --device_num cuda:0
+    python pretrain.py --model_name pretrain --epochs 20 --device_num cuda:0
 
 Then fine-tune with:
-    python train.py --model_name v2_finetuned_0 --pretrained_path models/model_pretrain_0_best.pt
+    python train.py --model_name finetuned --pretrained_path models/model_pretrain_best.pt
 """
 
 import logging
@@ -39,7 +39,7 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
 
 @click.command()
-@click.option("--model_name", type=str, default="pretrain_0")
+@click.option("--model_name", type=str, default="pretrain")
 @click.option("--device_num", type=str, default="cuda:0")
 @click.option("--enable_wandb", type=bool, default=False)
 @click.option("--zarr_dir", type=str, default=str(DATA_DIR))
@@ -403,7 +403,7 @@ def main(
     print(f"\nPre-training complete. Best val_loss={best_val_loss:.6f}")
     print(f"Pre-trained backbone saved to {best_model_path}")
     print(f"\nTo fine-tune:")
-    print(f"  python train.py --model_name v2_finetuned_0 --pretrained_path {best_model_path}")
+    print(f"  python train.py --model_name finetuned --pretrained_path {best_model_path}")
 
     run.finish()
 

@@ -33,14 +33,23 @@ The model can be downloaded for local use:
 >>> download_model()
 ```
 
-A `version` can be specified to access a specific pre-trained model, e.g.
+A specific version can be requested:
 
 ```python
-download_model(version="2025-06-09_public-data-only")
+download_model(version="2026-05-17")
 ```
 
 A listing of available pre-trained models is available at
 `deepcell_types.utils._model_registry`.
+
+To fetch a baseline checkpoint instead of the main DeepCellTypes model:
+
+```python
+from deepcell_types.utils import download_baseline_checkpoint
+
+# One of: "cellsighter", "maps", "nimbus", "xgboost"
+download_baseline_checkpoint("maps")
+```
 
 Training Data
 -------------

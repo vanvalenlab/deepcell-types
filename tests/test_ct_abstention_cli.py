@@ -38,7 +38,7 @@ def _synthetic_frame(n: int, seed: int = 0, tissue: str = "intestine",
 
 
 def test_default_k_0_5_abstention_is_on():
-    """``predict.py`` defaults ``--ct_abstention_k=0.5`` as of the v10
+    """``predict.py`` defaults ``--ct_abstention_k=0.5`` as the canonical
     headline pipeline. The CSV-side guard runs ``apply_abstention`` whenever
     ``k > 0``. We simulate the guard's behaviour: passing k=0.5 to a
     synthetic 100-cell frame must add the ``abstained`` column and produce

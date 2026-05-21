@@ -220,7 +220,7 @@ def forward_one_batch(
 
 
 @click.command()
-@click.option("--model_name", type=str, default="v2_test_0")
+@click.option("--model_name", type=str, default="deepcell-types")
 @click.option("--device_num", type=str, default="cuda:0")
 @click.option("--enable_wandb", type=bool, default=False)
 @click.option("--zarr_dir", type=str, default=str(DATA_DIR))
@@ -245,12 +245,12 @@ def forward_one_batch(
 @click.option("--max_val_samples", type=int, default=None, help="Cap val set size (fixed random subset, e.g. 200000)")
 @click.option("--skip_distance_transform", is_flag=True, help="Skip distance transform computation (zeros instead)")
 @click.option("--val_every", type=int, default=1, help="Validate every N epochs (default 1, use 10 to match CellSighter). Note: --patience counts validation checks, so effective patience in training epochs = patience * val_every.")
-@click.option("--domain_weight", type=float, default=0.1, help="Weight for domain adversarial loss (0 = disabled). Default 0.1 enables DANN as part of the canonical v10 recipe (LoRA-8 + MeanInt-CLS + DANN from scratch).")
+@click.option("--domain_weight", type=float, default=0.1, help="Weight for domain adversarial loss (0 = disabled). Default 0.1 enables DANN as part of the canonical recipe.")
 @click.option("--marker_pos_weight", type=float, default=1.0, help="Weight for marker positivity auxiliary loss (0 = disabled)")
 @click.option("--tumor_weight", type=float, default=0.0, help="Weight for binary tumor prediction loss (0 = disabled)")
 @click.option("--no_ct_exclude", is_flag=True, help="Disable tissue-aware cell type exclusion (matches baseline behavior)")
 @click.option("--no_class_weights", is_flag=True, help="Disable per-class weights in FocalLoss (use when WeightedRandomSampler is active to avoid double-weighting)")
-@click.option("--min_channels", type=int, default=0, help="Min model-visible marker channels per dataset (default 0 = no filter; the filter is vacuous on the labeled v10 corpus and retained as a no-op for legacy split-file compatibility)")
+@click.option("--min_channels", type=int, default=0, help="Min model-visible marker channels per dataset (default 0 = no filter; retained as a no-op for legacy split-file compatibility)")
 @click.option("--hierarchical_weight", type=float, default=0.0, help="Weight for hierarchical coarse-grained loss (0 = disabled)")
 @click.option("--enable_amp", type=bool, default=True, help="Enable Automatic Mixed Precision (AMP) training (~2x speedup on CUDA, disabled automatically on CPU)")
 @click.option("--spatial_pool_size", type=int, default=1, help="Spatial pooling grid size (1=global avg, 4=4x4 spatial)")

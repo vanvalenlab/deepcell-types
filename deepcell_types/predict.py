@@ -295,7 +295,7 @@ def predict(
         softmax probability matrix and the cell indices.
     ct_abstention_k : float or None, default=0.5
         IQR-fence post-hoc abstention multiplier. The default ``k=0.5`` is
-        the v10 paper headline operating point (≈9% of cells abstained,
+        the paper headline operating point (≈9% of cells abstained,
         substantial macro_F1 lift on kept cells). For each FOV, the fence
         is ``Q1 - k*IQR`` on the cell-wise max-softmax distribution;
         cells below it are relabelled to ``"Unknown"``. Pass ``k=0`` or
