@@ -207,10 +207,7 @@ def test_preprocess_fov_deterministic():
 # ---------------------------------------------------------------------------
 
 
-PRODUCTION_ARCHIVE = os.environ.get(
-    "PRODUCTION_ARCHIVE_PATH",
-    "/data/xwang3/tissuenet-caitlin-labels.zarr/tissuenet-caitlin-labels.zarr",
-)
+PRODUCTION_ARCHIVE = os.environ.get("PRODUCTION_ARCHIVE_PATH", "")
 SNAPSHOT_DATASET = os.environ.get("PRODUCTION_SNAPSHOT_DATASET", "HBM222_WQKC_382")
 
 

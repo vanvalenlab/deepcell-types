@@ -164,15 +164,17 @@ class TissueNetConfig:
     """
     Configuration loaded from TissueNet zarr archive.
 
-    This class provides the same interface as the old config from deepcelltypes_kit,
-    but loads all configuration from the zarr archive instead of separate YAML files.
+    The class loads all configuration (cell-type registry, channel registry,
+    cell-type / channel embeddings, tissue and modality lists, etc.) from the
+    zarr archive itself rather than from out-of-band YAML files. The archive
+    uses zarr v3 format (``zarr.json`` metadata).
 
-    The zarr path defaults to $DATA_DIR/tissuenet-caitlin-labels.zarr where DATA_DIR
-    defaults to /data2. Override DATA_DIR via environment variable or .envrc (direnv).
-    The archive uses zarr v3 format (zarr.json metadata files).
+    The zarr path can be supplied directly via ``zarr_path=...`` or via the
+    ``DEEPCELL_TYPES_ZARR_PATH`` environment variable. There is no hard-coded
+    filesystem default; one of these two must be provided.
 
     Usage:
-        # Use default path ($DATA_DIR/tissuenet-caitlin-labels.zarr)
+        # Resolve from the DEEPCELL_TYPES_ZARR_PATH env var
         config = TissueNetConfig()
 
         # Or specify path explicitly

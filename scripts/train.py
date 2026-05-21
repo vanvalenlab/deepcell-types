@@ -41,7 +41,7 @@ from deepcell_types.training.utils import (
 )
 
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
 # Default loss weights for multi-task training
 DEFAULT_LOSS_WEIGHTS = {"ct": 1.0, "domain": 0.0, "marker_pos": 1.0}
@@ -281,9 +281,10 @@ def main(
 
     # Lazy wandb init
     import wandb
-    wandb.login()
+    if enable_wandb:
+        wandb.login()
     run = wandb.init(
-        project="deepcelltypes",
+        project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
         dir="wandb_tmp",
         job_type="train",
         mode="online" if enable_wandb else "disabled",
@@ -544,8 +545,9 @@ def main(
     hierarchical_loss_fn = None
     if hierarchical_weight > 0:
         from deepcell_types.training.losses import HierarchicalLoss
+        from deepcell_types.training.config import CONFIG_DIR as _TRAIN_CONFIG_DIR
         hierarchical_loss_fn = HierarchicalLoss(
-            config_path="config/combined_celltypes.yaml",
+            config_path=str(_TRAIN_CONFIG_DIR / "combined_celltypes.yaml"),
             ct2idx=dct_config.ct2idx,
             weight=hierarchical_weight,
         ).to(device)

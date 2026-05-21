@@ -26,7 +26,7 @@ from deepcell_types.training.config import TissueNetConfig
 from deepcell_types.training.dataset import FullImageDataset, save_fov_splits
 
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
 
 @click.command()

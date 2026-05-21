@@ -15,7 +15,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 DEFAULT_ARCHIVE = DATA_DIR / "tissuenet-caitlin-labels.zarr"
 
 KNOWN_REPAIR_MARKERS = {

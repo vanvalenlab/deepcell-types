@@ -32,7 +32,7 @@ from deepcell_types.training.utils import (
 )
 
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
 
 @click.command()
@@ -101,9 +101,10 @@ def main(
     seed_everything(seed)
 
     import wandb
-    wandb.login()
+    if enable_wandb:
+        wandb.login()
     run = wandb.init(
-        project="deepcelltypes",
+        project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
         dir="wandb_tmp",
         job_type="predict",
         mode="online" if enable_wandb else "disabled",

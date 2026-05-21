@@ -135,8 +135,6 @@ def patch_generator(raw, mask, mpp, dct_config):
     ).astype(np.int32)
 
     raw = percentile_threshold(raw, percentile=dct_config.PERCENTILE_THRESHOLD)
-    # raw = np.clip(raw, 0, 5) # clip to remove the extreme values
-
     raw = normalize_per_channel(raw)
     raw, mask = pad_cell(raw, mask, dct_config.CROP_SIZE)
 

@@ -176,3 +176,4 @@ uv.lock
 
 # /deep-review outputs (local report artifacts)
 /reviews/
+audit/

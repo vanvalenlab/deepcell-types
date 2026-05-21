@@ -1,0 +1,30 @@
+DeepCell Types
+Copyright (c) Van Valen Lab at the California Institute of Technology (Caltech)
+
+Licensed under the Modified Apache License, Version 2.0 (the "License"); see
+LICENSE for the full text. The License grants a non-commercial / academic
+copyright and patent license; for any other use, including commercial use,
+contact vanvalenlab@gmail.com.
+
+================================================================================
+THIRD-PARTY CODE
+================================================================================
+
+This product includes code adapted from the following third-party projects.
+The original source is acknowledged inline at the cited file:line; each
+project's license terms continue to apply to the corresponding portions of
+the codebase.
+
+--------------------------------------------------------------------------------
+pytorch-multi-class-focal-loss (MIT License)
+  - Upstream:  https://github.com/AdeelH/pytorch-multi-class-focal-loss
+  - Used in:   deepcell_types/training/losses.py  (class FocalLoss)
+  - License:   MIT.  The original repository's LICENSE file applies to the
+               adapted code; please consult the upstream project for the full
+               copyright and permission notice.
+
+--------------------------------------------------------------------------------
+deepcell-toolbox (Modified Apache License, Version 2.0)
+  - Upstream:  https://github.com/vanvalenlab/deepcell-toolbox
+  - Used in:   deepcell_types/dct_kit/image_funcs.py  (percentile_threshold)
+  - License:   Modified Apache 2.0 (same template as this project's LICENSE).

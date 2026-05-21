@@ -37,7 +37,7 @@ Interacting with the zarr hubmap data mirror requires a few additional
 dependencies:
 
 ```bash
-pip install zarr\>2 s3fs rich
+pip install "zarr>2" s3fs
 ```
 
 ```{note}
@@ -234,7 +234,7 @@ visualization.
 
 ```{code-cell} ipython3
 import napari
-nim = napari.Viewer(show=True)  # Headless for CI; set show=True for interactive viz
+nim = napari.Viewer(show=True)  # Set show=False to run headless (e.g. in CI)
 
 # Compute contrast limits
 cl = [(np.min(ch), np.max(ch)) for ch in img]

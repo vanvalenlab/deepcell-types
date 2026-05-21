@@ -12,9 +12,6 @@ def _archive_path():
         candidates.append(
             Path(os.environ["DATA_DIR"]) / "tissuenet-caitlin-labels.zarr"
         )
-    candidates.append(
-        Path("/data/xwang3/tissuenet-caitlin-labels.zarr/tissuenet-caitlin-labels.zarr")
-    )
     for candidate in candidates:
         if candidate.exists():
             return candidate

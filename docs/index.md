@@ -97,8 +97,10 @@ and select `Open with -> Jupytext notebook`.
      names already found in the selected checkpoint's channel registry.
 
    - Adding new markers to the model can be achieved by manually acquiring
-     embeddings for additional channels via DeepSeek (model and prompt details
-     can be found in the paper).
+     embeddings for additional channels via OpenAI's `text-embedding-3-large`
+     model. The reference helper that generates these embeddings from a
+     channel's plain-English name is `scripts/generate_openai_embeddings.py`
+     (model and prompt details can be found in the paper).
 
    Checkpoint loading validates that the archive and checkpoint agree on marker
    count and cell-type count. If they do not, inference fails early with a

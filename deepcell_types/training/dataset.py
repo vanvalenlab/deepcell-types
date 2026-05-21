@@ -109,7 +109,7 @@ def _archive_fingerprint(zf):
 class FullImageDataset(Dataset):
     """Dataset with factored representation for CellTypeAnnotator.
 
-    Key differences from V1:
+    Per-item layout:
     - Returns (C, 1, H, W) raw*self_mask + (3, H, W) spatial context (self_mask, neighbor_mask, distance_transform)
     - Handles "?" marker positivity by returning a validity mask
     - No hardcoded per-dataset sample caps (use sqrt-frequency sampling instead)

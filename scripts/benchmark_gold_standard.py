@@ -897,7 +897,7 @@ def main():
     parser.add_argument(
         "--zarr_dir",
         type=str,
-        default=os.environ.get("DATA_DIR", "/data2") + "/tissuenet-caitlin-labels.zarr",
+        default=str(Path(os.environ.get("DATA_DIR", "")) / "tissuenet-caitlin-labels.zarr"),
         help="Path to zarr archive (for --method ours)",
     )
     parser.add_argument(

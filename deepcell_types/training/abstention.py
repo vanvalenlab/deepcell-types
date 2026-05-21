@@ -24,7 +24,12 @@ from __future__ import annotations
 from typing import Iterable, Optional, Sequence
 
 import numpy as np
-import pandas as pd
+
+# NOTE: ``pandas`` is intentionally imported inside ``apply_abstention`` (the
+# only function here that needs it) so that importing this module — and
+# transitively the inference path via ``deepcell_types.predict`` — does not
+# pull in pandas. pandas is a [train]-extra dependency; the inference install
+# (bare ``pip install deepcell-types``) does not have it.
 
 
 def compute_iqr_fence(max_softmax: np.ndarray, k: float) -> Optional[float]:
@@ -42,13 +47,14 @@ def compute_iqr_fence(max_softmax: np.ndarray, k: float) -> Optional[float]:
 
 
 def apply_abstention(
-    df: pd.DataFrame,
+    df: "pd.DataFrame",
     k: float,
     group_cols: Sequence[str] = ("tissue", "modality"),
     max_softmax_col: str = "_max_softmax",
     pred_col: str = "predicted_ct",
     sentinel: int = -1,
-) -> pd.DataFrame:
+) -> "pd.DataFrame":
+    import pandas as pd  # noqa: F401  (referenced via string annotations)
     """Apply IQR-fence abstention in-place-style and return the modified frame.
 
     Adds two columns to `df`:

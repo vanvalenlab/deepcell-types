@@ -30,9 +30,10 @@ checkpoints. **Breaking changes** are noted below.
   tracking the `main` branch of their respective forks.
 
 ### Changed
-- **Breaking:** `CellTypeCLIPModel` and the legacy CLIP architecture are
-  removed. Canonical checkpoints now read marker / cell-type metadata
-  from a TissueNet zarr v3 archive at inference time.
+- **Breaking:** the legacy `CellTypeCLIPModel` class is removed.
+  Canonical checkpoints now read marker / cell-type metadata from a
+  TissueNet zarr v3 archive at inference time; the active model class
+  is `CellTypeAnnotator` in `deepcell_types/model.py`.
 - **Breaking:** `predict(tissue_exclude=...)` is renamed to
   `predict(tissue_filter=...)`. The old name was semantically inverted
   (it reads as "exclude this tissue" but actually "filter TO this

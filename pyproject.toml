@@ -10,7 +10,9 @@ authors = [
 ]
 description = "A generalized cell phenotyping model for spatial proteomics"
 readme = "README.md"
-requires-python = "~=3.10"
+# zarr>=3.1 (used in the [train] extra) requires Python >=3.11, so the
+# floor here matches that constraint rather than 3.10.
+requires-python = ">=3.11"
 dependencies = [
     "requests",
     "pyyaml",
@@ -23,7 +25,12 @@ dependencies = [
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: Other/Proprietary License",
     "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 
 license = {file = "LICENSE"}
@@ -33,25 +40,27 @@ license = {file = "LICENSE"}
 # including the zarr-backed FullImageDataset, FocalLoss/HierarchicalLoss,
 # wandb logging, and the FOV-grouped sampler. Not needed for inference.
 # zarr is pinned >=3.1 because 3.0.0a* alpha has a metadata-cache bug.
+# kaleido is required at runtime by `fig.write_image()` calls in
+# training/utils.py; plotly is the figure backend behind those calls.
 train = [
-    "matplotlib",
     "wandb",
     "zarr>=3.1.0,<4",
-    "torchvision",
     "torchinfo",
     "torchmetrics",
     "pandas",
     "scikit-learn",
     "click",
+    "plotly",
+    "kaleido>=0.2.1,<1.0,!=0.2.1.post1",
     # Used by scripts/ingest_gold_to_zarr.py (top-level import) and
     # by several other gold-standard / refinement scripts.
     "tifffile",
+    # Used by scripts/generate_openai_embeddings*.py.
+    "openai",
 ]
-# Baselines comparison (xgboost / optuna sweeps).
-baselines = ["xgboost", "optuna"]
-# Plotting / analysis stack used by scripts under analysis/.
-analysis = ["plotly", "seaborn", "openpyxl", "kaleido>=0.2.1,<1.0,!=0.2.1.post1"]
-all = ["deepcell-types[train,baselines,analysis]"]
+# Baselines comparison (xgboost / optuna sweeps) and Nimbus inference baseline.
+baselines = ["xgboost", "optuna", "nimbus-inference"]
+all = ["deepcell-types[train,baselines]"]
 
 [project.urls]
 "Source Code" = "https://github.com/vanvalenlab/deepcell-types"
@@ -69,7 +78,6 @@ include-package-data = true
 [tool.setuptools.package-data]
 deepcell_types = [
     "dct_kit/config/*.yaml",
-    "dct_kit/config/*.json",
     # Training-side YAMLs (e.g. combined_celltypes.yaml used by
     # TissueNetConfig.combined_celltype_mapping) — must ship with
     # the wheel since training/config.py resolves them relative to
