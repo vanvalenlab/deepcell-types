@@ -27,13 +27,12 @@ from .annotations import (
 
 logger = logging.getLogger(__name__)
 
+# Provenance fields that are *not* treated as strict invariants when
+# loading a split file. ``zarr_path`` is intentionally portable across
+# mount points and symlinks; mismatches are reported but never raise.
+# Every other field in ``_split_metadata_for_dataset`` is strict.
 _ADVISORY_SPLIT_METADATA_KEYS = {
     "zarr_path",
-    # min_channels filter is a no-op on the labeled v10 corpus; tolerate
-    # mismatch between split-file metadata and runtime config so that
-    # legacy splits generated with --min_channels=3 load cleanly under the
-    # new default of --min_channels=0 (and vice versa).
-    "min_channels",
 }
 
 
@@ -109,7 +108,7 @@ def _archive_fingerprint(zf):
 class FullImageDataset(Dataset):
     """Dataset with factored representation for CellTypeAnnotator.
 
-    Key differences from V1:
+    Per-item layout:
     - Returns (C, 1, H, W) raw*self_mask + (3, H, W) spatial context (self_mask, neighbor_mask, distance_transform)
     - Handles "?" marker positivity by returning a validity mask
     - No hardcoded per-dataset sample caps (use sqrt-frequency sampling instead)
@@ -251,7 +250,7 @@ class FullImageDataset(Dataset):
         elif skip_fovs:
             dataset_keys = [k for k in dataset_keys if k not in skip_fovs]
 
-        print(f"Found {len(dataset_keys)} datasets in tissuenet archive")
+        logger.info("Found %d datasets in tissuenet archive", len(dataset_keys))
 
         using_filtered_cache_keys = bool(
             skip_datasets or keep_datasets or skip_fovs or keep_fovs
@@ -345,7 +344,7 @@ class FullImageDataset(Dataset):
                 )
             else:
                 self._save_cell_data_cache(cache_path, all_cell_data, fingerprint)
-                print(f"Saved cache to {cache_path}")
+                logger.info("Saved cache to %s", cache_path)
 
         # Pre-fetch references
         domain_mapping = self.domain_mapping
@@ -1015,9 +1014,10 @@ def _find_sole_source_fovs(dataset, fov_to_indices):
 
     if forced_train:
         forced_classes = [ct for ct, fovs in class_to_fovs.items() if len(fovs) == 1]
-        print(
-            f"Rare-class stratification: {len(forced_train)} FOVs forced to train "
-            f"(sole source of {len(forced_classes)} classes: {sorted(forced_classes)})"
+        logger.info(
+            "Rare-class stratification: %d FOVs forced to train "
+            "(sole source of %d classes: %s)",
+            len(forced_train), len(forced_classes), sorted(forced_classes),
         )
 
     return forced_train
@@ -1252,7 +1252,7 @@ def save_fov_splits(dataset, split_file, train_ratio=0.8, seed=42, stratify_by=(
     with open(split_path, "w") as f:
         json.dump(split_data, f, indent=2)
 
-    print(f"FOV splits saved to {split_path}")
+    logger.info("FOV splits saved to %s", split_path)
     return train_indices, val_indices
 
 
@@ -1386,10 +1386,10 @@ def load_fov_splits(dataset, split_file, *, strict=True):
             raise ValueError(msg)
         logger.warning(msg)
 
-    print(
-        f"Loaded FOV splits from {split_file} "
-        f"(created {meta.get('created', 'unknown')}): "
-        f"{len(train_indices)} train, {len(val_indices)} val"
+    logger.info(
+        "Loaded FOV splits from %s (created %s): %d train, %d val",
+        split_file, meta.get("created", "unknown"),
+        len(train_indices), len(val_indices),
     )
 
     return train_indices, val_indices

@@ -111,11 +111,10 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
     response_data = resp.json()
     download_url = response_data["url"]
     file_size = response_data["size"]
-    # Parse file_size (TODO: would be more convenient if it were numerical, i.e. always bytes)
+    # The server-side ``size`` field comes back as a string like "12.3 MB"; parse
+    # it into bytes so the progress bar shows a real total.
     val, suff = file_size.split(" ")
-    # TODO: Case statement would be awesome here, but need to support all the
-    # way back to Python 3.8
-    suffix_mapping = {"KB": 2**10, "MB": 2**20, "B": 1, "GB": 2**30, "TB": 2**40}
+    suffix_mapping = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
     file_size_numerical = int(float(val) * suffix_mapping[suff])
 
     logging.info(

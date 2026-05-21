@@ -1,37 +1,124 @@
-"""Utilities for model/data access."""
+"""Utilities for model / data access.
 
-_latest = "2025-06-09"
+The registries below pin the MD5 checksums of the paper-release
+checkpoints; uploads to ``users.deepcell.org`` use the asset paths
+constructed below (``models/<filename>``). Some baselines ship more
+than one file (e.g. ``maps`` needs its ``_stats.npz`` companion;
+``xgboost`` needs its ``.remap.json`` label-remap), so each baseline
+entry is a list of ``(filename, md5)`` tuples.
+"""
+
+_latest = "2026-05-17"
+
+# Main model checkpoints. Values are ``(asset_filename, md5)``.
 _model_registry = {
-    # Original model version uploaded with preprint
-    "specific_ct_v0.1": "e499da92509821161be88a47237960a9",
-    # Versions released June 9th 2025. The public-data-only version is trained
-    # only on the subset of data that is publicly available (for reproducibility).
-    # Users are recommended to use the *non* public-data-only option.
-    "2025-06-09": "19b669675c06816414e8677f542ff542",
-    "2025-06-09_public-data-only": "19b669675c06816414e8677f542ff542",
+    "2026-05-17": (
+        "deepcell-types_2026-05-17.pt",
+        "6089cf35a0ab7357f94dc3030156dc33",
+    ),
+}
+
+# Baseline-model checkpoints. Values are lists of ``(asset_filename, md5)``.
+# Single-file baselines have a one-element list; ``maps`` and ``xgboost``
+# additionally ship a companion file required at inference.
+_baseline_registry = {
+    "cellsighter": [
+        (
+            "deepcell-types_baseline-cellsighter.pth",
+            "d06f8aeef485e7c40590cc35da80944b",
+        ),
+    ],
+    "maps": [
+        (
+            "deepcell-types_baseline-maps.pth",
+            "d2d1930d438c014c226202b8b7fa4a65",
+        ),
+        (
+            "deepcell-types_baseline-maps_stats.npz",
+            "e3a54e5a64d5376231abf1022b001a41",
+        ),
+    ],
+    "nimbus": [
+        (
+            "deepcell-types_baseline-nimbus.pt",
+            "47916fbebc3a58d5bee96a9289d157aa",
+        ),
+    ],
+    "xgboost": [
+        (
+            "deepcell-types_baseline-xgboost.json",
+            "00d110cc0e9f429b3014845f05a13060",
+        ),
+        (
+            "deepcell-types_baseline-xgboost.remap.json",
+            "0d94609aa7127672111797df920920b7",
+        ),
+    ],
 }
 
 
 def download_model(*, version=None):
-    """Download the deepcell-types model for local use.
+    """Download the deepcell-types model checkpoint for local use.
 
-    The model will be downloaded to ``$HOME/.deepcell/models``.
+    Downloaded files land in ``$HOME/.deepcell/models``.
 
     Parameters
     ----------
     version : str, optional
-       Which version of the model to download. Default is `None`, which results
-       in the latest (i.e. most-recently-released) version being downloaded.
+        Which checkpoint version to download. Defaults to ``None``,
+        which resolves to the most-recently-released version
+        (``_latest`` in this module).
+
+    Returns
+    -------
+    pathlib.Path
+        Local path to the downloaded checkpoint.
     """
     from ._auth import fetch_data
 
-
     version = version if version is not None else _latest
-    asset_key = f"models/deepcell-types_{version}.pt"
+    if version not in _model_registry:
+        raise ValueError(
+            f"Unknown model version {version!r}. "
+            f"Known versions: {sorted(_model_registry)}."
+        )
+    filename, md5 = _model_registry[version]
+    return fetch_data(f"models/{filename}", cache_subdir="models", file_hash=md5)
 
-    fetch_data(
-        asset_key, cache_subdir="models", file_hash=_model_registry.get(version)
-    )
+
+def download_baseline_checkpoint(name):
+    """Download a baseline-model checkpoint (and any companion files).
+
+    Some baselines ship more than one file:
+
+    * ``maps``: ``.pth`` weights + ``_stats.npz`` feature-norm statistics.
+    * ``xgboost``: ``.json`` booster + ``.remap.json`` label remap.
+
+    Downloaded files land in ``$HOME/.deepcell/models``.
+
+    Parameters
+    ----------
+    name : str
+        Baseline identifier. One of ``cellsighter``, ``maps``,
+        ``nimbus``, or ``xgboost``.
+
+    Returns
+    -------
+    list[pathlib.Path]
+        Local paths to every file downloaded for this baseline, in the
+        order declared in ``_baseline_registry``.
+    """
+    from ._auth import fetch_data
+
+    if name not in _baseline_registry:
+        raise ValueError(
+            f"Unknown baseline {name!r}. "
+            f"Known baselines: {sorted(_baseline_registry)}."
+        )
+    return [
+        fetch_data(f"models/{filename}", cache_subdir="models", file_hash=md5)
+        for filename, md5 in _baseline_registry[name]
+    ]
 
 
 def download_training_data(*, version=None):
@@ -50,4 +137,4 @@ def download_training_data(*, version=None):
 
     asset_key = "data/deepcell-types/public_data_v1.1.zip"
 
-    fetch_data(asset_key, cache_subdir="data")
+    return fetch_data(asset_key, cache_subdir="data")

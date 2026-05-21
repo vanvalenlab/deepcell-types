@@ -1089,7 +1089,7 @@ class TestLossesAndMetricsCompute:
         """Build a LossesAndMetrics with torchmetrics internals but only use conf_mat_ct_metric."""
         from deepcell_types.training.utils import LossesAndMetrics, MPMetricsTracker
         from deepcell_types.training.losses import FocalLoss
-        import torchmetrics
+        torchmetrics = pytest.importorskip("torchmetrics")
 
         lm = LossesAndMetrics(
             ct_loss_fn=FocalLoss(gamma=2.0),
@@ -1491,12 +1491,6 @@ class TestTumorDatasets:
             candidates.append(
                 Path(os.environ["DATA_DIR"]) / "tissuenet-caitlin-labels.zarr"
             )
-        candidates.append(
-            Path(
-                "/data/xwang3/tissuenet-caitlin-labels.zarr/"
-                "tissuenet-caitlin-labels.zarr"
-            )
-        )
         zarr_path = next(
             (candidate for candidate in candidates if candidate.exists()), None
         )

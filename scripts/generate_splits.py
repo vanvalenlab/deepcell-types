@@ -1,21 +1,21 @@
 """Generate and save a canonical FOV split file for reproducible experiments.
 
 Usage:
-    # v10 stratified (default — recommended for new experiments):
-    python -m scripts.generate_splits --output splits/fov_split_v10.json \\
+    # Stratified (default — recommended for new experiments):
+    python -m scripts.generate_splits --output splits/fov_split.json \\
         --stratify_by modality,tissue
 
-    # v9 legacy (unstratified global random shuffle, kept for benchmark continuity):
-    python -m scripts.generate_splits --output splits/fov_split_v9.json \\
+    # Unstratified global random shuffle (kept for benchmark continuity):
+    python -m scripts.generate_splits --output splits/fov_split_unstratified.json \\
         --stratify_by ""
 
     # Custom seed / ratio:
     python -m scripts.generate_splits --output splits/custom.json \\
         --seed 42 --train_ratio 0.8
 
-The v10 default stratifies by (modality, tissue). Single-FOV strata are
+The default stratifies by (modality, tissue). Single-FOV strata are
 forced to train (cannot evaluate held-out FOVs from a one-FOV bucket).
-Empty `--stratify_by ""` reproduces v9-style global random shuffle.
+Empty `--stratify_by ""` reproduces the older global random shuffle.
 """
 
 import os
@@ -26,7 +26,7 @@ from deepcell_types.training.config import TissueNetConfig
 from deepcell_types.training.dataset import FullImageDataset, save_fov_splits
 
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
 
 @click.command()

@@ -124,11 +124,41 @@ def _archive_tissue_celltype_mapping(zarr_path_str):
 
 
 class DCTConfig:
+    """Inference-time configuration for ``deepcell_types.predict``.
+
+    A ``DCTConfig`` snapshots the marker / cell-type registry and a small
+    set of preprocessing constants. The registry is loaded from a
+    TissueNet zarr v3 archive on disk; pass ``zarr_path`` explicitly or
+    rely on the ``DEEPCELL_TYPES_ZARR_PATH`` environment variable.
+
+    Parameters
+    ----------
+    zarr_path : str or Path, optional
+        Path to a TissueNet zarr v3 archive. If ``None``, falls back to
+        the ``DEEPCELL_TYPES_ZARR_PATH`` environment variable, then to
+        ``$DATA_DIR/<candidate>`` for candidates in
+        ``DCTConfig.ARCHIVE_CANDIDATE_NAMES``. Raises ``FileNotFoundError``
+        when no candidate has a ``zarr.json`` root.
+
+    Attributes
+    ----------
+    ARCHIVE_ENV_VAR : str
+        Environment-variable name consulted when ``zarr_path`` is ``None``.
+    ARCHIVE_CANDIDATE_NAMES : tuple[str, ...]
+        Filename candidates probed under ``$DATA_DIR``.
+    CHANNEL_ALIASES : dict[str, str]
+        Canonical channel-name aliases applied during preprocessing.
+
+    Examples
+    --------
+    >>> config = DCTConfig()  # reads DEEPCELL_TYPES_ZARR_PATH
+    >>> config = DCTConfig(zarr_path="/path/to/tissuenet.zarr")
+    """
+
     ARCHIVE_ENV_VAR = "DEEPCELL_TYPES_ZARR_PATH"
     ARCHIVE_CANDIDATE_NAMES = (
         "tissuenet-v9.zarr",
         "tissuenet-v8.zarr",
-        "tissuenet-caitlin-labels.zarr",
     )
     CHANNEL_ALIASES = {
         "CgA": "CHGA",

@@ -108,11 +108,11 @@ class HierarchicalLoss(torch.nn.Module):
     the coarse labels.
 
     Notes on usage:
-        - Dormant in the canonical v7/v8 recipe (``hierarchical_weight=0``);
+        - Dormant in the canonical recipe (``hierarchical_weight=0``);
           kept for optional auxiliary loss experiments.
-        - Expects ``ct2idx`` with 0-indexed values (post-v7 archive). Since
-          the archive standardization, the identity remap (``compact_idx =
-          fine_idx``) suffices — no compact/raw translation is needed.
+        - Expects ``ct2idx`` with 0-indexed values. The identity remap
+          (``compact_idx = fine_idx``) suffices — no compact/raw translation
+          is needed.
         - Unknown fine names are bucketed into a shared ``"Other"`` coarse
           class.
     """

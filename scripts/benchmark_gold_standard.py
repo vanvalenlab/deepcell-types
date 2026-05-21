@@ -23,7 +23,7 @@ Usage:
     # Run benchmark (our model — needs main venv):
     source .venv/bin/activate
     python scripts/benchmark_gold_standard.py --method ours \\
-        --checkpoint models/exp_v7_resnet48_0_best.pth --device cuda:0
+        --checkpoint ~/.deepcell/models/deepcell-types_2026-05-17.pt --device cuda:0
 
     # Run both (two separate runs, then compare):
     python scripts/benchmark_gold_standard.py --method compare \\
@@ -897,7 +897,7 @@ def main():
     parser.add_argument(
         "--zarr_dir",
         type=str,
-        default=os.environ.get("DATA_DIR", "/data2") + "/tissuenet-caitlin-labels.zarr",
+        default=str(Path(os.environ.get("DATA_DIR", "")) / "tissuenet-caitlin-labels.zarr"),
         help="Path to zarr archive (for --method ours)",
     )
     parser.add_argument(

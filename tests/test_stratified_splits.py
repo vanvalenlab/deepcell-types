@@ -1,7 +1,7 @@
 """Unit tests for (modality, tissue) stratified FOV splits.
 
-Round-1 audit found v9's global random shuffle let `(codex, tonsil)` end up
-val-only / untrainable. v10's stratified split forces every multi-FOV stratum
+An earlier global random shuffle let ``(codex, tonsil)`` end up val-only /
+untrainable. The current stratified split forces every multi-FOV stratum
 to have both train and val coverage and forces single-FOV strata to train.
 """
 from deepcell_types.training.dataset import (

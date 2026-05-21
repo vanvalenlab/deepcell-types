@@ -23,12 +23,12 @@ hierarchical layout
         tissue, modality, nuclear_channel, membrane_channel
 
 This script writes ONE such top-level key per (dataset, fov) into a
-**separate** zarr archive (default ``/data/xwang3/gold_standard.zarr``),
-not the production training archive. Run as::
+**separate** zarr archive (``--output_zarr`` is required), not the
+production training archive. Run as::
 
     uv run python -m scripts.ingest_gold_to_zarr \
         --gold_dir data/gold_standard/gold_standard_labelled \
-        --output_zarr /data/xwang3/gold_standard.zarr
+        --output_zarr path/to/gold_standard.zarr
 
 Why not write into the production archive: gold has no curated CT labels
 (stubbed with a placeholder), and the cell-data pickle cache
@@ -36,7 +36,7 @@ Why not write into the production archive: gold has no curated CT labels
 write would invalidate the production cache.
 
 Normalization: there is **no** intensity normalization at the data layer.
-``deepcelltypes/config.extract_patch`` only multiplies raw by self_mask
+``deepcell_types.dct_kit.image_funcs.extract_patch`` only multiplies raw by self_mask
 and resizes; the model's PerChannelResNet uses ``InstanceNorm2d`` to
 handle cross-modality intensity scale. Gold OME-TIFFs are stored as raw
 float32, casting through from uint8/uint16 with no rescaling.
@@ -428,7 +428,7 @@ def main() -> None:
     p.add_argument(
         "--output_zarr",
         type=Path,
-        default=Path("/data/xwang3/gold_standard.zarr"),
+        required=True,
         help="Path of the zarr v3 archive to create / append to.",
     )
     p.add_argument(

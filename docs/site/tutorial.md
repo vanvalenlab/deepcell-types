@@ -37,7 +37,7 @@ Interacting with the zarr hubmap data mirror requires a few additional
 dependencies:
 
 ```bash
-pip install zarr\>2 s3fs rich
+pip install "zarr>2" s3fs
 ```
 
 ```{note}
@@ -234,7 +234,7 @@ visualization.
 
 ```{code-cell} ipython3
 import napari
-nim = napari.Viewer(show=True)  # Headless for CI; set show=True for interactive viz
+nim = napari.Viewer(show=True)  # Set show=False to run headless (e.g. in CI)
 
 # Compute contrast limits
 cl = [(np.min(ch), np.max(ch)) for ch in img]
@@ -282,7 +282,7 @@ See {ref}`download_models` for details.
 
 ```{code-cell} ipython3
 # Model & system-specific configuration
-model = "deepcell-types_2025-06-09"
+model = "deepcell-types_2026-05-17"
 zarr_path = "/path/to/tissuenet-v9.zarr"
 
 # NOTE: if you do not have a cuda-capable GPU, try "cpu"
