@@ -13,11 +13,13 @@ class GradReverse(torch.autograd.Function):
     """Gradient-reversal for DANN-style domain adversarial training.
 
     Forward is identity; backward multiplies the incoming gradient by -1.
-    The DANN reversal factor ``λ`` is hardcoded to 1 (no schedule). This is
-    dormant in the canonical training recipe, which sets
-    ``--domain_weight 0`` and therefore never backprops through the domain
-    head — so the fixed λ is moot. If the domain branch is ever re-enabled,
-    consider adding a ramp schedule (Ganin & Lempitsky 2015, eq. 12).
+    The DANN reversal factor ``λ`` is hardcoded to 1 (no schedule). The
+    canonical v10 training recipe enables this branch via
+    ``--domain_weight 0.1`` (the current ``train.py`` default); setting
+    ``--domain_weight 0`` disables it entirely. The fixed λ has been
+    sufficient in practice at this weighting; if the head is ever weighted
+    more aggressively, consider adding a ramp schedule (Ganin & Lempitsky
+    2015, eq. 12).
     """
 
     @staticmethod
@@ -143,7 +145,7 @@ class MarkerEmbeddingLayer(nn.Module):
     """Marker name embeddings with ALWAYS-normalized output.
 
     Uses pre-computed SVD-reduced embeddings: canonical checkpoint is
-    ``embeddings/svd_512_v5.npz`` (269 markers x 319-d, reduced from 3072-d
+    ``embeddings/svd_512_v6.npz`` (278 markers x 328-d, reduced from 3072-d
     OpenAI text-embedding-3-large vectors). Always normalizes after projection
     (no train/eval mismatch).
     """

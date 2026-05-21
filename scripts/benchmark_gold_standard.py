@@ -495,7 +495,7 @@ def run_ours_benchmark(
     checkpoint: str,
     zarr_dir: str,
     device: str = "cuda:0",
-    svd_path: str = "embeddings/svd_512_v5.npz",
+    svd_path: str = "embeddings/svd_512_v6.npz",
     batch_size: int = 64,
 ) -> dict:
     """Run our model's MP head on gold standard data and evaluate.
@@ -903,7 +903,7 @@ def main():
     parser.add_argument(
         "--svd_path",
         type=str,
-        default="embeddings/svd_512_v5.npz",
+        default="embeddings/svd_512_v6.npz",
         help="Path to SVD embeddings (for --method ours)",
     )
     parser.add_argument(
