@@ -27,13 +27,12 @@ from .annotations import (
 
 logger = logging.getLogger(__name__)
 
+# Provenance fields that are *not* treated as strict invariants when
+# loading a split file. ``zarr_path`` is intentionally portable across
+# mount points and symlinks; mismatches are reported but never raise.
+# Every other field in ``_split_metadata_for_dataset`` is strict.
 _ADVISORY_SPLIT_METADATA_KEYS = {
     "zarr_path",
-    # min_channels filter is a no-op on the labeled v10 corpus; tolerate
-    # mismatch between split-file metadata and runtime config so that
-    # legacy splits generated with --min_channels=3 load cleanly under the
-    # new default of --min_channels=0 (and vice versa).
-    "min_channels",
 }
 
 
