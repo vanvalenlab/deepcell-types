@@ -284,7 +284,10 @@ class CellTypeAnnotator(nn.Module):
 
         # 2. Per-channel feature extractor
         channel_dim = 128
-        resnet_base_channels = kwargs.get("resnet_base_channels", 32)
+        # Canonical paper recipe is base_channels=48 (matches CLI default in
+        # scripts/train.py and scripts/predict.py). 32 was the pre-v10 default
+        # and is retained as an ablation knob via the kwarg.
+        resnet_base_channels = kwargs.get("resnet_base_channels", 48)
         self.channel_encoder = PerChannelResNet(
             out_dim=channel_dim, base_channels=resnet_base_channels
         )
@@ -353,8 +356,10 @@ class CellTypeAnnotator(nn.Module):
                 nn.Linear(d_model // 4, 1),
             )
 
-        # Mean-intensity-per-channel side input (zero-init → identity warm-start)
-        self.mean_intensity_mode = kwargs.get("mean_intensity_mode", "none")
+        # Mean-intensity-per-channel side input (zero-init → identity warm-start).
+        # Canonical paper recipe is "cls_residual" (matches CLI default in
+        # scripts/train.py). Older "none" was the pre-MeanInt-CLS default.
+        self.mean_intensity_mode = kwargs.get("mean_intensity_mode", "cls_residual")
         if self.mean_intensity_mode != "none":
             n_markers = marker_embeddings.shape[0] if marker_embeddings is not None else 278
             self._n_markers = n_markers

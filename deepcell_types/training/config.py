@@ -422,14 +422,12 @@ class TissueNetConfig:
             domain_mapping[key] = r["domain"]
 
             tissue = r["tissue"]
-            if tissue is not None:
-                if tissue not in tissue_ct_mapping:
-                    tissue_ct_mapping[tissue] = set()
-
             ct_names = r["ct_names"]
             if ct_names is not None:
                 celltype_mapping[key] = {ct: ct for ct in ct_names}
                 if tissue is not None:
+                    if tissue not in tissue_ct_mapping:
+                        tissue_ct_mapping[tissue] = set()
                     for ct in ct_names:
                         if ct in ct2idx:
                             tissue_ct_mapping[tissue].add(ct)
@@ -439,8 +437,11 @@ class TissueNetConfig:
 
         self._domain_mapping_cache = domain_mapping
         self._celltype_mapping_cache = celltype_mapping
+        # Drop tissues whose allowed-CT set is empty so --apply_tissue_mask
+        # doesn't silently produce an all-Inf logit mask (NaN softmax) on FOVs
+        # whose tissue lacks any labeled annotation in the archive.
         self._tissue_celltype_mapping_cache = {
-            k: sorted(v) for k, v in tissue_ct_mapping.items()
+            k: sorted(v) for k, v in tissue_ct_mapping.items() if v
         }
         self._mp_keys = mp_keys
         self._all_mappings_computed = True
