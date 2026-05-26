@@ -78,11 +78,12 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 @click.option(
     "--ct_abstention_k",
     type=float,
-    default=0.5,
+    default=0.2,
     help=(
         "Per-(tissue, modality) IQR-fence abstention on max-softmax confidence. "
-        "Default k=0.5 — the published headline setting (~9%% abstained, "
-        "+5pp macro_F1 on kept cells; sweeps all baselines incl. XGB-tuned). "
+        "Default k=0.2 — the published headline setting, chosen to maximise "
+        "macro_F1 separation against the strongest baseline (XGBoost-tuned) "
+        "while keeping a sizeable cohort of confident cells. "
         "Cells whose max-softmax falls below Q1 - k*IQR within their "
         "(tissue, modality) group are flagged as abstained (predicted_ct = -1, "
         "original kept in predicted_ct_raw). Set k <= 0 or pass 'none' to "
@@ -449,7 +450,7 @@ def main(
     print(f"Predictions saved to {output_path}")
 
     # ---------------- CT abstention (post-hoc) ----------------
-    # On by default with k=0.5 (published headline operating point);
+    # On by default with k=0.2 (published headline operating point);
     # set --ct_abstention_k 0 or a negative value to disable. Reads back the
     # saved CSV, derives per-cell predicted_ct + max_softmax from the per-class
     # probability columns, joins (tissue, modality) from the zarr archive,

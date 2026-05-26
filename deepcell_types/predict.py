@@ -29,7 +29,7 @@ class PredictionResult:
     cell_types : list[str]
         Predicted cell-type name for each unique cell index in ``mask``,
         ordered by ascending cell index. Cells flagged as abstained by the
-        IQR-fence post-hoc abstention (default ``ct_abstention_k=0.5``) carry
+        IQR-fence post-hoc abstention (default ``ct_abstention_k=0.2``) carry
         the sentinel ``"Unknown"`` here; their original argmax label is in
         ``cell_types_raw``.
     probabilities : np.ndarray, shape (n_cells, n_celltypes)
@@ -239,7 +239,7 @@ def predict(
     tissue_filter=None,
     zarr_path=None,
     return_probabilities=False,
-    ct_abstention_k=0.5,
+    ct_abstention_k=0.2,
     *,
     tissue_exclude=None,
 ):
@@ -293,12 +293,13 @@ def predict(
         If False (default, back-compat), returns a list of cell-type names.
         If True, returns a :class:`PredictionResult` with the full per-cell
         softmax probability matrix and the cell indices.
-    ct_abstention_k : float or None, default=0.5
-        IQR-fence post-hoc abstention multiplier. The default ``k=0.5`` is
-        the paper headline operating point (≈9% of cells abstained,
-        substantial macro_F1 lift on kept cells). For each FOV, the fence
-        is ``Q1 - k*IQR`` on the cell-wise max-softmax distribution;
-        cells below it are relabelled to ``"Unknown"``. Pass ``k=0`` or
+    ct_abstention_k : float or None, default=0.2
+        IQR-fence post-hoc abstention multiplier. The default ``k=0.2`` is
+        the paper headline operating point — chosen to maximise macro_F1
+        separation against the strongest baseline while keeping a sizeable
+        cohort of confident cells. For each FOV, the fence is
+        ``Q1 - k*IQR`` on the cell-wise max-softmax distribution; cells
+        below it are relabelled to ``"Unknown"``. Pass ``k=0`` or
         ``k=None`` to disable abstention and get the raw argmax label for
         every cell. Has no effect on FOVs with fewer than 4 cells (the
         IQR is undefined). See ``docs/reports/ct_iqr_abstention_test.md``

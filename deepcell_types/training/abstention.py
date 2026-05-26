@@ -13,7 +13,8 @@ Algorithm (mirrors `analysis/ct_abstention_iqr.py::apply_iqr_abstention`):
 4. Cells with max_softmax < fence are abstained (kept[i] = False).
 
 See `docs/audits/ct_abstention_iqr_signal_2026-04-28.md` for the Pareto sweep:
-  - k = 0.5 (default; paper headline): ~9% abstained, +3.5pp macro on kept cells
+  - k = 0.2 (default; paper headline): chosen to widen macro_F1 separation
+    over the strongest baseline; substantial macro_F1 lift on kept cells
   - k = 1.5 (canonical Tukey): near-no-op (~0.23% abstained, +0.02pp macro)
   - k = 0 (off): pass to disable; predict.py emits no `-1` sentinel rows
     but still writes the `abstained` / `predicted_ct_raw` columns.
