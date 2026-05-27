@@ -145,7 +145,7 @@ class MarkerEmbeddingLayer(nn.Module):
     """Marker name embeddings with ALWAYS-normalized output.
 
     Uses pre-computed SVD-reduced embeddings: canonical checkpoint is
-    ``embeddings/svd_512_v6.npz`` (278 markers x 328-d, reduced from 3072-d
+    ``embeddings/svd_512.npz`` (278 markers x 328-d, reduced from 3072-d
     OpenAI text-embedding-3-large vectors). Always normalizes after projection
     (no train/eval mismatch).
     """
@@ -169,13 +169,6 @@ class MarkerEmbeddingLayer(nn.Module):
         self.embed_layer = nn.Embedding.from_pretrained(
             embeddings, freeze=True, padding_idx=0
         )
-        # Trainable projection from frozen embedding space → d_model. Note: a
-        # LoRA adapter (lora_A, lora_B) was previously offered here but
-        # mathematically redundant when ``proj`` is already trainable from
-        # scratch — ``proj.W + lora_B.W @ lora_A.W`` collapses into
-        # ``proj_eff.W``. LoRA was removed; old checkpoints with lora_A/lora_B
-        # keys can be folded into ``proj`` with
-        # ``scripts/fold_lora_into_proj.py`` before loading.
         self.proj = nn.Linear(embed_dim, d_model)
 
     def forward(self, ch_idx):

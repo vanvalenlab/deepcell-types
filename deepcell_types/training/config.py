@@ -660,7 +660,7 @@ class TissueNetConfig:
                 raise FileNotFoundError(
                     f"SVD embeddings not found at {svd_path}. "
                     "Generate with: python -m scripts.generate_openai_embeddings "
-                    "--svd_output_path embeddings/svd_512_v6.npz"
+                    "--svd_output_path embeddings/svd_512.npz"
                 )
             data = np.load(svd_path, allow_pickle=True)
             svd_embeds = data["marker_embeddings"]
@@ -771,7 +771,7 @@ class TissueNetConfig:
 
         raise ValueError(
             "svd_path is required for load_marker_embeddings_array. "
-            "Pass --svd_embeddings_path embeddings/svd_512_v6.npz"
+            "Pass --svd_embeddings_path embeddings/svd_512.npz"
         )
 
     def get_marker_positivity(self, dataset_key: str) -> Optional[pd.DataFrame]:
