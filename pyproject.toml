@@ -62,8 +62,8 @@ train = [
     "click",
     "plotly",
     "kaleido>=0.2.1,<1.0,!=0.2.1.post1",
-    # Used by scripts/ingest_gold_to_zarr.py (top-level import) and
-    # by several other gold-standard / refinement scripts.
+    # Used by gold-standard ingest / refinement tools in
+    # deepcell-types-research-workspace/scripts_local/.
     "tifffile",
     # Used by scripts/generate_openai_embeddings*.py.
     "openai",

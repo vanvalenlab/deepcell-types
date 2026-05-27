@@ -75,7 +75,6 @@ Training entry points live under `scripts/`:
 - `scripts/train.py` — main training loop.
 - `scripts/pretrain.py` — masked-marker pretraining.
 - `scripts/predict.py` — batched evaluation over a zarr archive.
-- `scripts/benchmark_gold_standard.py` — gold-standard benchmark suite.
 
 All training scripts read configuration from a TissueNet zarr v3 archive.
 Pass `--zarr_dir` (training scripts) or set `DEEPCELL_TYPES_ZARR_PATH`

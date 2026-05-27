@@ -380,9 +380,8 @@ class FullImageDataset(Dataset):
             if domain is None:
                 # Fallback: read modality directly from the zarr group attrs.
                 # This lets FullImageDataset load FOVs from auxiliary archives
-                # (e.g. the Pan-M Gold-Standard ingest produced by
-                # scripts/ingest_gold_to_zarr.py) whose keys don't appear in
-                # the config's training-archive ``domain_mapping``.
+                # (e.g. the Pan-M Gold-Standard ingest) whose keys don't
+                # appear in the config's training-archive ``domain_mapping``.
                 try:
                     modality_attr = str(
                         zf[dataset_key].attrs.get("modality", "")
