@@ -5,7 +5,7 @@ import numpy as np
 import warnings
 from scipy.ndimage import distance_transform_edt
 
-from .dct_kit.image_funcs import patch_generator
+from .preprocessing import patch_generator
 
 
 class PatchDataset(IterableDataset):

@@ -44,6 +44,7 @@ from typing import Dict, List, Sequence
 import numpy as np
 from skimage.measure import regionprops
 from skimage.transform import rescale
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -217,3 +218,130 @@ def preprocess_fov(
         native_mpp=native_mpp,
         scale_factor=scale,
     )
+
+
+# ---------------------------------------------------------------------------
+# Legacy patch generator (inference path: ``PatchDataset`` → ``predict``).
+#
+# Kept separate from ``preprocess_fov`` above because the published model
+# was trained against this exact pipeline; bit-equivalence here is what
+# the checkpoint expects. The two paths share a percentile-clip + min-max
+# normalization structure but differ in detail (nonzero-only percentile
+# via ``np.nonzero`` indexing vs. NaN-percentile vectorized). Do not
+# unify without retraining.
+# ---------------------------------------------------------------------------
+
+
+def _normalize_per_channel(image):
+    min_vals = np.min(image, axis=(0, 1), keepdims=True)
+    ptp_vals = np.ptp(image, axis=(0, 1), keepdims=True)
+    ptp_vals[ptp_vals == 0] = 1.0
+    return (image - min_vals) / ptp_vals
+
+
+def _percentile_threshold_nonzero(image, percentile=99.9):
+    """Per-channel bright-spot clip using nonzero-pixel indexing.
+
+    Mirrors deepcell-toolbox's reference recipe; differs from
+    ``_percentile_threshold`` above (which uses NaN-percentile) in that
+    it iterates channels and rebuilds the threshold from
+    ``np.nonzero(...)``-indexed values. Behavior matches the recipe the
+    published checkpoint was trained against — see
+    https://github.com/vanvalenlab/deepcell-toolbox/blob/e8c1277/deepcell_toolbox/processing.py#L104
+    """
+    processed_image = np.zeros_like(image)
+    for chan in range(image.shape[-1]):
+        current_img = np.copy(image[..., chan])
+        non_zero_vals = current_img[np.nonzero(current_img)]
+        if len(non_zero_vals) > 0:
+            img_max = np.percentile(non_zero_vals, percentile)
+            threshold_mask = current_img > img_max
+            current_img[threshold_mask] = img_max
+            processed_image[..., chan] = current_img
+    return processed_image
+
+
+def _pad_cell(X, y, crop_size):
+    delta = crop_size // 2
+    X = np.pad(X, ((delta, delta), (delta, delta), (0, 0)))
+    y = np.pad(y, ((delta, delta), (delta, delta)))
+    return X, y
+
+
+def _get_crop_box(centroid, delta):
+    minr = int(centroid[0]) - delta
+    maxr = int(centroid[0]) + delta
+    minc = int(centroid[1]) - delta
+    maxc = int(centroid[1]) + delta
+    return np.array([minr, minc, maxr, maxc])
+
+
+def _get_neighbor_masks(mask, cbox, cell_idx):
+    """Binary masks of a cell and its neighbors within the crop window.
+
+    Assumes the mask has already been padded; an unpadded mask will silently
+    wrap at the borders.
+    """
+    minr, minc, maxr, maxc = cbox
+    if not (np.issubdtype(mask.dtype, np.integer) and isinstance(cell_idx, int)):
+        raise TypeError(
+            f"mask must be an integer array and cell_idx must be int; "
+            f"got mask.dtype={mask.dtype!r}, cell_idx={type(cell_idx).__name__}."
+        )
+
+    cell_view = mask[minr:maxr, minc:maxc]
+    binmask_cell = (cell_view == cell_idx).astype(np.int32)
+    binmask_neighbors = (cell_view != cell_idx).astype(np.int32) * (
+        cell_view != 0
+    ).astype(np.int32)
+    return binmask_cell, binmask_neighbors
+
+
+def patch_generator(raw, mask, mpp, dct_config):
+    """Yield (raw_patch, mask_patch, cell_idx, orig_ct) for each cell.
+
+    Output dtypes:
+        raw_patch: float32 (C, H, W)
+        mask_patch: float32 (H, W, 2) — [self_mask, neighbor_mask]
+    """
+    raw = np.transpose(raw, (1, 2, 0))  # (H, W, C)
+
+    raw = rescale(
+        raw,
+        mpp / dct_config.STANDARD_MPP_RESOLUTION,
+        preserve_range=True,
+        channel_axis=-1,
+    )
+
+    mask = rescale(
+        mask,
+        mpp / dct_config.STANDARD_MPP_RESOLUTION,
+        order=0,
+        preserve_range=True,
+        anti_aliasing=False,
+    ).astype(np.int32)
+
+    raw = _percentile_threshold_nonzero(
+        raw, percentile=dct_config.PERCENTILE_THRESHOLD
+    )
+    raw = _normalize_per_channel(raw)
+    raw, mask = _pad_cell(raw, mask, dct_config.CROP_SIZE)
+
+    props = regionprops(mask, cache=False)
+    orig_ct = "Unknown"
+
+    for prop in tqdm(props):
+        idx = prop.label
+        if idx == 0:
+            continue
+
+        delta = dct_config.CROP_SIZE // 2
+        cbox = _get_crop_box(prop.centroid, delta)
+        self_mask, neighbor_mask = _get_neighbor_masks(mask, cbox, prop.label)
+
+        minr, minc, maxr, maxc = cbox
+        raw_patch = raw[minr:maxr, minc:maxc, :]  # (H, W, C)
+        raw_patch = np.transpose(raw_patch, (2, 0, 1))  # (C, H, W)
+        mask_patch = np.stack([self_mask, neighbor_mask], axis=-1)
+
+        yield raw_patch, mask_patch.astype(np.float32), idx, orig_ct

@@ -182,7 +182,6 @@ class DCTConfig:
         self.OUTPUT_SIZE = self.CROP_SIZE
         self.STANDARD_MPP_RESOLUTION = 0.5
 
-        self.data_folder = Path(os.path.dirname(__file__)) / "config"
         self._tct_mapping = None
 
         self.zarr_path = _resolve_archive_path(zarr_path)
@@ -209,7 +208,7 @@ class DCTConfig:
         self.NUM_DOMAINS = len(self._domain2idx)
         self.NUM_CELLTYPES = len(self.ct2idx)
 
-        with open(self.data_folder / "channel_mapping.yaml") as fh:
+        with open(Path(__file__).parent / "channel_mapping.yaml") as fh:
             channel_mapping = yaml.safe_load(fh) or {}
 
         canonical_mapping = {ch: ch for ch in self.master_channels}

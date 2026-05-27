@@ -79,7 +79,6 @@ all = ["deepcell-types[train,baselines]"]
 [tool.setuptools]
 packages = [
     'deepcell_types',
-    'deepcell_types.dct_kit',
     'deepcell_types.training',
     'deepcell_types.utils'
 ]
@@ -87,7 +86,7 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 deepcell_types = [
-    "dct_kit/config/*.yaml",
+    "channel_mapping.yaml",
     # Training-side YAMLs (e.g. combined_celltypes.yaml used by
     # TissueNetConfig.combined_celltype_mapping) — must ship with
     # the wheel since training/config.py resolves them relative to

@@ -9,7 +9,7 @@ from numcodecs import Zstd
 
 from deepcell_types.model import create_model
 from deepcell_types.dataset import PatchDataset
-from deepcell_types.dct_kit.config import DCTConfig
+from deepcell_types.config import DCTConfig
 from deepcell_types.predict import (
     _InferenceResultBuffer,
     _build_model,

@@ -12,7 +12,7 @@ from tqdm import tqdm
 from .abstention import ABSTENTION_LABEL, compute_iqr_fence
 from .model import create_model
 from .dataset import PatchDataset
-from .dct_kit.config import DCTConfig
+from .config import DCTConfig
 
 
 @dataclass(frozen=True)
