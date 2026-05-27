@@ -1,13 +1,28 @@
 """Smoke test: post-v7 R&D features (arcsinh, rank, jitter, QN, TTA BN) are stripped from HEAD."""
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
+
+# The scripts under test top-import torchinfo / torchmetrics, both of which
+# are [train]-extra dependencies. On an inference-only install they fail to
+# import, leaving --help output empty — and a previous version of this file
+# used check=False, which silently turned every flag-removed assertion into
+# a no-op. Guard the whole module behind importorskip so we get a real skip
+# instead of vacuously-passing tests.
+pytest.importorskip("torchinfo")
+pytest.importorskip("torchmetrics")
 
 REPO = Path(__file__).resolve().parents[1]
 
 def _help_output(script_module: str) -> str:
+    # check=True so a failing --help (e.g. ImportError) blows up the test
+    # instead of silently producing an empty string that the `flag not in
+    # out` assertion would trivially pass against.
     result = subprocess.run(
-        ["python", "-m", script_module, "--help"],
-        cwd=REPO, capture_output=True, text=True, check=False,
+        [sys.executable, "-m", script_module, "--help"],
+        cwd=REPO, capture_output=True, text=True, check=True,
     )
     return result.stdout + result.stderr
 

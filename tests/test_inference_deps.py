@@ -28,6 +28,11 @@ TRAINING_ONLY_MODULES = (
     "torchinfo",
     "torchmetrics",
     "matplotlib",
+    "click",
+    "plotly",
+    "kaleido",
+    "openai",
+    "tifffile",
 )
 
 

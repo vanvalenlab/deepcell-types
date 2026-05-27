@@ -177,3 +177,6 @@ uv.lock
 # /deep-review outputs (local report artifacts)
 /reviews/
 audit/
+
+# Per-project Claude Code settings (local-only, not for upstream)
+.claude/
