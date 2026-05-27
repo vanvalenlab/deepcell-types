@@ -5,10 +5,10 @@ semantic quality. Generates both raw embeddings and SVD-reduced versions.
 
 Usage:
     export OPENAI_API_KEY=sk-...
-    DATA_DIR=/data/xwang3/tissuenet-caitlin-labels.zarr \
-        python -m scripts.generate_openai_embeddings \
+    export DATA_DIR=/path/to/tissuenet.zarr
+    python -m scripts.generate_openai_embeddings \
         --output_path embeddings/openai_3large.npz \
-        --svd_output_path embeddings/svd_512_v7.npz
+        --svd_output_path embeddings/svd_512_v6.npz
 """
 
 import os
@@ -45,8 +45,8 @@ def get_embeddings_batch(client, texts: list, model: str = "text-embedding-3-lar
 @click.command()
 @click.option("--output_path", type=str, default="embeddings/openai_3large.npz",
               help="Path to save raw embeddings")
-@click.option("--svd_output_path", type=str, default="embeddings/svd_512_v7.npz",
-              help="Path to save SVD-reduced embeddings (bump version on regenerate; canonical artifact is svd_512_v6.npz)")
+@click.option("--svd_output_path", type=str, default="embeddings/svd_512_v6.npz",
+              help="Path to save SVD-reduced embeddings (canonical artifact)")
 @click.option("--n_components", type=int, default=512,
               help="SVD components (capped by min(n_samples, n_features)-1)")
 @click.option("--model", type=str, default="text-embedding-3-large",

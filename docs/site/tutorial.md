@@ -30,18 +30,18 @@ Users are encouraged to explore the portal for data of interest.
 For convenience, a subset of the publicly-available spatial proteomic data
 has been converted to a remote [zarr archive][zarr].
 The datasets in the zarr archive reflect the original HuBMAP indexing scheme
-(i.e. `HBM###_????_###`, where `#` indicates a number nad `?` indicates an
+(i.e. `HBM###_????_###`, where `#` indicates a number and `?` indicates an
 upper-case alphabetical character).
 
 Interacting with the zarr hubmap data mirror requires a few additional
 dependencies:
 
 ```bash
-pip install "zarr>2" s3fs
+pip install "zarr>=3" s3fs
 ```
 
 ```{note}
-The hubmap data mirror uses zarr format v3, thus requires `zarr>2` to be
+The hubmap data mirror uses zarr format v3, thus requires `zarr>=3` to be
 installed.
 ```
 
@@ -50,7 +50,7 @@ import zarr
 
 if not zarr.__version__.startswith("3"):
     raise EnvironmentError(
-        f"The tutorial requires `zarr>3`, version {zarr.__version__} found."
+        f"The tutorial requires `zarr>=3`, version {zarr.__version__} found."
     )
 ```
 
@@ -234,7 +234,7 @@ visualization.
 
 ```{code-cell} ipython3
 import napari
-nim = napari.Viewer(show=True)  # Set show=False to run headless (e.g. in CI)
+nim = napari.Viewer(show=False)  # show=True for interactive local runs
 
 # Compute contrast limits
 cl = [(np.min(ch), np.max(ch)) for ch in img]
@@ -283,7 +283,7 @@ See {ref}`download_models` for details.
 ```{code-cell} ipython3
 # Model & system-specific configuration
 model = "deepcell-types_2026-05-17"
-zarr_path = "/path/to/tissuenet-v9.zarr"
+zarr_path = "/path/to/tissuenet-v10.zarr"
 
 # NOTE: if you do not have a cuda-capable GPU, try "cpu"
 device = "cuda:0"

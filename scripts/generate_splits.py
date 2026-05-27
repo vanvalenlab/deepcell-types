@@ -31,7 +31,11 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
 @click.command()
 @click.option(
-    "--zarr_dir", type=str, default=str(DATA_DIR / "tissuenet-caitlin-labels.zarr")
+    "--zarr_dir",
+    type=str,
+    required=True,
+    help="Path to the TissueNet zarr archive. Or set $DATA_DIR.",
+    default=str(DATA_DIR / "tissuenet.zarr") if str(DATA_DIR) else None,
 )
 @click.option(
     "--output", type=str, required=True, help="Output path for the split JSON file"

@@ -117,7 +117,7 @@ and select `Open with -> Jupytext notebook`.
 The repository also ships the training pipeline used to produce the canonical
 checkpoints. Training-only code lives under `deepcell_types.training` and is
 gated behind the `[train]` install extra so plain inference users don't pull
-in `wandb`, `zarr`, `pandas`, `scikit-learn`, `torchvision`, etc.
+in `wandb`, `zarr`, `pandas`, `scikit-learn`, etc.
 
 ```bash
 pip install "deepcell-types[train] @ git+https://github.com/vanvalenlab/deepcell-types@master"
@@ -136,8 +136,10 @@ The end-to-end training and evaluation scripts live under `scripts/`:
   a TissueNet-compatible zarr archive.
 
 All training scripts read mappings and metadata from a TissueNet zarr v3
-archive (`tissuenet-v8.zarr` or newer). Pass the archive path either with
-`--zarr_path` or via the `DEEPCELL_TYPES_ZARR_PATH` environment variable.
+archive (`tissuenet-v10.zarr` is the current canonical release; v8 and v9
+are also accepted). Pass the archive path with
+`--zarr_dir` (training scripts) or via the `DEEPCELL_TYPES_ZARR_PATH`
+environment variable (`deepcell_types.predict`).
 
 ```{toctree}
 ---
@@ -150,5 +152,5 @@ site/reference
 ```
 
 [github]: https://github.com/vanvalenlab/deepcell-types
-[dc_org]: https://vanvalenlab.github.io/deepcell-types/site/API-key.html#
+[dc_org]: https://users.deepcell.org/login/
 [license]: https://github.com/vanvalenlab/deepcell-types/blob/master/LICENSE

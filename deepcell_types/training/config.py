@@ -589,7 +589,7 @@ class TissueNetConfig:
         return dict(self._zf.attrs.get("lineage_mapping", {}))
 
     def get_channel_embedding(
-        self, embedding_model_name: str = "deepseek-r1-70b"
+        self, embedding_model_name: str = "text-embedding-3-large"
     ) -> Dict[str, List[float]]:
         """Get marker/channel embeddings from zarr or fallback to JSON file."""
         embeddings = self._zf.attrs.get(f"marker_embeddings_{embedding_model_name}")
@@ -615,7 +615,7 @@ class TissueNetConfig:
         return {}
 
     def get_celltype_embedding(
-        self, embedding_model_name: str = "deepseek-r1-70b-llama-distill-q4_K_M_full"
+        self, embedding_model_name: str = "text-embedding-3-large"
     ) -> Dict[str, List[float]]:
         """Get cell type embeddings from zarr or fallback to JSON file."""
         embeddings = self._zf.attrs.get(f"celltype_embeddings_{embedding_model_name}")
@@ -642,7 +642,7 @@ class TissueNetConfig:
 
     def load_marker_embeddings_array(
         self,
-        embedding_model_name: str = "deepseek-r1-70b",
+        embedding_model_name: str = "text-embedding-3-large",
         svd_path: Optional[str] = None,
     ) -> np.ndarray:
         """
@@ -801,12 +801,13 @@ class TissueNetConfig:
         label is not in ``ct2idx``. Such rows are dead code (no cell carries
         that label, so ``df.loc[ct, ...]`` never reaches them) but their
         presence indicates the archive's standardization passes did not
-        propagate to MP rows — usually a hubmap-to-zarr migrate_archive_v2
-        regression. Aggregating prevents flooding multi-worker DataLoader
-        startup logs (4 workers × ~285 MP datasets = 1140 lines otherwise).
+        propagate to MP rows. Aggregating prevents flooding multi-worker
+        DataLoader startup logs (4 workers × ~285 MP datasets = 1140 lines
+        otherwise).
 
-        Recovery: rerun ``python migrate_archive_v2.py --zarr-path <archive>``
-        in the hubmap-to-zarr repo.
+        Recovery: rerun the archive-ingestion pipeline used to build this
+        archive so the standardized cell-type labels propagate to the MP
+        sub-group attrs.
         """
         try:
             ds = self._zf[dataset_key]
@@ -823,7 +824,7 @@ class TissueNetConfig:
             logger.warning(
                 "Failed to read marker_positivity attrs for %s (%s: %s); "
                 "MP signal will be unavailable for this dataset. Likely an "
-                "archive schema drift — rerun hubmap-to-zarr migrate_archive_v2.py.",
+                "archive schema drift — rerun the archive-ingestion pipeline.",
                 dataset_key, type(e).__name__, e,
                 exc_info=True,
             )
@@ -841,8 +842,8 @@ class TissueNetConfig:
                 seen_set.update(new_rows)
                 logger.warning(
                     "marker_positivity has %d row label(s) not in ct2idx (dead-code rows; "
-                    "first seen in dataset %s): %s. Rerun hubmap-to-zarr "
-                    "migrate_archive_v2.py --zarr-path <archive> to fix.",
+                    "first seen in dataset %s): %s. Rerun the archive-ingestion "
+                    "pipeline to repopulate the standardized labels.",
                     len(new_rows), dataset_key, new_rows,
                 )
 

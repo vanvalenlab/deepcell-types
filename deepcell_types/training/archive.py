@@ -237,9 +237,10 @@ def archive_array_fingerprint(
 
 
 def _discover_fov_keys(zarr_root) -> List[str]:
-    """Enumerate leaf FOV keys across v7 (flat) and v8 (5-level) layouts.
+    """Enumerate leaf FOV keys across flat (v7) and nested (v8+) layouts.
 
-    v8 archives set ``schema_version`` at the root and organize datasets as
+    Archives from v8 onward (v8, v9, v10 — the current canonical) set
+    ``schema_version`` at the root and organize datasets as
     ``modality/tissue/cohort/sample/fov``. v7 archives predate this and
     store flat dataset keys directly under the root. Both zarr (via
     ``zf[key]``) and the filesystem resolve ``a/b/c`` the same way, so the

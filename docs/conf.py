@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'deepcell-types'
-copyright = '%Y, Van Valen Lab at the California Institute of Technology (Caltech)'
-author = 'Xuefei (Julie) Wang'
+copyright = '2024-2026, Van Valen Lab at the California Institute of Technology (Caltech)'
+author = 'Van Valen Lab'
 release = '0.1.0'
 
 # -- General configuration ---------------------------------------------------

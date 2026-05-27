@@ -78,7 +78,8 @@ Training entry points live under `scripts/`:
 - `scripts/benchmark_gold_standard.py` — gold-standard benchmark suite.
 
 All training scripts read configuration from a TissueNet zarr v3 archive.
-Pass `--zarr_path` or set `DEEPCELL_TYPES_ZARR_PATH`. The training-side
+Pass `--zarr_dir` (training scripts) or set `DEEPCELL_TYPES_ZARR_PATH`
+(picked up by `deepcell_types.predict`). The training-side
 modules under `deepcell_types.training` (e.g. `TissueNetConfig`,
 `FullImageDataset`, `FocalLoss`, `HierarchicalLoss`) are stable enough to
 import directly for custom training scripts.

@@ -392,7 +392,7 @@ def main(
     # Load pre-trained backbone weights (from masked marker pre-training)
     if pretrained_path and Path(pretrained_path).exists():
         print(f"Loading pre-trained weights from {pretrained_path}")
-        pretrained_state = torch.load(pretrained_path, map_location=device, weights_only=False)
+        pretrained_state = torch.load(pretrained_path, map_location=device, weights_only=True)
         # Accept both the legacy plain-state_dict and the new bundled checkpoint
         # (which stores the backbone under the "model" key).
         if isinstance(pretrained_state, dict) and "model" in pretrained_state and isinstance(pretrained_state["model"], dict):

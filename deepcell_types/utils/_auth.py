@@ -100,7 +100,7 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
        resp.json().get("detail") == "Authentication credentials were not provided."
     ):
         raise ValueError(
-            f"\n\nAPI token {access_token} is not valid.\n"
+            "\n\nThe provided DEEPCELL_ACCESS_TOKEN is not valid.\n"
             "The token may be expired - if so, create a new one at\n"
             "https://users.deepcell.org"
         )
@@ -126,13 +126,38 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
     data_req.raise_for_status()
 
     chunk_size = 4096
-    with tqdm.wrapattr(
-        open(fpath, "wb"), "write", miniters=1, total=file_size_numerical
-    ) as fh:
-        for chunk in data_req.iter_content(chunk_size=chunk_size):
-            fh.write(chunk)
+    try:
+        with tqdm.wrapattr(
+            open(fpath, "wb"), "write", miniters=1, total=file_size_numerical
+        ) as fh:
+            for chunk in data_req.iter_content(chunk_size=chunk_size):
+                fh.write(chunk)
+    except BaseException:
+        # Don't leave a half-written file on disk: subsequent runs (especially
+        # for callers that don't pass file_hash) would silently return the
+        # corrupt path. Drop and re-raise.
+        if fpath.exists():
+            try:
+                fpath.unlink()
+            except OSError:
+                pass
+        raise
 
-    logging.info(f"🎉 Successfully downloaded file to {fpath}")
+    # Verify the downloaded file against the expected hash, if one was given.
+    # This catches truncated downloads that completed without raising and
+    # protects against tampered intermediaries.
+    if file_hash is not None:
+        with open(fpath, "rb") as fh:
+            actual = md5(fh.read()).hexdigest()
+        if actual != file_hash:
+            fpath.unlink(missing_ok=True)
+            raise ValueError(
+                f"Integrity check failed for {fname}: "
+                f"expected md5={file_hash}, got md5={actual}. "
+                "The downloaded file has been removed; please retry."
+            )
+
+    logging.info(f"Successfully downloaded {fname} to {fpath}")
 
     return fpath
 

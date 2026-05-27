@@ -503,7 +503,7 @@ def run_ours_benchmark(
     Loads gold standard TIFFs and segmentation masks directly, extracts
     patches in our model's input format, and runs inference.
 
-    Requires: main .venv with deepcelltypes installed
+    Requires: ``pip install "deepcell-types[train]"``
     """
     import torch
     import tifffile
@@ -523,7 +523,7 @@ def run_ours_benchmark(
 
     # Load model
     print(f"Loading model from {checkpoint}...")
-    ckpt = torch.load(checkpoint, map_location=device, weights_only=False)
+    ckpt = torch.load(checkpoint, map_location=device, weights_only=True)
 
     # Auto-detect resnet_base_channels from checkpoint
     resnet_channels = 32
@@ -897,8 +897,8 @@ def main():
     parser.add_argument(
         "--zarr_dir",
         type=str,
-        default=str(Path(os.environ.get("DATA_DIR", "")) / "tissuenet-caitlin-labels.zarr"),
-        help="Path to zarr archive (for --method ours)",
+        default=None,
+        help="Path to zarr archive (for --method ours). Defaults to $DATA_DIR/tissuenet.zarr.",
     )
     parser.add_argument(
         "--svd_path",

@@ -1,12 +1,13 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "deepcell-types"
 version = "0.1.0"
 authors = [
-    { name="Xuefei (Julie) Wang", email="xwang3@caltech.edu" },
+    { name="Van Valen Lab", email="vanvalenlab@gmail.com" },
+    { name="Xuefei (Julie) Wang" },
 ]
 description = "A generalized cell phenotyping model for spatial proteomics"
 readme = "README.md"
@@ -34,6 +35,12 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Image Recognition",
+    # The LICENSE is a Modified Apache 2.0 with a non-commercial / academic
+    # carve-out (see LICENSE for the full text). We surface the closest
+    # standard classifier plus the "Other/Proprietary" classifier so
+    # automated scanners do not file the package as plain Apache-2.0.
+    "License :: OSI Approved :: Apache Software License",
+    "License :: Other/Proprietary License",
 ]
 
 license = {file = "LICENSE"}

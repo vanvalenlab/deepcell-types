@@ -56,7 +56,7 @@ def main():
     src = Path(sys.argv[1])
     dst = Path(sys.argv[2]) if len(sys.argv) == 3 else src
     print(f"Loading {src}")
-    ckpt = torch.load(src, map_location="cpu", weights_only=False)
+    ckpt = torch.load(src, map_location="cpu", weights_only=True)
     ckpt, changed = fold(ckpt)
     if not changed:
         print("No LoRA keys found, nothing to fold")

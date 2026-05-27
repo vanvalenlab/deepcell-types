@@ -157,6 +157,7 @@ class DCTConfig:
 
     ARCHIVE_ENV_VAR = "DEEPCELL_TYPES_ZARR_PATH"
     ARCHIVE_CANDIDATE_NAMES = (
+        "tissuenet-v10.zarr",
         "tissuenet-v9.zarr",
         "tissuenet-v8.zarr",
     )

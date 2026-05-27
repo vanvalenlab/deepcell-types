@@ -121,20 +121,21 @@ def download_baseline_checkpoint(name):
     ]
 
 
-def download_training_data(*, version=None):
-    """Download the complete corpus of training data for the deepcell-types model.
+_training_data_asset_key = "data/deepcell-types/public_data_v1.1.zip"
 
-    The compressed dataset will be downloaded to ``$HOME/.deepcell/data``.
 
-    Parameters
-    ----------
-    version : str, optional
-       Which version of the training data to download. Default is `None`, which results
-       in the latest (i.e. most-recently-released) version being downloaded.
+def download_training_data():
+    """Download the public training-data corpus for deepcell-types (v1.1).
+
+    The compressed archive is downloaded to ``$HOME/.deepcell/data``. The
+    asset is pinned to a single released version; older versions are not
+    available through this helper.
+
+    Returns
+    -------
+    pathlib.Path
+        Local path to the downloaded ``.zip``.
     """
     from ._auth import fetch_data
 
-
-    asset_key = "data/deepcell-types/public_data_v1.1.zip"
-
-    return fetch_data(asset_key, cache_subdir="data")
+    return fetch_data(_training_data_asset_key, cache_subdir="data")

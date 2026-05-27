@@ -10,5 +10,5 @@ importing it requires the ``[train]`` extra:
 Inference users do not need any of this. The split is enforced by a CI
 guard (``tests/test_inference_deps.py``) that fails if the inference path
 ever transitively imports a training-only dependency (wandb, zarr,
-scikit-learn, pandas, torchvision, ...).
+scikit-learn, pandas, ...).
 """
