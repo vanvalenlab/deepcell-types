@@ -18,9 +18,7 @@ import numpy as np
 import pytest
 
 from deepcell_types.preprocessing import (
-    DEFAULT_PERCENTILE,
     PreprocessedFov,
-    TARGET_MPP,
     _min_max_normalize,
     _percentile_threshold,
     preprocess_fov,

@@ -23,8 +23,6 @@ from tqdm import tqdm
 from pathlib import Path
 from collections import defaultdict
 
-logger = logging.getLogger(__name__)
-
 import torch
 import torch.nn.functional as F
 from torchinfo import summary
@@ -34,6 +32,7 @@ from deepcell_types.training.dataset import create_dataloader
 from deepcell_types.model import create_model, MaskedMarkerHead, mask_marker_channels
 from deepcell_types.training.utils import BatchData, seed_everything
 
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
@@ -402,7 +401,7 @@ def main(
 
     print(f"\nPre-training complete. Best val_loss={best_val_loss:.6f}")
     print(f"Pre-trained backbone saved to {best_model_path}")
-    print(f"\nTo fine-tune:")
+    print("\nTo fine-tune:")
     print(f"  python train.py --model_name finetuned --pretrained_path {best_model_path}")
 
     run.finish()

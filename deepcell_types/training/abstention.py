@@ -14,7 +14,7 @@ accuracy helpers used by the CLI evaluator (``scripts/predict.py``).
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Sequence
+from typing import Sequence
 
 import numpy as np
 

@@ -1,6 +1,5 @@
 """Test hierarchical accuracy computation."""
 import numpy as np
-import pytest
 from deepcell_types.training.utils import adjust_conf_mat_hierarchy
 
 

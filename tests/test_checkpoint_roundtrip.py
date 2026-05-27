@@ -9,7 +9,6 @@ followed by `os.replace(tmp_path, final_path)` for atomicity. Tests that:
 import os
 from pathlib import Path
 
-import pytest
 import torch
 import torch.nn as nn
 
@@ -92,7 +91,6 @@ class TestCheckpointRoundTrip:
         ckpt_path = tmp_path / "model.pt"
         net1 = _TinyNet()
         _atomic_save({"model": net1.state_dict()}, ckpt_path)
-        first_size = ckpt_path.stat().st_size
 
         # Save a differently-sized payload (extra metadata)
         net2 = _TinyNet(d_hidden=16)  # larger model -> larger state dict

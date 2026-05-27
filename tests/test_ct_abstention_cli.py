@@ -64,7 +64,8 @@ def test_disable_abstention_with_nonpositive_k():
     # The guard in scripts/predict.py is `if ct_abstention_k > 0`; passing 0 or
     # a negative value must skip apply_abstention entirely. We assert the
     # guard's logic here (apply_abstention itself doesn't accept k<=0).
-    skip = lambda k: not (k is not None and k > 0)
+    def skip(k):
+        return not (k is not None and k > 0)
     assert skip(0)
     assert skip(-1)
     assert skip(None)

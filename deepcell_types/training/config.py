@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from .archive import (
+from .archive import (  # noqa: F401  -- re-exported for backward compat
     _FINGERPRINT_CACHE,
     _FOV_KEYS_CACHE,
     _patch_zarr_v3_alpha_metadata,
@@ -939,17 +939,7 @@ class TissueNetConfig:
 
 
 # Backward-compat re-exports: these were defined here pre-split.
-# Canonical homes are now archive.py and patch.py.
-from .archive import (  # noqa: F401, E402
-    _FINGERPRINT_CACHE,
-    _FOV_KEYS_CACHE,
-    _patch_zarr_v3_alpha_metadata,
-    _local_zarr_root_path,
-    cached_archive_metadata_fingerprint,
-    archive_metadata_fingerprint,
-    archive_array_fingerprint,
-    _discover_fov_keys,
-)
+# Canonical home is now patch.py. (archive.py re-exports happen at the top.)
 from .patch import (  # noqa: F401, E402
     compute_distance_transform,
     extract_patch,

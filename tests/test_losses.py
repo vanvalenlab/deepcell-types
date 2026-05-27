@@ -11,9 +11,6 @@ R7 M5 — HierarchicalLoss coverage:
     (b) smoke test on project CELL_TYPE_HIERARCHY → finite scalar
 """
 
-import os
-from pathlib import Path
-
 import pytest
 import torch
 import torch.nn.functional as F

@@ -64,9 +64,9 @@ def test_all_zero_channel_is_masked_in_attn_mask():
 
     attn_mask, sample, mp, vm = _apply_zero_channel_mask(ds, 0, 3, ch_idx, sample, mp, vm)
     # Channel 1 was all-zero -> attn_mask True (padded out)
-    assert attn_mask[0] == False
-    assert attn_mask[1] == True
-    assert attn_mask[2] == False
+    assert not attn_mask[0]
+    assert attn_mask[1]
+    assert not attn_mask[2]
     # Channels 3..max are padding (not real)
     assert attn_mask[3:].all()
 
@@ -107,9 +107,9 @@ def test_no_zero_cache_means_no_extra_masking():
 
     attn_mask, sample, mp, vm = _apply_zero_channel_mask(ds, 0, 3, ch_idx, sample, mp, vm)
     # Only the unknown channel is masked
-    assert attn_mask[0] == False
-    assert attn_mask[1] == True  # ch_idx == -1
-    assert attn_mask[2] == False
+    assert not attn_mask[0]
+    assert attn_mask[1]  # ch_idx == -1
+    assert not attn_mask[2]
     assert (sample[1] == -1.0).all()
     # Channel 0 and 2 untouched
     assert (sample[0] == 5.0).all()
@@ -146,8 +146,8 @@ def test_combined_unknown_and_zero_channel():
     vm = np.ones(ds.max_channels, dtype=bool)
 
     attn_mask, sample, mp, vm = _apply_zero_channel_mask(ds, 0, 3, ch_idx, sample, mp, vm)
-    assert attn_mask[0] == False
-    assert attn_mask[1] == True  # unknown
-    assert attn_mask[2] == True  # zero
+    assert not attn_mask[0]
+    assert attn_mask[1]  # unknown
+    assert attn_mask[2]  # zero
     assert (sample[1] == -1.0).all()
     assert (sample[2] == -1.0).all()

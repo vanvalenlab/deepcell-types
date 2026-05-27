@@ -20,8 +20,6 @@ from tqdm import tqdm
 from pathlib import Path
 from collections import defaultdict
 
-logger = logging.getLogger(__name__)
-
 import torch
 import torch.nn.functional as F
 from torchinfo import summary
@@ -40,6 +38,7 @@ from deepcell_types.training.utils import (
     get_tissue_ct_exclude, build_label_remap,
 )
 
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 

@@ -6,8 +6,6 @@ preprocessed centroids amplified by scale_factor=1.3. Default tolerance was
 bumped to 1.5 to recover those cells. These tests pin the behavior at both
 tolerance values so the bump can't be reverted accidentally.
 """
-import numpy as np
-
 from deepcell_types.training.annotations import build_centroid_tree, centroid_to_cell_idx_fast
 
 

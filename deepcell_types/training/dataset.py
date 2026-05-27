@@ -4,7 +4,7 @@ import os
 import pickle
 import random
 from collections import OrderedDict, defaultdict
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, fields
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, NamedTuple, Optional, Tuple
@@ -18,11 +18,8 @@ from .archive import cached_archive_metadata_fingerprint
 from .patch import extract_patch
 from .annotations import (
     build_centroid_tree,
-    centroid_to_cell_idx_fast,
     extract_cell_annotations,
-    group_filesystem_path,
     lookup_centroid,
-    read_v3_1d_array,
 )
 
 logger = logging.getLogger(__name__)
@@ -738,7 +735,6 @@ class FullImageDataset(Dataset):
     def __getitem__(self, idx):
         record = self.indices[idx]
         ds_idx = record.ds_idx
-        ct_label = record.ct_label
         ct_label_standard = record.ct_label_standard
         domain = record.domain
         cell_idx = record.cell_idx

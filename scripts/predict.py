@@ -11,8 +11,6 @@ import numpy as np
 from tqdm import tqdm
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 import torch
 import torch.nn.functional as F
 from torchinfo import summary
@@ -31,6 +29,7 @@ from deepcell_types.training.utils import (
     get_tissue_ct_exclude, build_label_remap,
 )
 
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
@@ -420,7 +419,7 @@ def main(
     # Compare learned vs fixed thresholds if applicable
     if mp_thresholds is not None:
         fixed_metrics = losses_metrics.mp_metrics.compute_at_fixed_threshold(0.5)
-        print(f"\nVal MP metrics comparison:")
+        print("\nVal MP metrics comparison:")
         print(f"  Fixed 0.5:          macro_f1={fixed_metrics['mp_macro_f1']:.4f}  macro_prec={fixed_metrics['mp_macro_precision']:.4f}  macro_rec={fixed_metrics['mp_macro_recall']:.4f}")
         print(f"  Learned thresholds: macro_f1={epoch_metrics['mp_macro_f1']:.4f}  macro_prec={epoch_metrics['mp_macro_precision']:.4f}  macro_rec={epoch_metrics['mp_macro_recall']:.4f}")
 

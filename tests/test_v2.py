@@ -18,7 +18,7 @@ from deepcell_types.model import (
 from deepcell_types.training.losses import FocalLoss
 from deepcell_types.training.dataset import (
     CellIndexRecord, FullImageDataset, DropOutChannels, create_fov_splits,
-    compute_sample_weights, AugmentedDataset, create_dataloader,
+    compute_sample_weights,
 )
 from deepcell_types.training.utils import BatchData, seed_everything, get_tissue_ct_exclude
 from deepcell_types.training.config import compute_distance_transform
@@ -451,9 +451,9 @@ class TestMarkerPositivityHandling:
         )
 
         # CD4 for B_cell is "?" -> should be masked
-        assert vm[1] == False  # CD4 index 1
-        assert vm[0] == True   # CD3 is valid
-        assert vm[2] == True   # CD8 is valid
+        assert not vm[1]  # CD4 index 1
+        assert vm[0]      # CD3 is valid
+        assert vm[2]      # CD8 is valid
 
     def test_no_labels_all_masked(self, dct_config):
         """Datasets without marker positivity labels should have all-False validity mask."""
@@ -470,7 +470,7 @@ class TestMarkerPositivityHandling:
 
         # No labels → all zeros, all-False validity (excluded from loss)
         assert (mp == 0.0).all()
-        assert (vm == False).all()
+        assert not vm.any()
 
     def test_marker_positivity_channel_lookup_is_case_insensitive(self):
         """MP supervision should use the same canonical channel semantics."""
@@ -487,7 +487,7 @@ class TestMarkerPositivityHandling:
         )
 
         assert mp[0] == 1.0
-        assert vm[0] == True
+        assert vm[0]
 
 
 # =============================================================================
@@ -1163,13 +1163,13 @@ class TestLossesAndMetricsCompute:
         wrong_pred = {0: 1, 1: 0, 2: 0, 3: 0}
         logits_list = []
         for t in targets_list:
-            l = torch.zeros(4)
+            logit = torch.zeros(4)
             if correct_remaining[t] > 0:
-                l[t] = 10.0
+                logit[t] = 10.0
                 correct_remaining[t] -= 1
             else:
-                l[wrong_pred[t]] = 10.0
-            logits_list.append(l)
+                logit[wrong_pred[t]] = 10.0
+            logits_list.append(logit)
         logits = torch.stack(logits_list)
         targets = torch.tensor(targets_list)
         self._update_conf_mat(m, logits, targets)

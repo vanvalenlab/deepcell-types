@@ -245,7 +245,7 @@ class TestSequentialFOVGroupedSampler:
 
         # Successive epochs of the same sampler advance the internal counter,
         # so we don't lock into one FOV order.
-        epoch1_a = list(s1)
+        list(s1)
         # Not strictly required to differ (small sample size, occasional
         # collision), but the sampler's epoch counter must advance.
         assert s1._epoch == 2

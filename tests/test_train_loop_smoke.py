@@ -202,10 +202,9 @@ class TestFullAMPLoopSmoke:
         model = _TinyNet()
         optimizer, scheduler = _build_onecycle(model, steps=10)
 
-        # Use an enabled CUDA-style scaler on CPU tensors. The scaler's step
-        # logic still runs even on CPU; we just can't rely on it halving the
-        # scale automatically, so we simulate the "skipped" outcome by hand.
-        scaler = torch.amp.GradScaler("cuda", enabled=True)
+        # We simulate the "skipped" outcome by hand (scale dropped between
+        # before/after) rather than invoking the scaler — CPU mode wouldn't
+        # actually halve the scale on its own.
         init_lr = optimizer.param_groups[0]["lr"]
 
         # Fake a skipped step: scale dropped between before/after

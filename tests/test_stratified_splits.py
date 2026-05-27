@@ -7,7 +7,6 @@ to have both train and val coverage and forces single-FOV strata to train.
 from deepcell_types.training.dataset import (
     CellIndexRecord,
     create_fov_splits,
-    _find_sole_source_fovs,
     _build_fov_strata,
 )
 
