@@ -20,7 +20,8 @@ Operating points:
   kept cells.
 * ``k = 1.5`` (canonical Tukey): near-no-op (~0.23% abstained,
   +0.02pp macro).
-* ``k = 0`` (off): no cells are abstained.
+* ``k <= 0``: callers skip abstention. (Passing ``k = 0`` to
+  :func:`compute_iqr_fence` directly gives ``fence = Q1``, not a no-op.)
 
 The training-side helper :func:`deepcell_types.training.abstention.apply_abstention`
 applies this fence to a pandas DataFrame (used by ``scripts/predict.py``).
