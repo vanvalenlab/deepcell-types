@@ -361,6 +361,14 @@ class CellTypeAnnotator(nn.Module):
         # Canonical paper recipe is "cls_residual" (matches CLI default in
         # scripts/train.py). Older "none" was the pre-MeanInt-CLS default.
         self.mean_intensity_mode = kwargs.get("mean_intensity_mode", "cls_residual")
+        # v0.1.0 checkpoints were trained with a scatter that aliased padding
+        # writes to column 0 of intensity_vec, so the model never saw the real
+        # mean intensity of whichever marker sits at index 0 in marker2idx.
+        # The fixed code (sink column) now routes those writes elsewhere. To
+        # keep inference parity with the v0.1.0 canonical checkpoint, we
+        # explicitly zero column 0 at forward time. Set to False when
+        # retraining from scratch (v0.2.0+) to recover the marker-0 signal.
+        self.compat_marker0_zero = bool(kwargs.get("compat_marker0_zero", True))
         if self.mean_intensity_mode != "none":
             n_markers = marker_embeddings.shape[0] if marker_embeddings is not None else 278
             self._n_markers = n_markers
@@ -433,6 +441,12 @@ class CellTypeAnnotator(nn.Module):
         )
         fused = torch.cat([channel_feat, spatial_expanded], dim=-1)  # (B, C_max, 192)
         fused = self.fusion(fused)  # (B, C_max, d_model)
+        # The fusion linear adds its bias to even the zeroed padding inputs,
+        # so padding tokens emerge as ``fusion.bias``. The attention's
+        # ``src_key_padding_mask`` makes this invisible to other tokens, but
+        # neutralise the bias here as well so the documented invariant
+        # ("padding produces zero output") holds at the tensor level.
+        fused = fused.masked_fill(padding_mask.unsqueeze(-1), 0.0)
 
         # 4. Add marker name embeddings
         if self.marker_embedder is not None:
@@ -478,14 +492,40 @@ class CellTypeAnnotator(nn.Module):
         cls_embedding = x[:, 0, :]  # (B, d_model)
         channel_outputs = x[:, 1:, :]  # (B, C_max, d_model)
 
-        # 6b. Mean-intensity-per-channel CLS residual (scatter per-cell intensities to global marker positions)
+        # 6b. Mean-intensity-per-channel CLS residual (scatter per-cell
+        # intensities to global marker positions).
+        #
+        # We allocate one extra "sink" column at index ``self._n_markers`` and
+        # redirect every padding position's write there. Without the sink,
+        # ``safe_idx[~valid] = 0`` aliases all padding writes to column 0,
+        # and ``scatter_``'s last-write-wins semantics then overwrite the
+        # real mean intensity of whichever marker sits at index 0 with the
+        # 0.0 written from padding positions. The sink is sliced off before
+        # the projection so the rest of the model sees the intended
+        # ``(B, n_markers)`` shape.
+        #
+        # NOTE (v0.1.0 checkpoint compat): historical checkpoints were trained
+        # with a scatter that *did* alias padding to column 0, so column 0
+        # was effectively always 0.0 at training time and the projection's
+        # column-0 weights only ever saw zero. Feeding them a real intensity
+        # value now would shift inference outputs away from the published
+        # paper numbers. We explicitly zero column 0 below so the canonical
+        # v0.1.0 checkpoint reproduces its training-time outputs bit-for-bit.
+        # The flag is read from the model's stored architecture metadata so
+        # a future retrain (v0.2.0) can flip it off with ``compat_marker0_zero=False``.
         if self.mean_intensity_mode in ("cls_residual", "both") and mean_intensity is not None:
-            intensity_vec = torch.zeros(B, self._n_markers, device=sample.device, dtype=mean_intensity.dtype)
+            intensity_vec = torch.zeros(
+                B, self._n_markers + 1, device=sample.device, dtype=mean_intensity.dtype
+            )
             valid = ~padding_mask
             safe_idx = ch_idx.clone()
-            safe_idx[~valid] = 0
+            safe_idx[~valid] = self._n_markers  # sink column for padding writes
             masked_int = mean_intensity.masked_fill(~valid, 0.0)
             intensity_vec.scatter_(1, safe_idx, masked_int)
+            intensity_vec = intensity_vec[:, :self._n_markers]  # drop sink
+            if getattr(self, "compat_marker0_zero", True):
+                intensity_vec = intensity_vec.clone()
+                intensity_vec[:, 0] = 0.0
             cls_embedding = cls_embedding + self.intensity_cls_branch(intensity_vec)
 
         # Cell type classification from CLS

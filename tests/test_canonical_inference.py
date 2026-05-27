@@ -262,7 +262,7 @@ def test_build_model_raises_on_celltype_count_mismatch(tmp_path):
 def test_excluded_celltype_indices_rejects_unknown_tissue(tmp_path):
     archive_path = _make_archive(tmp_path)
     config = DCTConfig(zarr_path=archive_path)
-    with pytest.raises(ValueError, match="Unknown tissue_exclude"):
+    with pytest.raises(ValueError, match="Unknown tissue_filter"):
         _excluded_celltype_indices(config, "not-a-real-tissue", batch_size=2)
 
 
@@ -335,7 +335,7 @@ def test_predict_tissue_exclude_alias_emits_deprecation(tmp_path):
     mask = np.zeros((40, 40), dtype=np.int32)
     mask[12:28, 12:28] = 1
 
-    with pytest.warns(DeprecationWarning, match="tissue_filter"):
+    with pytest.warns(FutureWarning, match="tissue_filter"):
         predict(
             raw,
             mask,

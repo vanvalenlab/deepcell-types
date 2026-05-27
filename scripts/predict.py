@@ -475,9 +475,16 @@ def main(
         df["_max_softmax"] = max_p
 
         # Tissue/modality come from the zarr archive's per-dataset attrs.
+        # NB: use _discover_fov_keys, not root.group_keys() — the latter
+        # returns immediate children, which on v8 nested archives are the
+        # modality directories rather than dataset leaves. That bug used to
+        # collapse the per-(tissue, modality) IQR fence to a single global
+        # "unknown" fence.
+        from deepcell_types.training.archive import _discover_fov_keys
+
         root = _zarr.open(zarr_dir, mode="r")
         meta_rows = []
-        for ds_key in root.group_keys():
+        for ds_key in _discover_fov_keys(root):
             a = dict(root[ds_key].attrs)
             meta_rows.append({
                 "dataset_name": ds_key,
@@ -495,16 +502,16 @@ def main(
         correct_pre = hierarchical_correct(true_labels, pred_labels_pre, CELL_TYPE_HIERARCHY)
         macro_pre, weighted_pre = macro_weighted_accuracy(true_labels, correct_pre, class_cols)
 
-        # Apply abstention. We use the integer -1 as the sentinel per the
-        # documented contract; pandas will keep the column dtype=object since
-        # the non-abstained rows hold class-name strings.
+        # Apply abstention. Use "Unknown" as the sentinel to match the Python
+        # API contract (deepcell_types.predict.ABSTENTION_LABEL). The column
+        # dtype stays object since non-abstained rows hold class-name strings.
         df = apply_abstention(
             df,
             k=float(ct_abstention_k),
             group_cols=("tissue", "modality"),
             max_softmax_col="_max_softmax",
             pred_col="predicted_ct",
-            sentinel=-1,
+            sentinel="Unknown",
         )
 
         # Kept-cell hierarchical accuracy (skip rows where we abstained).

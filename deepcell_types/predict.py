@@ -9,17 +9,10 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from .abstention import ABSTENTION_LABEL, compute_iqr_fence
 from .model import create_model
 from .dataset import PatchDataset
 from .dct_kit.config import DCTConfig
-from .training.abstention import compute_iqr_fence
-
-
-ABSTENTION_LABEL = "Unknown"
-"""Sentinel cell-type name returned for cells flagged as abstained by the
-IQR-fence post-hoc abstention. Chosen as a human-readable string so the
-default ``predict()`` return (a ``list[str]``) stays a list of strings the
-caller can iterate / filter on directly."""
 
 
 @dataclass(frozen=True)
@@ -208,7 +201,10 @@ def _excluded_celltype_indices(dct_config, tissue, batch_size):
         return None
     tct = dct_config.get_tct_mapping()
     if tissue not in tct:
-        raise ValueError(f"Unknown tissue_exclude={tissue!r}")
+        raise ValueError(
+            f"Unknown tissue_filter={tissue!r}. "
+            f"Valid tissues: {sorted(tct)}"
+        )
     allowed = {
         dct_config.ct2idx[name] for name in tct[tissue] if name in dct_config.ct2idx
     }
@@ -302,8 +298,7 @@ def predict(
         below it are relabelled to ``"Unknown"``. Pass ``k=0`` or
         ``k=None`` to disable abstention and get the raw argmax label for
         every cell. Has no effect on FOVs with fewer than 4 cells (the
-        IQR is undefined). See ``docs/reports/ct_iqr_abstention_test.md``
-        in the research workspace for the Pareto sweep.
+        IQR is undefined).
     tissue_exclude : str, optional, default=None
         Deprecated alias for ``tissue_filter``. Keyword-only; emits a
         ``DeprecationWarning`` on use.
@@ -325,8 +320,11 @@ def predict(
                 "Pass either tissue_filter= or tissue_exclude= (the deprecated "
                 "alias), not both."
             )
+        # FutureWarning (rather than DeprecationWarning) so end-user scripts
+        # actually see the message — DeprecationWarning is silenced by default
+        # outside __main__ and test contexts.
         warnings.warn(
-            _TISSUE_EXCLUDE_DEPRECATION_MSG, DeprecationWarning, stacklevel=2
+            _TISSUE_EXCLUDE_DEPRECATION_MSG, FutureWarning, stacklevel=2
         )
         tissue_filter = tissue_exclude
 
