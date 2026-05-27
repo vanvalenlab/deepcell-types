@@ -19,6 +19,7 @@ import pandas as pd
 import pytest
 
 from deepcell_types.training.abstention import (
+    ABSTENTION_LABEL,
     apply_abstention,
     compute_iqr_fence,
 )
@@ -97,7 +98,7 @@ def test_k_0_5_aggressive_on_1000_cells():
         f"k=0.5 should abstain ~10% of cells; got {frac*100:.2f}%"
     )
     # Sentinel applied
-    assert (out.loc[out["abstained"], "predicted_ct"] == -1).all()
+    assert (out.loc[out["abstained"], "predicted_ct"] == ABSTENTION_LABEL).all()
     # Original predictions preserved
     assert (out["predicted_ct_raw"] == "CD4T").all()
 
