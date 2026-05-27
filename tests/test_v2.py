@@ -1489,7 +1489,7 @@ class TestTumorDatasets:
         candidates = []
         if os.environ.get("DATA_DIR"):
             candidates.append(
-                Path(os.environ["DATA_DIR"]) / "tissuenet-caitlin-labels.zarr"
+                Path(os.environ["DATA_DIR"]) / "expanded-tissuenet.zarr"
             )
         zarr_path = next(
             (candidate for candidate in candidates if candidate.exists()), None
