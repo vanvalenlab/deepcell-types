@@ -38,19 +38,19 @@ def _synthetic_frame(n: int, seed: int = 0, tissue: str = "intestine",
     })
 
 
-def test_default_k_0_5_abstention_is_on():
-    """``predict.py`` defaults ``--ct_abstention_k=0.5`` as the canonical
+def test_default_k_0_2_abstention_is_on():
+    """``predict.py`` defaults ``--ct_abstention_k=0.2`` as the canonical
     headline pipeline. The CSV-side guard runs ``apply_abstention`` whenever
-    ``k > 0``. We simulate the guard's behaviour: passing k=0.5 to a
-    synthetic 100-cell frame must add the ``abstained`` column and produce
-    a non-trivial fraction of sentinel-marked cells (≈10% expected).
+    ``k > 0``. We simulate the guard's behaviour: passing k=0.2 to a
+    synthetic 1000-cell frame must add the ``abstained`` column and produce
+    a non-trivial fraction of sentinel-marked cells (≈18% expected).
     """
     df = _synthetic_frame(1000, seed=99)
-    out = apply_abstention(df.copy(), k=0.5)
+    out = apply_abstention(df.copy(), k=0.2)
     assert "abstained" in out.columns
     frac = out["abstained"].mean()
     assert 0.03 <= frac <= 0.30, (
-        f"k=0.5 (the new default) should abstain ~10% of cells; got {frac*100:.2f}%"
+        f"k=0.2 (the default) should abstain ~18% of cells; got {frac*100:.2f}%"
     )
 
 
