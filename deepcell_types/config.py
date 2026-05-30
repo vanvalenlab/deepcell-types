@@ -172,9 +172,7 @@ class DCTConfig:
     }
 
     def __init__(self, zarr_path=None):
-        self.SEED = 0
         self.MAX_NUM_CHANNELS = 80
-        self.BATCH_SIZE = 400
         self.PERCENTILE_THRESHOLD = 99.0
         self.CROP_SIZE = 32
         self.OUTPUT_SIZE = self.CROP_SIZE
@@ -197,7 +195,6 @@ class DCTConfig:
             )
 
         self._ct2idx = {str(ct): int(idx) for ct, idx in cell_type_mapping.items()}
-        self._core_celltypes = list(self._ct2idx)
         self._master_channels = [str(ch) for ch in all_channels]
         self._marker2idx = {ch: idx for idx, ch in enumerate(self.master_channels)}
 
@@ -265,10 +262,6 @@ class DCTConfig:
     @property
     def marker2idx(self):
         return self._marker2idx
-
-    @property
-    def core_celltypes(self):
-        return self._core_celltypes
 
     @property
     def master_channels(self):

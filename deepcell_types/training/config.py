@@ -185,9 +185,7 @@ class TissueNetConfig:
     """
 
     # Constants
-    SEED = 0
     MAX_NUM_CHANNELS = 80
-    BATCH_SIZE = 400
     CROP_SIZE = 32  # Extraction size (direct 32x32 to match PatchDataset)
     OUTPUT_SIZE = 32  # Final patch size (no resize when equal to CROP_SIZE)
     STANDARD_MPP_RESOLUTION = 0.5
@@ -294,11 +292,6 @@ class TissueNetConfig:
             tissues = sorted(t for t in set(self.tissue_celltype_mapping.keys()) if t)
             self._tissue2idx_cache = {t: i for i, t in enumerate(tissues)}
         return self._tissue2idx_cache
-
-    @property
-    def NUM_TISSUES(self) -> int:
-        """Number of unique tissues."""
-        return len(self.tissue2idx)
 
     @property
     def dataset_keys(self) -> List[str]:
@@ -544,98 +537,6 @@ class TissueNetConfig:
 
         return {k: sorted(v) for k, v in tissue_types.items()}
 
-    @property
-    def combined_celltype_mapping(self) -> Dict[str, List[str]]:
-        """
-        Combined cell type grouping mapping.
-
-        Maps group names (e.g., "Tcell", "Epithelial") to lists of individual
-        cell types that belong to that group. Loaded from combined_celltypes.yaml.
-        """
-        if not hasattr(self, "_combined_celltype_mapping_cache"):
-            yaml_path = CONFIG_DIR / "combined_celltypes.yaml"
-            if yaml_path.exists():
-                with open(yaml_path) as f:
-                    raw = yaml.safe_load(f)
-                # The YAML maps individual cell types to group names;
-                # invert to map group names to lists of cell types
-                groups: Dict[str, List[str]] = {}
-                for ct, group in raw.items():
-                    groups.setdefault(group, []).append(ct)
-                self._combined_celltype_mapping_cache = groups
-                logger.info(f"Loaded combined_celltype_mapping from {yaml_path}")
-            else:
-                logger.warning(f"combined_celltypes.yaml not found at {yaml_path}")
-                self._combined_celltype_mapping_cache = {}
-        return self._combined_celltype_mapping_cache
-
-    @property
-    def color_mapping(self) -> Dict[str, str]:
-        """Cell type to hex color mapping for visualization."""
-        return dict(self._zf.attrs.get("color_mapping", {}))
-
-    @property
-    def core_tree(self) -> Dict:
-        """Hierarchical cell type taxonomy."""
-        return dict(self._zf.attrs.get("core_tree", {}))
-
-    @property
-    def lineage_mapping(self) -> Dict[str, str]:
-        """Cell type to broad biological lineage mapping."""
-        return dict(self._zf.attrs.get("lineage_mapping", {}))
-
-    def get_channel_embedding(
-        self, embedding_model_name: str = "text-embedding-3-large"
-    ) -> Dict[str, List[float]]:
-        """Get marker/channel embeddings from zarr or fallback to JSON file."""
-        embeddings = self._zf.attrs.get(f"marker_embeddings_{embedding_model_name}")
-        if embeddings is not None:
-            return dict(embeddings)
-        # Fallback: look for the embeddings file shipped alongside the
-        # training subpackage. Narrow the except so bugs in JSON structure
-        # (KeyError/TypeError downstream) are NOT hidden here.
-        search_paths = [CONFIG_DIR]
-        for config_path in search_paths:
-            json_path = config_path / f"marker_embeddings-{embedding_model_name}.json"
-            if json_path.exists():
-                try:
-                    with open(json_path) as f:
-                        return json.load(f)
-                except (FileNotFoundError, OSError, json.JSONDecodeError) as e:
-                    logger.warning(
-                        "get_channel_embedding: failed to read %s: %s",
-                        json_path,
-                        e,
-                    )
-        logger.warning(f"Could not load marker embeddings for {embedding_model_name}")
-        return {}
-
-    def get_celltype_embedding(
-        self, embedding_model_name: str = "text-embedding-3-large"
-    ) -> Dict[str, List[float]]:
-        """Get cell type embeddings from zarr or fallback to JSON file."""
-        embeddings = self._zf.attrs.get(f"celltype_embeddings_{embedding_model_name}")
-        if embeddings is not None:
-            return dict(embeddings)
-        # Fallback to the embeddings JSON shipped alongside the training
-        # subpackage. Narrow except to only IO / JSON-decode errors.
-        config_path = CONFIG_DIR
-        json_path = config_path / f"celltype_embeddings-{embedding_model_name}.json"
-        if json_path.exists():
-            try:
-                with open(json_path) as f:
-                    return json.load(f)
-            except (FileNotFoundError, OSError, json.JSONDecodeError) as e:
-                logger.warning(
-                    "get_celltype_embedding: failed to read %s: %s",
-                    json_path,
-                    e,
-                )
-        logger.warning(
-            f"Could not load cell type embeddings for {embedding_model_name}"
-        )
-        return {}
-
     def load_marker_embeddings_array(
         self,
         embedding_model_name: str = "text-embedding-3-large",
@@ -769,26 +670,6 @@ class TissueNetConfig:
             "svd_path is required for load_marker_embeddings_array. "
             "Pass --svd_embeddings_path embeddings/svd_512.npz"
         )
-
-    def get_marker_positivity(self, dataset_key: str) -> Optional[pd.DataFrame]:
-        """
-        Get marker positivity DataFrame for a specific dataset.
-
-        Args:
-            dataset_key: Dataset key in the zarr archive
-
-        Returns:
-            DataFrame with cell types as index, markers as columns,
-            or None if not available.
-
-        Both this method and ``marker_positivity_labels[key]`` share a single
-        lazy cache — calling either first does not silently lose entries
-        populated by the other.
-        """
-        labels = self.marker_positivity_labels
-        if dataset_key not in labels:
-            return None
-        return labels[dataset_key]
 
     def _load_marker_positivity(self, dataset_key: str) -> Optional[pd.DataFrame]:
         """Load marker positivity from zarr for a dataset.
