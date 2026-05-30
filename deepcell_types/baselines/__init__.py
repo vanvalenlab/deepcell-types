@@ -9,4 +9,5 @@ baseline's optional dependencies are only required when that subcommand runs.
 REGISTRY = {
     "xgboost": "deepcell_types.baselines.xgb.run:main",
     "xgboost-tune": "deepcell_types.baselines.xgb.tuning:main",
+    "nimbus": "deepcell_types.baselines.nimbus.run:main",
 }

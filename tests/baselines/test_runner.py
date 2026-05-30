@@ -76,3 +76,14 @@ def test_xgboost_tune_subcommand_options_frozen():
     cmd = cli.get_command(ctx, "xgboost-tune")
     assert isinstance(cmd, click.Command)
     assert _param_names(cmd) == XGBOOST_TUNE_OPTS
+
+
+def test_registry_has_nimbus():
+    assert REGISTRY["nimbus"] == "deepcell_types.baselines.nimbus.run:main"
+
+
+def test_nimbus_subcommand_options_frozen():
+    ctx = click.Context(cli)
+    cmd = cli.get_command(ctx, "nimbus")
+    assert isinstance(cmd, click.Command)
+    assert _param_names(cmd) == NIMBUS_OPTS
