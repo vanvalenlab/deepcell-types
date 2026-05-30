@@ -315,10 +315,31 @@ cell_types = deepcell_types.predict(
 ```
 
 Predictions are provided in the form of list of strings, where the order of
-the list is given by the ordering of cell indices in the segmentation
+the list is given by the ascending order of cell indices in the segmentation
 mask.
 Since we ordered the mask indices above, it's straightforward to make this
 mapping explicit:
+
+```{note}
+**Low-confidence abstention.** By default (`ct_abstention_k=0.2`) `predict`
+flags cells whose top-class probability falls below an IQR fence on the
+field-of-view's confidence distribution and rewrites their label to the
+sentinel `"Unknown"`. To recover the unfiltered argmax label for *every*
+cell (the historical behaviour), disable abstention with
+`ct_abstention_k=0`:
+
+    cell_types = deepcell_types.predict(
+        img, mask, chnames, mpp,
+        model_name=model, device_num=device, zarr_path=zarr_path,
+        ct_abstention_k=0,
+    )
+
+To inspect probabilities and which cells were abstained, pass
+`return_probabilities=True` to receive a {class}`~deepcell_types.PredictionResult`
+with the full per-cell softmax matrix, the cell indices, a boolean
+`abstained` array, and the pre-abstention `cell_types_raw` labels.
+```
+
 
 ```{code-cell} ipython3
 idx_to_pred = dict(enumerate(cell_types, start=1))

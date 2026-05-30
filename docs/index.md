@@ -34,6 +34,31 @@ from deepcell_types.utils import download_model
 download_model()  # No argument == latest released version
 ```
 
+## TissueNet archive (required)
+
+In addition to the checkpoint, the canonical inference path reads its
+marker / cell-type / domain registry from a **TissueNet zarr v3 archive** at
+runtime (earlier releases bundled this registry as YAML inside the package).
+This is the same `tissuenet-v*.zarr` archive used for training, obtained via:
+
+```python
+from deepcell_types.utils import download_training_data
+
+download_training_data()  # NOTE: large download — see API-key page
+```
+
+Point `predict` at the archive with the `zarr_path=` argument, or set it once
+for the session:
+
+```bash
+export DEEPCELL_TYPES_ZARR_PATH=/path/to/tissuenet-v10.zarr
+```
+
+If no archive is found via `zarr_path`, `DEEPCELL_TYPES_ZARR_PATH`, or
+`$DATA_DIR/tissuenet-v{10,9,8}.zarr`, `predict` raises `FileNotFoundError`.
+The checkpoint and archive must agree on the marker and cell-type counts,
+otherwise loading fails early with a `ValueError`.
+
 ## Running
 
 The {doc}`site/tutorial` demonstrates how to set up, run, and visualize the

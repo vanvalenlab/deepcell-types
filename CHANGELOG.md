@@ -42,6 +42,15 @@ checkpoints. **Breaking changes** are noted below.
 - **Breaking:** `predict(num_workers=...)` default is now `0` (was
   `24`). The `IterableDataset` patch generator held the whole FOV in
   memory; 24 workers reliably OOM'd machines with <64 GB RAM.
+- **Breaking:** post-hoc cell-type abstention is now **on by default**
+  (`predict(ct_abstention_k=0.2)`). Cells whose top-class probability
+  falls below an IQR fence on the field-of-view's confidence
+  distribution are relabeled to the sentinel `"Unknown"` (the
+  pre-abstention argmax label is available via `cell_types_raw` when
+  `return_probabilities=True`). This changes the returned labels for the
+  same inputs relative to the unfiltered argmax behaviour of prior
+  releases. Pass `ct_abstention_k=0` to recover the raw argmax label for
+  every cell.
 - `TissueNetConfig(zarr_path=...)` defaults to `None` (was a hard-coded
   lab-internal `/data2/...` path). When `None`, falls back to the
   `DEEPCELL_TYPES_ZARR_PATH` environment variable.

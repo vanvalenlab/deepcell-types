@@ -170,21 +170,32 @@ def preprocess_fov(
 ) -> PreprocessedFov:
     """Canonical preprocessing for a single FOV.
 
-    Args:
-        raw: (C, H, W) numeric, native intensity values.
-        mask: (H, W) integer cell-id labels (0 = background).
-        native_mpp: microns-per-pixel of the input.
-        channel_names: list of length C, canonical marker names.
-        percentile: per-channel percentile used for the bright-spot
-            clip. Default 99.9 matches the production recipe.
-        target_mpp: output MPP (default 0.5 = ``TARGET_MPP``).
+    Parameters
+    ----------
+    raw : np.ndarray
+        ``(C, H, W)`` numeric array of native intensity values.
+    mask : np.ndarray
+        ``(H, W)`` integer cell-id labels (``0`` = background).
+    native_mpp : float
+        Microns-per-pixel of the input.
+    channel_names : Sequence[str]
+        Sequence of length ``C`` of canonical marker names.
+    percentile : float, optional
+        Per-channel percentile used for the bright-spot clip. Default
+        ``99.9`` matches the production recipe.
+    target_mpp : float, optional
+        Output MPP (default ``0.5`` = ``TARGET_MPP``).
 
-    Returns:
-        ``PreprocessedFov`` with raw/mask resampled to ``target_mpp``,
-        raw normalized to ``[0, 1]`` per channel.
+    Returns
+    -------
+    PreprocessedFov
+        ``raw``/``mask`` resampled to ``target_mpp``, with ``raw``
+        normalized to ``[0, 1]`` per channel.
 
-    Raises:
-        ValueError: shape/length/sign mismatches.
+    Raises
+    ------
+    ValueError
+        On shape / length / sign mismatches.
     """
     if raw.ndim != 3:
         raise ValueError(f"raw must be (C, H, W), got {raw.shape}")
