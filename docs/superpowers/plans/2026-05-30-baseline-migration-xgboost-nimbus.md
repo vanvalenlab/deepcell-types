@@ -26,6 +26,7 @@
 - `deepcell_types/baselines/nimbus/run.py` — **byte-identical copy** of `baselines/nimbus/nimbus_baseline/run.py`.
 - `deepcell_types/baselines/NOTICE` — attribution for the reimplemented/ wrapped methods (carried from the submodules).
 - `tests/baselines/__init__.py`
+- `tests/baselines/conftest.py` — skip-guard when baseline extras absent.
 - `tests/baselines/test_runner.py` — registry + CLI option-snapshot tests.
 - `tests/baselines/test_nimbus_metrics_characterization.py` — hand-derived golden test for `compute_marker_positivity_metrics`.
 - `tests/baselines/test_submodules_removed.py` — asserts submodules gone + extras present.
@@ -53,6 +54,8 @@ python3 -m venv .venv
 .venv/bin/python --version
 ```
 Expected: `Python 3.11.x` or `3.12.x`. (`.venv` is already gitignored at repo root via the standard `.gitignore`; confirm with `git check-ignore .venv` → prints `.venv`.)
+
+Note: the main repo's venv is Python **3.12** (`/data/xwang3/Projects/deepcell-types/.venv` → python3.12). 3.12 is fine for this plan because the tests only install the `baseline-xgboost` extra. If you later want to actually *run* the nimbus baseline (which needs `nimbus-inference==0.0.5`, pinned `<3.12`), create a separate Python 3.11 venv for it.
 
 - [ ] **Step 2: Install the package with the xgboost extra (covers all test imports)**
 
@@ -99,7 +102,31 @@ Expected: three hashes printed and saved. (No commit in this task.)
 
 - [ ] **Step 1: Write the failing runner test (xgboost portion)**
 
-Create `tests/baselines/__init__.py` (empty) and `tests/baselines/test_runner.py`:
+Create `tests/baselines/__init__.py` (empty).
+
+Create `tests/baselines/conftest.py` so the baseline tests *skip* (not error) in an inference-only checkout that lacks the baseline extras — mirroring the existing `tests/conftest.py` pattern. `test_runner.py`'s option-snapshot tests lazily import `xgboost`; the characterization test imports `pandas`:
+```python
+"""Skip baseline tests when their optional deps are absent (inference-only env)."""
+import importlib
+
+
+def _have(mod: str) -> bool:
+    try:
+        importlib.import_module(mod)
+    except ImportError:
+        return False
+    return True
+
+
+# filenames relative to this conftest's directory
+collect_ignore = []
+if not _have("xgboost"):
+    collect_ignore.append("test_runner.py")
+if not _have("pandas"):
+    collect_ignore.append("test_nimbus_metrics_characterization.py")
+```
+
+Create `tests/baselines/test_runner.py`:
 
 ```python
 """Structure + CLI option-snapshot tests for the unified baselines runner.
@@ -259,7 +286,8 @@ Expected: the 3 tests PASS; `xgboost --help` lists all 11 options (`--model_name
 
 ```bash
 git add deepcell_types/baselines/__init__.py deepcell_types/baselines/__main__.py \
-        deepcell_types/baselines/xgb/ tests/baselines/__init__.py tests/baselines/test_runner.py
+        deepcell_types/baselines/xgb/ tests/baselines/__init__.py \
+        tests/baselines/conftest.py tests/baselines/test_runner.py
 git commit -m "feat(baselines): fold xgboost into deepcell_types.baselines + lazy runner
 
 Byte-identical copy of xgb/{run,tuning}.py (sha256-verified) behind a
@@ -518,23 +546,28 @@ all = ["deepcell-types[train,baselines]"]
 
 - [ ] **Step 5: Register the new packages with setuptools**
 
-Inspect the package declaration and apply the matching edit:
-```bash
-.venv/bin/python - <<'PY'
-import tomllib
-d = tomllib.loads(open("pyproject.toml","rb").read().decode())
-ts = d.get("tool",{}).get("setuptools",{})
-print("explicit packages list:" , ts.get("packages"))
-print("find config:", ts.get("packages",{}) if isinstance(ts.get("packages"),dict) else "n/a")
-PY
+`[tool.setuptools]` uses an **explicit** packages list (confirmed at base `caccb4e`). Replace:
+```toml
+[tool.setuptools]
+packages = [
+    'deepcell_types',
+    'deepcell_types.training',
+    'deepcell_types.utils'
+]
 ```
-- If `[tool.setuptools]` uses an **explicit list** (`packages = ["deepcell_types", "deepcell_types.training", ...]`), append these three entries to that list:
-  ```toml
-  "deepcell_types.baselines",
-  "deepcell_types.baselines.xgb",
-  "deepcell_types.baselines.nimbus",
-  ```
-- If it uses `[tool.setuptools.packages.find]`, no change is needed (the new subpackages are auto-discovered because each has an `__init__.py`).
+with (append the three new subpackages):
+```toml
+[tool.setuptools]
+packages = [
+    'deepcell_types',
+    'deepcell_types.training',
+    'deepcell_types.utils',
+    'deepcell_types.baselines',
+    'deepcell_types.baselines.xgb',
+    'deepcell_types.baselines.nimbus'
+]
+```
+(If a future rebase has switched this to `[tool.setuptools.packages.find]`, no change is needed — the new subpackages auto-discover via their `__init__.py`.)
 
 - [ ] **Step 6: Reinstall, run packaging test + full baseline suite**
 
