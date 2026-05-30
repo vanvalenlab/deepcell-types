@@ -70,6 +70,24 @@ def _atomic_np_savez(path: Path, **arrays) -> None:
             tmp_path.unlink()
 
 
+def load_matching_state_dict(model, state_dict):
+    """Load the entries of ``state_dict`` whose key exists in ``model`` with a
+    matching tensor shape; return the number of tensors copied.
+
+    Used to warm-start a model from a checkpoint that may carry extra or
+    mismatched keys (e.g. a pretraining reconstruction head, optimizer /
+    scheduler state, or an older architecture).
+    """
+    model_state = model.state_dict()
+    loaded = 0
+    for k, v in state_dict.items():
+        if k in model_state and model_state[k].shape == v.shape:
+            model_state[k] = v
+            loaded += 1
+    model.load_state_dict(model_state)
+    return loaded
+
+
 def _feature_cache_metadata(
     zarr_dir: str,
     dct_config,

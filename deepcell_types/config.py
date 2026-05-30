@@ -175,9 +175,7 @@ class DCTConfig:
         self.SEED = 0
         self.MAX_NUM_CHANNELS = 80
         self.BATCH_SIZE = 400
-        self.MAX_CHUNK_PER_CT_PER_DATASET = 25
         self.PERCENTILE_THRESHOLD = 99.0
-        self.HIST_NORM_KERNEL_SIZE = 128
         self.CROP_SIZE = 32
         self.OUTPUT_SIZE = self.CROP_SIZE
         self.STANDARD_MPP_RESOLUTION = 0.5

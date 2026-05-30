@@ -50,6 +50,7 @@ from deepcell_types.training.utils import (
     seed_everything,
     get_tissue_ct_exclude,
     build_label_remap,
+    load_matching_state_dict,
 )
 
 logger = logging.getLogger(__name__)
@@ -534,14 +535,8 @@ def main(
         ):
             pretrained_state = pretrained_state["model"]
         # Load only matching keys (skip MaskedMarkerHead / optimizer / scheduler keys)
-        model_state = model.state_dict()
-        loaded = 0
-        for k, v in pretrained_state.items():
-            if k in model_state and model_state[k].shape == v.shape:
-                model_state[k] = v
-                loaded += 1
-        model.load_state_dict(model_state)
-        print(f"  Loaded {loaded}/{len(model_state)} parameters from pre-trained model")
+        loaded = load_matching_state_dict(model, pretrained_state)
+        print(f"  Loaded {loaded}/{len(model.state_dict())} parameters from pre-trained model")
 
     model.to(device)
 
@@ -732,16 +727,8 @@ def main(
                 if isinstance(resume_ckpt, dict) and "model" in resume_ckpt
                 else resume_ckpt
             )
-            model_state = model.state_dict()
-            loaded = 0
-            for k, v in legacy_state.items():
-                if k in model_state and model_state[k].shape == v.shape:
-                    model_state[k] = v
-                    loaded += 1
-            model.load_state_dict(model_state)
-            logger.info(
-                "Loaded %d/%d params (backbone-only).", loaded, len(model_state)
-            )
+            loaded = load_matching_state_dict(model, legacy_state)
+            logger.info("Loaded %d/%d params (backbone-only).", loaded, len(model.state_dict()))
         else:
             # Full checkpoint: validate config
             ckpt_config = resume_ckpt.get("config", {})

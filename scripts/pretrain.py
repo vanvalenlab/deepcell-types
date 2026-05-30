@@ -30,7 +30,7 @@ from torchinfo import summary
 from deepcell_types.training.config import TissueNetConfig
 from deepcell_types.training.dataset import create_dataloader
 from deepcell_types.model import create_model, MaskedMarkerHead, mask_marker_channels
-from deepcell_types.training.utils import BatchData, seed_everything
+from deepcell_types.training.utils import BatchData, seed_everything, load_matching_state_dict
 
 logger = logging.getLogger(__name__)
 
@@ -198,14 +198,8 @@ def main(
                 resume_path,
             )
             legacy_state = resume_ckpt["model"] if isinstance(resume_ckpt, dict) and "model" in resume_ckpt else resume_ckpt
-            model_state = model.state_dict()
-            loaded = 0
-            for k, v in legacy_state.items():
-                if k in model_state and model_state[k].shape == v.shape:
-                    model_state[k] = v
-                    loaded += 1
-            model.load_state_dict(model_state)
-            logger.info("Loaded %d/%d params (backbone-only).", loaded, len(model_state))
+            loaded = load_matching_state_dict(model, legacy_state)
+            logger.info("Loaded %d/%d params (backbone-only).", loaded, len(model.state_dict()))
         else:
             ckpt_config = resume_ckpt.get("config", {})
             for key in ("resnet_channels", "d_model"):

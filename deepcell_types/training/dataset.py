@@ -17,7 +17,6 @@ from torch.utils.data import Dataset, DataLoader, Sampler, random_split
 from .archive import cached_archive_metadata_fingerprint
 from .patch import extract_patch
 from .annotations import (
-    build_centroid_tree,
     extract_cell_annotations,
     lookup_centroid,
 )
@@ -166,7 +165,6 @@ class FullImageDataset(Dataset):
         self.ct_mapping = dct_config.celltype_mapping
         self.domain_mapping = dct_config.domain_mapping
         self.marker2idx = dct_config.marker2idx
-        self._idx2marker = {v: k for k, v in self.marker2idx.items()}
         self.ct2idx = dct_config.ct2idx
         self.domain2idx = dct_config.domain2idx
         self.marker_positivity_labels = dct_config.marker_positivity_labels
@@ -581,11 +579,6 @@ class FullImageDataset(Dataset):
         return extract_cell_annotations(
             ds, dataset_key, preproc, include_centroids=True
         )
-
-    @staticmethod
-    def _build_centroid_tree(centroids_raw):
-        """Build a KDTree from preprocessed centroids for fast lookup."""
-        return build_centroid_tree(centroids_raw)
 
     @staticmethod
     def _array_nbytes(arr) -> int:
