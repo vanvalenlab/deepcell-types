@@ -169,18 +169,6 @@ def _build_model(checkpoint, dct_config, device):
 
     marker_embeddings = np.zeros((n_markers, embedding_dim), dtype=np.float32)
     use_conditioned_mp_head = "marker_pos_head.film_scale.weight" in state_dict
-    # Auto-detect mean_intensity_mode from ckpt keys
-    has_cls = any(k.startswith("intensity_cls_branch.") for k in state_dict)
-    has_pch = any(k.startswith("intensity_per_channel_proj.") for k in state_dict)
-    mean_intensity_mode = (
-        "both"
-        if has_cls and has_pch
-        else "cls_residual"
-        if has_cls
-        else "per_channel"
-        if has_pch
-        else "none"
-    )
 
     model = create_model(
         dct_config,
@@ -191,7 +179,6 @@ def _build_model(checkpoint, dct_config, device):
         resnet_base_channels=state_dict["channel_encoder.stem.0.weight"].shape[0],
         spatial_pool_size=_infer_spatial_pool_size(state_dict),
         use_conditioned_mp_head=use_conditioned_mp_head,
-        mean_intensity_mode=mean_intensity_mode,
     )
     model.load_state_dict(state_dict)
     return model.to(device)

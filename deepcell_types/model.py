@@ -342,36 +342,27 @@ class CellTypeAnnotator(nn.Module):
             nn.Linear(d_model // 2, n_domains),
         )
 
-        # Mean-intensity-per-channel side input (zero-init → identity warm-start).
-        # Canonical paper recipe is "cls_residual" (matches CLI default in
-        # scripts/train.py). Older "none" was the pre-MeanInt-CLS default.
-        self.mean_intensity_mode = kwargs.get("mean_intensity_mode", "cls_residual")
+        # Mean-intensity-per-channel side input (CLS residual). Zero-init the
+        # output projection so a warm-started ckpt preserves predictions at
+        # step 0. This is the canonical paper recipe; it is always enabled.
         # v0.1.0 checkpoints were trained with a scatter that aliased padding
         # writes to column 0 of intensity_vec, so the model never saw the real
-        # mean intensity of whichever marker sits at index 0 in marker2idx.
-        # The fixed code (sink column) now routes those writes elsewhere. To
-        # keep inference parity with the v0.1.0 canonical checkpoint, we
-        # explicitly zero column 0 at forward time. Set to False when
+        # mean intensity of whichever marker sits at index 0 in marker2idx. The
+        # fixed code (sink column) now routes those writes elsewhere; to keep
+        # inference parity with the v0.1.0 canonical checkpoint we explicitly
+        # zero column 0 at forward time. Set compat_marker0_zero=False when
         # retraining from scratch (v0.2.0+) to recover the marker-0 signal.
         self.compat_marker0_zero = bool(kwargs.get("compat_marker0_zero", True))
-        if self.mean_intensity_mode != "none":
-            n_markers = (
-                marker_embeddings.shape[0] if marker_embeddings is not None else 278
-            )
-            self._n_markers = n_markers
-            if self.mean_intensity_mode in ("cls_residual", "both"):
-                self.intensity_cls_branch = nn.Sequential(
-                    nn.Linear(n_markers, d_model),
-                    nn.GELU(),
-                    nn.Dropout(dropout),
-                    nn.Linear(d_model, d_model),
-                )
-                nn.init.zeros_(self.intensity_cls_branch[-1].weight)
-                nn.init.zeros_(self.intensity_cls_branch[-1].bias)
-            if self.mean_intensity_mode in ("per_channel", "both"):
-                self.intensity_per_channel_proj = nn.Linear(1, d_model)
-                nn.init.zeros_(self.intensity_per_channel_proj.weight)
-                nn.init.zeros_(self.intensity_per_channel_proj.bias)
+        n_markers = marker_embeddings.shape[0] if marker_embeddings is not None else 278
+        self._n_markers = n_markers
+        self.intensity_cls_branch = nn.Sequential(
+            nn.Linear(n_markers, d_model),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_model, d_model),
+        )
+        nn.init.zeros_(self.intensity_cls_branch[-1].weight)
+        nn.init.zeros_(self.intensity_cls_branch[-1].bias)
 
     def forward(
         self,
@@ -439,21 +430,13 @@ class CellTypeAnnotator(nn.Module):
             fused = fused + marker_emb
 
         # 4b. Mean-intensity-per-channel side input (computed from sample masked by self_mask)
-        mean_intensity = None
-        if self.mean_intensity_mode != "none":
-            # sample is raw * self_mask, so sum / cell_size gives mean over the cell footprint
-            self_mask_2d = spatial_context[:, 0]  # (B, H, W)
-            cell_size = self_mask_2d.sum(dim=(-1, -2)).clamp(min=1.0)  # (B,)
-            mean_intensity = sample.sum(dim=(-1, -2, -3)) / cell_size.unsqueeze(
-                -1
-            )  # (B, C_max)
-            mean_intensity = mean_intensity.masked_fill(padding_mask, 0.0)
-            if self.mean_intensity_mode in ("per_channel", "both"):
-                per_ch = self.intensity_per_channel_proj(
-                    mean_intensity.unsqueeze(-1)
-                )  # (B, C_max, d_model)
-                per_ch = per_ch.masked_fill(padding_mask.unsqueeze(-1), 0.0)
-                fused = fused + per_ch
+        # sample is raw * self_mask, so sum / cell_size gives mean over the cell footprint
+        self_mask_2d = spatial_context[:, 0]  # (B, H, W)
+        cell_size = self_mask_2d.sum(dim=(-1, -2)).clamp(min=1.0)  # (B,)
+        mean_intensity = sample.sum(dim=(-1, -2, -3)) / cell_size.unsqueeze(
+            -1
+        )  # (B, C_max)
+        mean_intensity = mean_intensity.masked_fill(padding_mask, 0.0)
 
         # 5. Prepend CLS token
         cls_tokens = self.cls_token.expand(B, -1, -1)  # (B, 1, d_model)
@@ -502,10 +485,7 @@ class CellTypeAnnotator(nn.Module):
         # v0.1.0 checkpoint reproduces its training-time outputs bit-for-bit.
         # The flag is read from the model's stored architecture metadata so
         # a future retrain (v0.2.0) can flip it off with ``compat_marker0_zero=False``.
-        if (
-            self.mean_intensity_mode in ("cls_residual", "both")
-            and mean_intensity is not None
-        ):
+        if mean_intensity is not None:
             intensity_vec = torch.zeros(
                 B, self._n_markers + 1, device=sample.device, dtype=mean_intensity.dtype
             )

@@ -68,12 +68,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
     help="PerChannelResNet base channels (canonical: 48)",
 )
 @click.option(
-    "--mean_intensity_mode",
-    type=click.Choice(["auto", "none", "cls_residual", "per_channel", "both"]),
-    default="auto",
-    help="Mean-intensity side-input mode (canonical: cls_residual). 'auto' detects from ckpt keys.",
-)
-@click.option(
     "--split_file",
     type=str,
     default=None,
@@ -157,7 +151,6 @@ def main(
     svd_embeddings_path,
     model_path,
     resnet_channels,
-    mean_intensity_mode,
     split_file,
     min_channels,
     spatial_pool_size,
@@ -240,27 +233,6 @@ def main(
         model_path = f"models/model_{model_name}_best.pt"
     checkpoint = torch.load(model_path, map_location=device, weights_only=True)
 
-    # Auto-detect mean_intensity_mode from ckpt keys when requested
-    state_for_detect = (
-        checkpoint["model"]
-        if (isinstance(checkpoint, dict) and "model" in checkpoint)
-        else (checkpoint if isinstance(checkpoint, dict) else {})
-    )
-    if mean_intensity_mode == "auto":
-        has_cls = any(k.startswith("intensity_cls_branch.") for k in state_for_detect)
-        has_pch = any(
-            k.startswith("intensity_per_channel_proj.") for k in state_for_detect
-        )
-        if has_cls and has_pch:
-            mean_intensity_mode = "both"
-        elif has_cls:
-            mean_intensity_mode = "cls_residual"
-        elif has_pch:
-            mean_intensity_mode = "per_channel"
-        else:
-            mean_intensity_mode = "none"
-        print(f"Auto-detected mean_intensity_mode = {mean_intensity_mode}")
-
     # Build model
     model = create_model(
         dct_config,
@@ -268,7 +240,6 @@ def main(
         d_model=d_model,
         resnet_base_channels=resnet_channels,
         spatial_pool_size=spatial_pool_size,
-        mean_intensity_mode=mean_intensity_mode,
     )
 
     if isinstance(checkpoint, dict) and "model" in checkpoint:
@@ -285,7 +256,6 @@ def main(
                 d_model=d_model,
                 resnet_base_channels=resnet_channels,
                 use_conditioned_mp_head=False,
-                mean_intensity_mode=mean_intensity_mode,
             ).to(device)
         model.load_state_dict(checkpoint)
         print("Legacy checkpoint")
