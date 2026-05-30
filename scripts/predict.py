@@ -460,8 +460,7 @@ def main(
         import zarr as _zarr
         from deepcell_types.training.abstention import (
             apply_abstention,
-            hierarchical_correct,
-            macro_weighted_accuracy,
+            hierarchical_macro_f1,
         )
 
         df = pd.read_csv(output_path)
@@ -495,11 +494,12 @@ def main(
         df["tissue"] = df["tissue"].fillna("unknown")
         df["modality"] = df["modality"].fillna("unknown")
 
-        # Baseline (pre-abstention) hierarchical accuracy on the full frame.
+        # Baseline (pre-abstention) hierarchical macro-F1 on the full frame.
         true_labels = df["cell_type_actual"].to_numpy()
         pred_labels_pre = df["predicted_ct"].to_numpy()
-        correct_pre = hierarchical_correct(true_labels, pred_labels_pre, CELL_TYPE_HIERARCHY)
-        macro_pre, weighted_pre = macro_weighted_accuracy(true_labels, correct_pre, class_cols)
+        macro_f1_pre = hierarchical_macro_f1(
+            true_labels, pred_labels_pre, class_cols, CELL_TYPE_HIERARCHY
+        )
 
         # Apply abstention. Use "Unknown" as the sentinel to match the Python
         # API contract (deepcell_types.predict.ABSTENTION_LABEL). The column
@@ -513,19 +513,19 @@ def main(
             sentinel="Unknown",
         )
 
-        # Kept-cell hierarchical accuracy (skip rows where we abstained).
+        # Kept-cell hierarchical macro-F1 (skip rows where we abstained). Kept
+        # cells retain their original prediction, so reuse pred_labels_pre.
         kept = ~df["abstained"].to_numpy()
         n_total = int(len(df))
         n_kept = int(kept.sum())
         n_abstained = n_total - n_kept
         coverage = n_kept / n_total if n_total else 0.0
         if n_kept > 0:
-            correct_kept = correct_pre[kept]
-            macro_post, weighted_post = macro_weighted_accuracy(
-                true_labels[kept], correct_kept, class_cols
+            macro_f1_post = hierarchical_macro_f1(
+                true_labels[kept], pred_labels_pre[kept], class_cols, CELL_TYPE_HIERARCHY
             )
         else:
-            macro_post, weighted_post = 0.0, 0.0
+            macro_f1_post = 0.0
 
         # Remove the internal helper column before persisting; predicted_ct is
         # already sentinel=-1 for abstained rows, original kept in predicted_ct_raw.
@@ -534,14 +534,10 @@ def main(
 
         print(f"\nCT abstention enabled (k={ct_abstention_k:.1f})")
         print(f"Coverage: {coverage*100:.2f}% ({n_abstained:,} abstained / {n_total:,} total)")
-        delta_pp = (macro_post - macro_pre) * 100
+        delta_pp = (macro_f1_post - macro_f1_pre) * 100
         print(
-            f"Macro accuracy on kept cells: {macro_post*100:.2f}% "
-            f"(vs {macro_pre*100:.2f}% with no abstention; {delta_pp:+.2f}pp)"
-        )
-        print(
-            f"Weighted accuracy on kept cells: {weighted_post*100:.2f}% "
-            f"(vs {weighted_pre*100:.2f}%; {(weighted_post-weighted_pre)*100:+.2f}pp)"
+            f"Macro F1 on kept cells: {macro_f1_post*100:.2f}% "
+            f"(vs {macro_f1_pre*100:.2f}% with no abstention; {delta_pp:+.2f}pp)"
         )
 
     # Save attention-derived MP as analysis artifact (gated by --save_attention;

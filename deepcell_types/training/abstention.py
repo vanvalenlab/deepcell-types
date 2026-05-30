@@ -9,7 +9,14 @@ The numpy-only fence computation lives in
 :mod:`deepcell_types.abstention` so that the inference path can import it
 without pulling in ``pandas`` or any other ``[train]``-extra dependency.
 This module adds the pandas DataFrame plumbing and the hierarchy-aware
-accuracy helpers used by the CLI evaluator (``scripts/predict.py``).
+macro-F1 helper used by the CLI evaluator (``scripts/predict.py``).
+
+Cell-type quality is reported with a single metric throughout this repo:
+**macro-F1** (mean per-class F1 over classes with support). It is robust to
+the heavy class imbalance in TissueNet, where overall/weighted accuracy can be
+inflated by over-predicting majority classes. See
+:func:`deepcell_types.training.baseline_features._conf_mat_summary` for the
+canonical formula shared by the main model and the baselines.
 """
 
 from __future__ import annotations
@@ -90,41 +97,37 @@ def apply_abstention(
     return df
 
 
-def hierarchical_correct(
+def hierarchical_macro_f1(
     true_labels: np.ndarray,
     pred_labels: np.ndarray,
-    hierarchy: dict,
-) -> np.ndarray:
-    """Per-cell binary correctness with parent->child credit.
-
-    Mirrors ``analysis/ct_abstention_iqr.py::hierarchical_correct`` and
-    ``deepcell_types.training.utils.adjust_conf_mat_hierarchy``: a prediction
-    of a child cell type when the true label is its declared parent counts
-    as correct.
-    """
-    correct = (true_labels == pred_labels)
-    for parent, children in hierarchy.items():
-        children_list = list(children)
-        forgive = (true_labels == parent) & np.isin(pred_labels, children_list)
-        correct = correct | forgive
-    return correct
-
-
-def macro_weighted_accuracy(
-    true_labels: np.ndarray,
-    correct: np.ndarray,
     classes: Sequence[str],
-) -> tuple:
-    """Macro = mean per-class accuracy (only over classes with support).
-    Weighted = overall mean accuracy. Mirrors the analysis script.
+    hierarchy: dict,
+) -> float:
+    """Macro-F1 with parent->child credit.
+
+    Builds a confusion matrix over ``classes``, applies the same
+    hierarchy forgiveness as the main model (a prediction of a child cell
+    type when the true label is its declared parent is moved onto the
+    diagonal via :func:`deepcell_types.training.utils.adjust_conf_mat_hierarchy`),
+    then reduces it with the canonical
+    :func:`deepcell_types.training.baseline_features._conf_mat_summary` so the
+    number is directly comparable to ``ct_macro_f1`` from
+    ``LossesAndMetrics.compute()`` and the baseline reports.
+
+    Labels outside ``classes`` (e.g. the abstention ``"Unknown"`` sentinel) are
+    dropped by ``sklearn.metrics.confusion_matrix(labels=classes)``; callers that
+    want abstained cells excluded should pass only the kept rows.
     """
-    accs = []
-    for c in classes:
-        mask = (true_labels == c)
-        n = int(mask.sum())
-        if n == 0:
-            continue
-        accs.append(float(correct[mask].mean()))
-    macro = float(np.mean(accs)) if accs else 0.0
-    weighted = float(correct.mean()) if len(correct) else 0.0
-    return macro, weighted
+    from sklearn.metrics import confusion_matrix
+
+    from .baseline_features import _conf_mat_summary
+    from .utils import adjust_conf_mat_hierarchy
+
+    classes = list(classes)
+    if len(true_labels) == 0:
+        return 0.0
+    ct2idx = {c: i for i, c in enumerate(classes)}
+    conf_mat = confusion_matrix(true_labels, pred_labels, labels=classes)
+    if hierarchy:
+        conf_mat = adjust_conf_mat_hierarchy(conf_mat, hierarchy, ct2idx)
+    return _conf_mat_summary(conf_mat)["macro_f1"]

@@ -256,8 +256,6 @@ def forward_one_batch(
 @click.option("--focal_gamma", type=float, default=2.0, help="FocalLoss gamma (0=CE, 2=default focal)")
 @click.option("--warmup_pct", type=float, default=None, help="Override warmup percentage for OneCycleLR (default from config.py)")
 @click.option("--resnet_channels", type=int, default=48, help="Base channels for PerChannelResNet (canonical: 48)")
-@click.option("--best_metric", type=click.Choice(["macro_f1", "macro_acc"]), default="macro_f1",
-              help="Val metric used for best-checkpoint selection. macro_f1 (default) is robust to class imbalance; macro_acc can be inflated by over-predicting majority classes.")
 @click.option("--mean_intensity_mode", type=click.Choice(["none", "cls_residual", "per_channel", "both"]), default="cls_residual",
               help="Add a mean-intensity-per-channel side input. Canonical: cls_residual=scatter intensities to global marker positions, MLP→add to CLS. Other modes: per_channel=project per-channel scalar intensity into d_model and add to fused tokens before the transformer; both=apply both; none=disable. All branches zero-init their output projection so warm-start from a baseline ckpt preserves predictions at step 0.")
 @click.option("--freeze_backbone", is_flag=True,
@@ -273,7 +271,7 @@ def main(
     max_samples_per_epoch, max_val_samples, skip_distance_transform, val_every,
     domain_weight, marker_pos_weight, tumor_weight, no_ct_exclude, no_class_weights, min_channels, hierarchical_weight, enable_amp,
     spatial_pool_size, focal_gamma, warmup_pct, resnet_channels,
-    best_metric, mean_intensity_mode, freeze_backbone, unfreeze_ct_head,
+    mean_intensity_mode, freeze_backbone, unfreeze_ct_head,
 ):
     # Seed everything
     seed_everything(seed)
@@ -510,11 +508,11 @@ def main(
             "scheduler": scheduler.state_dict(),
             "scaler": scaler.state_dict(),
             "epoch": epoch_val,
-            # Field name kept for backwards-compat with older resume_path
-            # checkpoints; the value now reflects whichever metric is chosen
-            # by --best_metric (macro_f1 by default).
-            "best_val_macro_acc": best_val,
-            "best_metric": best_metric,
+            # Best validation macro-F1 (the repo's single CT selection metric).
+            # The legacy "best_val_macro_acc" key is still read on resume for
+            # backwards-compat with checkpoints written before the switch.
+            "best_val_macro_f1": best_val,
+            "best_metric": "macro_f1",
             "epochs_without_improvement": epochs_no_improve,
             "config": CKPT_CONFIG,
             # Bundle the canonical-channel registry so inference can size
@@ -556,7 +554,7 @@ def main(
     wandb.watch(model)
 
     # Early stopping state
-    best_val_macro_acc = 0.0
+    best_val_macro_f1 = 0.0
     epochs_without_improvement = 0
     best_model_path = Path(f"models/model_{model_name}_best.pt")
     best_model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -612,11 +610,18 @@ def main(
             scheduler.load_state_dict(resume_ckpt["scheduler"])
             scaler.load_state_dict(resume_ckpt["scaler"])
             start_epoch = int(resume_ckpt["epoch"]) + 1
-            best_val_macro_acc = float(resume_ckpt.get("best_val_macro_acc", 0.0))
+            # New key "best_val_macro_f1"; fall back to the legacy
+            # "best_val_macro_acc" key for checkpoints written before the switch.
+            best_val_macro_f1 = float(
+                resume_ckpt.get(
+                    "best_val_macro_f1",
+                    resume_ckpt.get("best_val_macro_acc", 0.0),
+                )
+            )
             epochs_without_improvement = int(resume_ckpt.get("epochs_without_improvement", 0))
             logger.info(
-                "Resumed: start_epoch=%d, best_val_macro_acc=%.4f, epochs_without_improvement=%d",
-                start_epoch, best_val_macro_acc, epochs_without_improvement,
+                "Resumed: start_epoch=%d, best_val_macro_f1=%.4f, epochs_without_improvement=%d",
+                start_epoch, best_val_macro_f1, epochs_without_improvement,
             )
             if start_epoch >= epochs:
                 logger.warning(
@@ -710,44 +715,40 @@ def main(
             })
             losses_metrics.reset_metrics()
 
-            val_macro_acc = val_epoch_metrics["ct_macro_accuracy"]
             val_macro_f1 = val_epoch_metrics["ct_macro_f1"]
-            val_weighted_acc = val_epoch_metrics["ct_weighted_accuracy"]
-            val_weighted_f1 = val_epoch_metrics["ct_weighted_f1"]
             print(
-                f"Epoch {epoch}: train_macro_acc={train_epoch_metrics['ct_macro_accuracy']:.4f}, "
-                f"val_macro_acc={val_macro_acc:.4f}, val_macro_f1={val_macro_f1:.4f}, "
-                f"val_weighted_acc={val_weighted_acc:.4f}, val_weighted_f1={val_weighted_f1:.4f}"
+                f"Epoch {epoch}: train_macro_f1={train_epoch_metrics['ct_macro_f1']:.4f}, "
+                f"val_macro_f1={val_macro_f1:.4f}"
             )
 
-            # Model selection — pick by --best_metric (macro_f1 by default).
-            # macro_f1 is robust to class-balance gaming where over-predicting
-            # majority classes inflates per-class accuracy.
-            current = val_macro_f1 if best_metric == "macro_f1" else val_macro_acc
-            if current > best_val_macro_acc:
-                best_val_macro_acc = current
+            # Model selection — macro-F1 is the repo's single CT metric. It is
+            # robust to class-balance gaming where over-predicting majority
+            # classes inflates per-class accuracy.
+            current = val_macro_f1
+            if current > best_val_macro_f1:
+                best_val_macro_f1 = current
                 epochs_without_improvement = 0
                 # Atomic save: write to .tmp then os.replace to avoid corrupt files on SIGTERM
                 tmp_path = best_model_path.with_suffix(best_model_path.suffix + ".tmp")
                 torch.save(
-                    build_checkpoint(epoch, best_val_macro_acc, epochs_without_improvement),
+                    build_checkpoint(epoch, best_val_macro_f1, epochs_without_improvement),
                     tmp_path,
                 )
                 os.replace(tmp_path, best_model_path)
-                print(f"  -> New best model saved ({best_metric}={current:.4f})")
+                print(f"  -> New best model saved (macro_f1={current:.4f})")
             else:
                 epochs_without_improvement += 1
                 if epochs_without_improvement >= patience:
                     print(f"Early stopping at epoch {epoch} (patience={patience})")
                     break
         else:
-            print(f"Epoch {epoch}: train_macro_acc={train_epoch_metrics['ct_macro_accuracy']:.4f}")
+            print(f"Epoch {epoch}: train_macro_f1={train_epoch_metrics['ct_macro_f1']:.4f}")
 
         # Save checkpoint every epoch (atomic: .tmp → os.replace)
         epoch_path = Path(f"models/model_{model_name}_epoch_{epoch}.pt")
         epoch_tmp = epoch_path.with_suffix(epoch_path.suffix + ".tmp")
         torch.save(
-            build_checkpoint(epoch, best_val_macro_acc, epochs_without_improvement),
+            build_checkpoint(epoch, best_val_macro_f1, epochs_without_improvement),
             epoch_tmp,
         )
         os.replace(epoch_tmp, epoch_path)

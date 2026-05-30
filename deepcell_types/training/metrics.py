@@ -399,11 +399,14 @@ class LossesAndMetrics:
         self.mp_metrics.reset()
 
     def compute(self):
-        # Derive macro/weighted accuracy + macro/weighted F1 from a single
-        # confusion matrix so baseline and main-model numbers are directly
-        # comparable. See _conf_mat_summary() for the formula. Imported lazily
-        # because baseline_features.py imports adjust_conf_mat_hierarchy from
-        # this module, so a top-level import would cycle.
+        # macro-F1 is the single cell-type quality metric used throughout this
+        # repo (robust to TissueNet's class imbalance, where accuracy is
+        # inflated by over-predicting majority classes). Derived from the
+        # (optionally hierarchy-adjusted) confusion matrix via the canonical
+        # _conf_mat_summary() so the main model, baselines, and the abstention
+        # evaluator all report the same quantity. Imported lazily because
+        # baseline_features.py imports adjust_conf_mat_hierarchy from this
+        # module, so a top-level import would cycle.
         from .baseline_features import _conf_mat_summary
 
         conf_mat = self.conf_mat_ct_metric.compute().cpu().numpy()
@@ -412,10 +415,7 @@ class LossesAndMetrics:
         summary = _conf_mat_summary(conf_mat)
         mp = self.mp_metrics.compute()
         return {
-            "ct_macro_accuracy": summary["macro_accuracy"],
-            "ct_weighted_accuracy": summary["weighted_accuracy"],
             "ct_macro_f1": summary["macro_f1"],
-            "ct_weighted_f1": summary["weighted_f1"],
             "domain_accuracy": self.acc_domain_metric.compute().item(),
             **mp,
         }

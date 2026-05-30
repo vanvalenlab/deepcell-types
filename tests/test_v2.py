@@ -1083,7 +1083,8 @@ class TestLabelRemap:
 # =============================================================================
 
 class TestLossesAndMetricsCompute:
-    """LossesAndMetrics.compute() should match sklearn confusion-matrix-based macro/weighted acc."""
+    """LossesAndMetrics.compute() should expose macro-F1 as the single CT metric,
+    matching sklearn's confusion-matrix-based macro-F1."""
 
     def _make_metrics(self, num_classes):
         """Build a LossesAndMetrics with torchmetrics internals but only use conf_mat_ct_metric."""
@@ -1109,17 +1110,42 @@ class TestLossesAndMetricsCompute:
         lm.acc_domain_metric.update(torch.zeros(len(targets), dtype=torch.long),
                                     torch.zeros(len(targets), dtype=torch.long))
 
+    @staticmethod
+    def _sklearn_macro_f1(targets, preds):
+        """Reference macro-F1 over classes present in the targets (support > 0),
+        matching _conf_mat_summary's has_support reduction."""
+        from sklearn.metrics import f1_score
+        labels_present = sorted(set(targets.tolist()))
+        return f1_score(
+            targets, preds, average="macro", labels=labels_present, zero_division=0
+        )
+
+    def test_compute_exposes_only_macro_f1_for_ct(self):
+        """The CT surface is a single key: ct_macro_f1. The old accuracy /
+        weighted variants must be gone."""
+        m = self._make_metrics(5)
+        logits = torch.eye(5) * 10.0
+        targets = torch.arange(5)
+        self._update_conf_mat(m, logits, targets)
+        result = m.compute()
+        assert "ct_macro_f1" in result
+        for removed in (
+            "ct_macro_accuracy",
+            "ct_weighted_accuracy",
+            "ct_weighted_f1",
+        ):
+            assert removed not in result
+
     def test_perfect_predictions(self):
         m = self._make_metrics(5)
         logits = torch.eye(5) * 10.0
         targets = torch.arange(5)
         self._update_conf_mat(m, logits, targets)
         result = m.compute()
-        assert abs(result["ct_macro_accuracy"] - 1.0) < 1e-5
-        assert abs(result["ct_weighted_accuracy"] - 1.0) < 1e-5
+        assert abs(result["ct_macro_f1"] - 1.0) < 1e-5
 
     def test_known_error_pattern(self):
-        """Class 0 always wrong, others correct → macro = 0.8."""
+        """Class 0 always wrong (predicted as class 1), others correct."""
         m = self._make_metrics(5)
         # 2 samples of class 0 → predicted as class 1 (wrong)
         # 1 each of classes 1-4 → correct
@@ -1133,11 +1159,11 @@ class TestLossesAndMetricsCompute:
         targets = torch.tensor([0, 0, 1, 2, 3, 4])
         self._update_conf_mat(m, preds_logits, targets)
         result = m.compute()
-        # class 0 acc=0, classes 1-4 acc=1 → macro=4/5=0.8
-        assert abs(result["ct_macro_accuracy"] - 0.8) < 1e-4
+        preds = preds_logits.argmax(dim=1).numpy()
+        assert abs(result["ct_macro_f1"] - self._sklearn_macro_f1(targets.numpy(), preds)) < 1e-4
 
     def test_zero_support_classes_excluded(self):
-        """Classes with no samples should be excluded from macro accuracy."""
+        """Classes with no samples should be excluded from the macro-F1 denominator."""
         m = self._make_metrics(10)
         # Only classes 0, 1, 2 have support, all predicted correctly
         for cls in [0, 1, 2]:
@@ -1146,18 +1172,17 @@ class TestLossesAndMetricsCompute:
             targets_cls = torch.full((3,), cls)
             self._update_conf_mat(m, logits, targets_cls)
         result = m.compute()
-        # Only 3 classes in denominator, all correct → macro = 1.0
-        assert abs(result["ct_macro_accuracy"] - 1.0) < 1e-5
+        # Only 3 classes in denominator, all correct → macro-F1 = 1.0
+        assert abs(result["ct_macro_f1"] - 1.0) < 1e-5
 
     def test_imbalanced_macro_matches_sklearn(self):
-        """Macro accuracy on imbalanced data should match sklearn's computation."""
-        from sklearn.metrics import balanced_accuracy_score
+        """Macro-F1 on imbalanced data should match sklearn's computation."""
         m = self._make_metrics(4)
         # Build explicit predictions:
-        # class 0: 10 samples, 8 correct → acc=0.8
-        # class 1: 2 samples, 2 correct → acc=1.0
-        # class 2: 1 sample, 1 correct → acc=1.0
-        # class 3: 1 sample, 0 correct → acc=0.0
+        # class 0: 10 samples, 8 correct, 2 → class 1
+        # class 1: 2 samples, 2 correct
+        # class 2: 1 sample, 1 correct
+        # class 3: 1 sample, 0 correct (→ class 0)
         targets_list = [0]*10 + [1]*2 + [2]*1 + [3]*1
         correct_remaining = {0: 8, 1: 2, 2: 1, 3: 0}
         wrong_pred = {0: 1, 1: 0, 2: 0, 3: 0}
@@ -1175,8 +1200,7 @@ class TestLossesAndMetricsCompute:
         self._update_conf_mat(m, logits, targets)
         result = m.compute()
         preds = logits.argmax(dim=1).numpy()
-        sklearn_macro = balanced_accuracy_score(targets.numpy(), preds)
-        assert abs(result["ct_macro_accuracy"] - sklearn_macro) < 1e-4
+        assert abs(result["ct_macro_f1"] - self._sklearn_macro_f1(targets.numpy(), preds)) < 1e-4
 
 
 # =============================================================================

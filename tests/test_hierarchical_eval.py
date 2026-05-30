@@ -1,5 +1,6 @@
 """Test hierarchical accuracy computation."""
 import numpy as np
+from deepcell_types.training.abstention import hierarchical_macro_f1
 from deepcell_types.training.utils import adjust_conf_mat_hierarchy
 
 
@@ -69,3 +70,31 @@ def test_accumulates_with_existing_diagonal():
     adjusted = adjust_conf_mat_hierarchy(conf_mat, hierarchy, ct2idx)
     assert adjusted[1, 1] == 10  # 7 + 3
     assert adjusted[1, 0] == 0
+
+
+# =============================================================================
+# hierarchical_macro_f1 (abstention-eval / CLI macro-F1 helper)
+# =============================================================================
+
+def test_hierarchical_macro_f1_forgives_child_of_parent():
+    """Predicting a child cell type when the truth is its declared parent is
+    forgiven, so an otherwise-perfect frame scores macro-F1 == 1.0."""
+    classes = ["CD4T", "CD8T", "Tcell", "Tumor"]
+    hierarchy = {"Tcell": ["CD4T", "CD8T"]}
+    true = np.array(["Tcell", "Tcell", "Tumor", "CD4T"])
+    pred = np.array(["CD4T", "CD8T", "Tumor", "CD4T"])
+    assert abs(hierarchical_macro_f1(true, pred, classes, hierarchy) - 1.0) < 1e-9
+
+
+def test_hierarchical_macro_f1_no_hierarchy_matches_sklearn():
+    """With an empty hierarchy it reduces to plain macro-F1 over present classes."""
+    from sklearn.metrics import f1_score
+    classes = ["A", "B", "C"]
+    true = np.array(["A", "A", "B", "C", "C"])
+    pred = np.array(["A", "B", "B", "C", "A"])
+    expected = f1_score(true, pred, labels=classes, average="macro", zero_division=0)
+    assert abs(hierarchical_macro_f1(true, pred, classes, {}) - expected) < 1e-9
+
+
+def test_hierarchical_macro_f1_empty_frame_is_zero():
+    assert hierarchical_macro_f1(np.array([]), np.array([]), ["A", "B"], {}) == 0.0
