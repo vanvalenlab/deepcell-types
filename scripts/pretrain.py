@@ -328,13 +328,15 @@ def main(
             # Forward pass + loss computations wrapped in autocast for AMP
             with torch.amp.autocast("cuda", enabled=enable_amp):
                 # Forward pass (with masked input)
-                _, _, marker_pos_logits, _, channel_outputs = model(
+                out = model(
                     masked_sample,
                     spatial,
                     ch_idx,
                     pad_mask,
                     domain_idx=batch_data.domain_idx,
                 )
+                marker_pos_logits = out.marker_pos_logits
+                channel_outputs = out.channel_outputs
 
                 # Reconstruction loss: MSE on masked channels only
                 pred_expr = recon_head(channel_outputs)
@@ -403,13 +405,15 @@ def main(
                 )
                 mean_expr = mean_expr.to(device)
 
-                _, _, marker_pos_logits, _, channel_outputs = model(
+                out = model(
                     masked_sample,
                     spatial,
                     ch_idx,
                     pad_mask,
                     domain_idx=batch_data.domain_idx,
                 )
+                marker_pos_logits = out.marker_pos_logits
+                channel_outputs = out.channel_outputs
 
                 pred_expr = recon_head(channel_outputs)
                 if masked_indices.any():

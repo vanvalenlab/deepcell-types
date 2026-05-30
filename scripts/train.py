@@ -119,13 +119,16 @@ def forward_one_batch(
 
     # Forward pass + loss computations wrapped in autocast for AMP
     with torch.amp.autocast("cuda", enabled=enable_amp):
-        ct_logits, domain_logits, marker_pos_logits, cls_embedding, _ = model(
+        out = model(
             batch_data.sample,
             batch_data.spatial_context,
             batch_data.ch_idx,
             batch_data.mask,
             domain_idx=batch_data.domain_idx,
         )
+        ct_logits = out.ct_logits
+        domain_logits = out.domain_logits
+        marker_pos_logits = out.marker_pos_logits
 
         # Cell type loss (FocalLoss with class weights)
         ct_loss = losses_metrics.ct_loss_fn(ct_logits, compact_ct_idx)

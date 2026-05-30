@@ -1,3 +1,5 @@
+from typing import NamedTuple, Optional
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -246,6 +248,23 @@ class ChannelWiseTransformerEncoderLayer(nn.Module):
         return x
 
 
+class AnnotatorOutput(NamedTuple):
+    """Structured return of :meth:`CellTypeAnnotator.forward`.
+
+    Fixed arity: ``cls_to_channels`` is ``None`` unless ``forward`` is called
+    with ``return_attn_weights=True``. Being a ``NamedTuple`` it still unpacks
+    positionally, so ``a, b, c, d, e, attn = out`` works alongside attribute
+    access (``out.ct_logits``).
+    """
+
+    ct_logits: torch.Tensor
+    domain_logits: torch.Tensor
+    marker_pos_logits: torch.Tensor
+    cls_embedding: torch.Tensor
+    channel_outputs: torch.Tensor
+    cls_to_channels: Optional[torch.Tensor] = None
+
+
 class CellTypeAnnotator(nn.Module):
     """Cell type annotator with marker-aware transformer.
 
@@ -385,12 +404,14 @@ class CellTypeAnnotator(nn.Module):
                 only enters the model via the DANN head (grad_reverse on CLS).
 
         Returns:
-            ct_logits: (B, n_celltypes) - cell type logits
-            domain_logits: (B, n_domains) - domain logits
-            marker_pos_logits: (B, C_max) - marker positivity logits (pre-sigmoid)
-            cls_embedding: (B, d_model) - CLS token embedding
-            channel_outputs: (B, C_max, d_model) - per-channel transformer outputs
-            (optional) cls_to_channels: (n_layers, B, C_max) - CLS→channel attention
+            AnnotatorOutput namedtuple with fields:
+            - ct_logits: (B, n_celltypes) - cell type logits
+            - domain_logits: (B, n_domains) - domain logits
+            - marker_pos_logits: (B, C_max) - marker positivity logits (pre-sigmoid)
+            - cls_embedding: (B, d_model) - CLS token embedding
+            - channel_outputs: (B, C_max, d_model) - per-channel transformer outputs
+            - cls_to_channels: (n_layers, B, C_max) CLS→channel attention when
+              ``return_attn_weights=True``, else ``None``
         """
         B, C_max = sample.shape[0], sample.shape[1]
 
@@ -514,25 +535,19 @@ class CellTypeAnnotator(nn.Module):
                 -1
             )  # (B, C_max)
 
+        cls_to_channels = None
         if return_attn_weights:
             cls_to_channels = torch.stack(
                 all_attn_weights, dim=0
             )  # (n_layers, B, C_max)
-            return (
-                ct_logits,
-                domain_logits,
-                marker_pos_logits,
-                cls_embedding,
-                channel_outputs,
-                cls_to_channels,
-            )
 
-        return (
-            ct_logits,
-            domain_logits,
-            marker_pos_logits,
-            cls_embedding,
-            channel_outputs,
+        return AnnotatorOutput(
+            ct_logits=ct_logits,
+            domain_logits=domain_logits,
+            marker_pos_logits=marker_pos_logits,
+            cls_embedding=cls_embedding,
+            channel_outputs=channel_outputs,
+            cls_to_channels=cls_to_channels,
         )
 
 

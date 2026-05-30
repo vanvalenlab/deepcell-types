@@ -3,9 +3,6 @@ Tests for CellTypeAnnotator, FullImageDataset, FocalLoss with class weights,
 FOV splits, DropOutChannels.
 """
 
-import os
-from pathlib import Path
-
 import numpy as np
 import torch
 import pytest
@@ -124,7 +121,7 @@ class TestCellTypeAnnotator:
         pad_mask = torch.zeros(B, C_max, dtype=torch.bool)
         pad_mask[:, 4:] = True
 
-        ct_logits, domain_logits, mp_logits, cls_emb, ch_out = model(
+        ct_logits, domain_logits, mp_logits, cls_emb, ch_out, _ = model(
             sample, spatial, ch_idx, pad_mask
         )
 
@@ -149,7 +146,7 @@ class TestCellTypeAnnotator:
         ch_idx = torch.zeros(2, 10, dtype=torch.long)
         pad_mask = torch.zeros(2, 10, dtype=torch.bool)
 
-        ct_logits, domain_logits, mp_logits, cls_emb, _ = model(
+        ct_logits, domain_logits, mp_logits, cls_emb, _, _ = model(
             sample, spatial, ch_idx, pad_mask
         )
         assert ct_logits.shape == (2, 3)
@@ -171,10 +168,10 @@ class TestCellTypeAnnotator:
         pad_mask = torch.zeros(2, 10, dtype=torch.bool)
 
         model.train()
-        ct_train, _, _, _, _ = model(sample, spatial, ch_idx, pad_mask)
+        ct_train, _, _, _, _, _ = model(sample, spatial, ch_idx, pad_mask)
 
         model.eval()
-        ct_eval, _, _, _, _ = model(sample, spatial, ch_idx, pad_mask)
+        ct_eval, _, _, _, _, _ = model(sample, spatial, ch_idx, pad_mask)
 
         # Both should produce valid outputs (no NaN)
         assert not torch.isnan(ct_train).any()
@@ -661,7 +658,7 @@ class TestPretrainEndToEnd:
         )
 
         # Forward through model
-        _, _, _, _, channel_outputs = model(masked_sample, spatial, ch_idx, pad_mask)
+        _, _, _, _, channel_outputs, _ = model(masked_sample, spatial, ch_idx, pad_mask)
 
         # Reconstruct
         pred_expr = recon_head(channel_outputs)
@@ -850,7 +847,7 @@ class TestAttentionExtraction:
         assert cls_to_channels.shape == (n_layers, B, C_max)
 
     def test_no_attn_weights_default(self, marker_embeddings):
-        """Default forward should return 5 values (no attention)."""
+        """Default forward returns fixed-arity AnnotatorOutput; attn field is None."""
         model = CellTypeAnnotator(
             d_model=64,
             n_heads=4,
@@ -866,7 +863,8 @@ class TestAttentionExtraction:
         pad_mask = torch.zeros(2, 10, dtype=torch.bool)
 
         outputs = model(sample, spatial, ch_idx, pad_mask)
-        assert len(outputs) == 5
+        assert len(outputs) == 6
+        assert outputs.cls_to_channels is None
 
     def test_attn_weights_sum_to_one(self, marker_embeddings):
         """CLS→all attention weights should approximately sum to 1."""
@@ -945,7 +943,7 @@ class TestCreateModelWithConditionedHead:
         pad_mask = torch.zeros(B, C_max, dtype=torch.bool)
         pad_mask[:, 4:] = True
 
-        ct_logits, domain_logits, mp_logits, cls_emb, ch_out = model(
+        ct_logits, domain_logits, mp_logits, cls_emb, ch_out, _ = model(
             sample, spatial, ch_idx, pad_mask
         )
 
@@ -1024,7 +1022,7 @@ class TestInstanceNormZeroInput:
         )
         model.eval()
         with torch.no_grad():
-            _, _, _, _, channel_outputs = model(sample, spatial, ch_idx, pad_mask)
+            _, _, _, _, channel_outputs, _ = model(sample, spatial, ch_idx, pad_mask)
 
         # No NaN or Inf anywhere (InstanceNorm regression check)
         assert not torch.isnan(channel_outputs).any(), "NaN in channel_outputs"
@@ -1032,7 +1030,7 @@ class TestInstanceNormZeroInput:
 
         # Determinism: running again with same inputs produces identical outputs
         with torch.no_grad():
-            _, _, _, _, channel_outputs2 = model(sample, spatial, ch_idx, pad_mask)
+            _, _, _, _, channel_outputs2, _ = model(sample, spatial, ch_idx, pad_mask)
         assert torch.equal(channel_outputs, channel_outputs2), (
             "Model outputs are not deterministic in eval mode"
         )

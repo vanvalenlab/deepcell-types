@@ -266,13 +266,13 @@ def main(
                 if i >= n_batches:
                     break
                 batch_data = BatchData(*batch).to(device)
-                _, _, marker_pos_logits, _, _ = model(
+                marker_pos_logits = model(
                     batch_data.sample,
                     batch_data.spatial_context,
                     batch_data.ch_idx,
                     batch_data.mask,
                     domain_idx=batch_data.domain_idx,
-                )
+                ).marker_pos_logits
                 valid_mp_channels = ~batch_data.mask & batch_data.marker_positivity_mask
                 if valid_mp_channels.any():
                     mp_pred = torch.sigmoid(marker_pos_logits[valid_mp_channels])
@@ -371,24 +371,10 @@ def main(
                 return_attn_weights=save_attention,
                 domain_idx=batch_data.domain_idx,
             )
-            if save_attention:
-                (
-                    ct_logits,
-                    domain_logits,
-                    marker_pos_logits,
-                    _,
-                    _,
-                    cls_to_channels,
-                ) = outputs
-            else:
-                (
-                    ct_logits,
-                    domain_logits,
-                    marker_pos_logits,
-                    _,
-                    _,
-                ) = outputs
-                cls_to_channels = None
+            ct_logits = outputs.ct_logits
+            domain_logits = outputs.domain_logits
+            marker_pos_logits = outputs.marker_pos_logits
+            cls_to_channels = outputs.cls_to_channels
 
             probs = F.softmax(ct_logits, dim=-1)
 
