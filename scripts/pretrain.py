@@ -50,28 +50,83 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 @click.option("--patience", type=int, default=5, help="Early stopping patience")
 @click.option("--seed", type=int, default=42)
 @click.option("--num_workers", type=int, default=16)
-@click.option("--mask_ratio", type=float, default=0.3, help="Fraction of valid channels to mask")
+@click.option(
+    "--mask_ratio", type=float, default=0.3, help="Fraction of valid channels to mask"
+)
 @click.option("--svd_embeddings_path", type=str, default=None)
-@click.option("--recon_weight", type=float, default=1.0, help="Weight for reconstruction loss")
-@click.option("--marker_pos_weight", type=float, default=0.5, help="Weight for marker positivity auxiliary loss")
-@click.option("--split_mode", type=click.Choice(["fov", "patch"]), default="fov",
-              help="Split strategy: 'fov' (default, no spatial leakage) or 'patch' (cell-level random)")
-@click.option("--split_file", type=str, default=None,
-              help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)")
-@click.option("--enable_amp", type=bool, default=True, help="Enable Automatic Mixed Precision (AMP) training (~2x speedup on CUDA, disabled automatically on CPU)")
-@click.option("--min_channels", type=int, default=0, help="Min model-visible marker channels per dataset (default 0 = no filter)")
-@click.option("--max_samples_per_epoch", type=int, default=500000, help="Cap training samples per epoch (random subsample)")
-@click.option("--resume_path", type=str, default=None, help="Path to a full training checkpoint to resume (restores model/optimizer/scheduler/scaler/epoch).")
+@click.option(
+    "--recon_weight", type=float, default=1.0, help="Weight for reconstruction loss"
+)
+@click.option(
+    "--marker_pos_weight",
+    type=float,
+    default=0.5,
+    help="Weight for marker positivity auxiliary loss",
+)
+@click.option(
+    "--split_mode",
+    type=click.Choice(["fov", "patch"]),
+    default="fov",
+    help="Split strategy: 'fov' (default, no spatial leakage) or 'patch' (cell-level random)",
+)
+@click.option(
+    "--split_file",
+    type=str,
+    default=None,
+    help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)",
+)
+@click.option(
+    "--enable_amp",
+    type=bool,
+    default=True,
+    help="Enable Automatic Mixed Precision (AMP) training (~2x speedup on CUDA, disabled automatically on CPU)",
+)
+@click.option(
+    "--min_channels",
+    type=int,
+    default=0,
+    help="Min model-visible marker channels per dataset (default 0 = no filter)",
+)
+@click.option(
+    "--max_samples_per_epoch",
+    type=int,
+    default=500000,
+    help="Cap training samples per epoch (random subsample)",
+)
+@click.option(
+    "--resume_path",
+    type=str,
+    default=None,
+    help="Path to a full training checkpoint to resume (restores model/optimizer/scheduler/scaler/epoch).",
+)
 def main(
-    model_name, device_num, enable_wandb, zarr_dir, skip_datasets, keep_datasets,
-    epochs, batch_size, lr, patience, seed, num_workers,
-    mask_ratio, svd_embeddings_path, recon_weight, marker_pos_weight,
-    split_mode, split_file, enable_amp, min_channels, max_samples_per_epoch,
+    model_name,
+    device_num,
+    enable_wandb,
+    zarr_dir,
+    skip_datasets,
+    keep_datasets,
+    epochs,
+    batch_size,
+    lr,
+    patience,
+    seed,
+    num_workers,
+    mask_ratio,
+    svd_embeddings_path,
+    recon_weight,
+    marker_pos_weight,
+    split_mode,
+    split_file,
+    enable_amp,
+    min_channels,
+    max_samples_per_epoch,
     resume_path,
 ):
     seed_everything(seed)
 
     import wandb
+
     if enable_wandb:
         wandb.login()
     run = wandb.init(
@@ -95,12 +150,14 @@ def main(
 
     device = torch.device(device_num)
     # AMP is only supported on CUDA; disable automatically on CPU
-    enable_amp = enable_amp and device.type == 'cuda'
+    enable_amp = enable_amp and device.type == "cuda"
     dct_config = TissueNetConfig(zarr_dir)
     d_model = 256
 
     # Load marker embeddings
-    marker_embeddings = dct_config.load_marker_embeddings_array(svd_path=svd_embeddings_path)
+    marker_embeddings = dct_config.load_marker_embeddings_array(
+        svd_path=svd_embeddings_path
+    )
 
     use_cuda = device.type == "cuda"
 
@@ -126,7 +183,9 @@ def main(
         max_samples_per_epoch=max_samples_per_epoch,
     )
 
-    print(f"Pre-training data: {metadata.get('num_train', '?')} train, {metadata.get('num_val', '?')} val")
+    print(
+        f"Pre-training data: {metadata.get('num_train', '?')} train, {metadata.get('num_val', '?')} val"
+    )
 
     # Build model + reconstruction head
     model = create_model(dct_config, marker_embeddings, d_model=d_model)
@@ -135,7 +194,9 @@ def main(
     model.to(device)
     recon_head.to(device)
     summary(model, col_names=["trainable"])
-    print(f"Reconstruction head params: {sum(p.numel() for p in recon_head.parameters()):,}")
+    print(
+        f"Reconstruction head params: {sum(p.numel() for p in recon_head.parameters()):,}"
+    )
 
     # Optimizer: jointly optimize model backbone + reconstruction head
     all_params = list(model.parameters()) + list(recon_head.parameters())
@@ -151,7 +212,7 @@ def main(
     )
 
     # GradScaler for AMP (no-op when enable_amp=False)
-    scaler = torch.amp.GradScaler('cuda', enabled=enable_amp)
+    scaler = torch.amp.GradScaler("cuda", enabled=enable_amp)
 
     # ---------- Checkpoint helpers (R4 H1: full training-state checkpoints) ----------
     CKPT_CONFIG = {
@@ -214,7 +275,8 @@ def main(
             if ckpt_config.get("seed") is not None and ckpt_config["seed"] != seed:
                 logger.warning(
                     "Resumed checkpoint was trained with seed=%s but current run uses seed=%s.",
-                    ckpt_config["seed"], seed,
+                    ckpt_config["seed"],
+                    seed,
                 )
             model.load_state_dict(resume_ckpt["model"])
             if "recon_head" in resume_ckpt:
@@ -224,13 +286,22 @@ def main(
             scaler.load_state_dict(resume_ckpt["scaler"])
             start_epoch = int(resume_ckpt["epoch"]) + 1
             best_val_loss = float(resume_ckpt.get("best_val_loss", float("inf")))
-            epochs_without_improvement = int(resume_ckpt.get("epochs_without_improvement", 0))
+            epochs_without_improvement = int(
+                resume_ckpt.get("epochs_without_improvement", 0)
+            )
             logger.info(
                 "Resumed: start_epoch=%d, best_val_loss=%.6f, epochs_without_improvement=%d",
-                start_epoch, best_val_loss, epochs_without_improvement,
+                start_epoch,
+                best_val_loss,
+                epochs_without_improvement,
             )
 
-    for epoch in tqdm(range(start_epoch, epochs), desc="Pre-train epochs", initial=start_epoch, total=epochs):
+    for epoch in tqdm(
+        range(start_epoch, epochs),
+        desc="Pre-train epochs",
+        initial=start_epoch,
+        total=epochs,
+    ):
         # ===================== TRAIN =====================
         model.train()
         recon_head.train()
@@ -255,17 +326,22 @@ def main(
             mean_expr = mean_expr.to(device)
 
             # Forward pass + loss computations wrapped in autocast for AMP
-            with torch.amp.autocast('cuda', enabled=enable_amp):
+            with torch.amp.autocast("cuda", enabled=enable_amp):
                 # Forward pass (with masked input)
-                _, _, marker_pos_logits, _, channel_outputs, _ = model(
-                    masked_sample, spatial, ch_idx, pad_mask,
+                _, _, marker_pos_logits, _, channel_outputs = model(
+                    masked_sample,
+                    spatial,
+                    ch_idx,
+                    pad_mask,
                     domain_idx=batch_data.domain_idx,
                 )
 
                 # Reconstruction loss: MSE on masked channels only
                 pred_expr = recon_head(channel_outputs)
                 if masked_indices.any():
-                    recon_loss = F.mse_loss(pred_expr[masked_indices], mean_expr[masked_indices])
+                    recon_loss = F.mse_loss(
+                        pred_expr[masked_indices], mean_expr[masked_indices]
+                    )
                 else:
                     recon_loss = torch.tensor(0.0, device=device)
 
@@ -327,14 +403,19 @@ def main(
                 )
                 mean_expr = mean_expr.to(device)
 
-                _, _, marker_pos_logits, _, channel_outputs, _ = model(
-                    masked_sample, spatial, ch_idx, pad_mask,
+                _, _, marker_pos_logits, _, channel_outputs = model(
+                    masked_sample,
+                    spatial,
+                    ch_idx,
+                    pad_mask,
                     domain_idx=batch_data.domain_idx,
                 )
 
                 pred_expr = recon_head(channel_outputs)
                 if masked_indices.any():
-                    recon_loss = F.mse_loss(pred_expr[masked_indices], mean_expr[masked_indices])
+                    recon_loss = F.mse_loss(
+                        pred_expr[masked_indices], mean_expr[masked_indices]
+                    )
                 else:
                     recon_loss = torch.tensor(0.0, device=device)
 
@@ -396,7 +477,9 @@ def main(
     print(f"\nPre-training complete. Best val_loss={best_val_loss:.6f}")
     print(f"Pre-trained backbone saved to {best_model_path}")
     print("\nTo fine-tune:")
-    print(f"  python train.py --model_name finetuned --pretrained_path {best_model_path}")
+    print(
+        f"  python train.py --model_name finetuned --pretrained_path {best_model_path}"
+    )
 
     run.finish()
 
