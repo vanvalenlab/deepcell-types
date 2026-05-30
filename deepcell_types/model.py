@@ -191,15 +191,18 @@ class MarkerEmbeddingLayer(nn.Module):
         return out
 
 
-class PreNormTransformerEncoderLayer(nn.Module):
-    """Pre-norm transformer encoder layer (more stable than post-norm).
+class ChannelWiseTransformerEncoderLayer(nn.Module):
+    """Channel-wise transformer encoder layer (pre-norm).
 
-    Follows the Xiong-2020 pre-norm convention: dropout is applied to the
-    output of each sublayer before the residual add (both attention and FF).
-    The FF branch already terminates in ``nn.Dropout`` inside ``self.ff``;
-    the attention branch uses a dedicated ``self.attn_dropout`` module (the
-    ``dropout`` arg of ``nn.MultiheadAttention`` only drops attention
-    weights, not the sublayer output).
+    Operates over marker/channel tokens (each channel is a token, plus the
+    prepended CLS). Internally uses the pre-norm (Xiong-2020) convention:
+    LayerNorm is applied to each sublayer's input, and dropout is applied to
+    the sublayer output before the residual add (both attention and FF). The
+    FF branch already terminates in ``nn.Dropout`` inside ``self.ff``; the
+    attention branch uses a dedicated ``self.attn_dropout`` module (the
+    ``dropout`` arg of ``nn.MultiheadAttention`` only drops attention weights,
+    not the sublayer output). Pre-norm keeps the residual stream a clean
+    identity highway, which trains more stably than post-norm.
     """
 
     def __init__(self, d_model, nhead, dim_feedforward, dropout=0.1):
@@ -301,7 +304,7 @@ class CellTypeAnnotator(nn.Module):
         # Pre-norm transformer
         self.transformer_layers = nn.ModuleList(
             [
-                PreNormTransformerEncoderLayer(
+                ChannelWiseTransformerEncoderLayer(
                     d_model=d_model,
                     nhead=n_heads,
                     dim_feedforward=d_model * 4,
@@ -363,7 +366,9 @@ class CellTypeAnnotator(nn.Module):
         # retraining from scratch (v0.2.0+) to recover the marker-0 signal.
         self.compat_marker0_zero = bool(kwargs.get("compat_marker0_zero", True))
         if self.mean_intensity_mode != "none":
-            n_markers = marker_embeddings.shape[0] if marker_embeddings is not None else 278
+            n_markers = (
+                marker_embeddings.shape[0] if marker_embeddings is not None else 278
+            )
             self._n_markers = n_markers
             if self.mean_intensity_mode in ("cls_residual", "both"):
                 self.intensity_cls_branch = nn.Sequential(
@@ -429,9 +434,7 @@ class CellTypeAnnotator(nn.Module):
         # Use out-of-place masked_fill (same AMP-safe pattern as channel_feat
         # above); the expand() view is materialized by masked_fill.
         spatial_expanded = spatial_feat.unsqueeze(1).expand(-1, C_max, -1)
-        spatial_expanded = spatial_expanded.masked_fill(
-            padding_mask.unsqueeze(-1), 0.0
-        )
+        spatial_expanded = spatial_expanded.masked_fill(padding_mask.unsqueeze(-1), 0.0)
         fused = torch.cat([channel_feat, spatial_expanded], dim=-1)  # (B, C_max, 192)
         fused = self.fusion(fused)  # (B, C_max, d_model)
         # The fusion linear adds its bias to even the zeroed padding inputs,
@@ -452,10 +455,14 @@ class CellTypeAnnotator(nn.Module):
             # sample is raw * self_mask, so sum / cell_size gives mean over the cell footprint
             self_mask_2d = spatial_context[:, 0]  # (B, H, W)
             cell_size = self_mask_2d.sum(dim=(-1, -2)).clamp(min=1.0)  # (B,)
-            mean_intensity = sample.sum(dim=(-1, -2, -3)) / cell_size.unsqueeze(-1)  # (B, C_max)
+            mean_intensity = sample.sum(dim=(-1, -2, -3)) / cell_size.unsqueeze(
+                -1
+            )  # (B, C_max)
             mean_intensity = mean_intensity.masked_fill(padding_mask, 0.0)
             if self.mean_intensity_mode in ("per_channel", "both"):
-                per_ch = self.intensity_per_channel_proj(mean_intensity.unsqueeze(-1))  # (B, C_max, d_model)
+                per_ch = self.intensity_per_channel_proj(
+                    mean_intensity.unsqueeze(-1)
+                )  # (B, C_max, d_model)
                 per_ch = per_ch.masked_fill(padding_mask.unsqueeze(-1), 0.0)
                 fused = fused + per_ch
 
@@ -506,7 +513,10 @@ class CellTypeAnnotator(nn.Module):
         # v0.1.0 checkpoint reproduces its training-time outputs bit-for-bit.
         # The flag is read from the model's stored architecture metadata so
         # a future retrain (v0.2.0) can flip it off with ``compat_marker0_zero=False``.
-        if self.mean_intensity_mode in ("cls_residual", "both") and mean_intensity is not None:
+        if (
+            self.mean_intensity_mode in ("cls_residual", "both")
+            and mean_intensity is not None
+        ):
             intensity_vec = torch.zeros(
                 B, self._n_markers + 1, device=sample.device, dtype=mean_intensity.dtype
             )
@@ -515,7 +525,7 @@ class CellTypeAnnotator(nn.Module):
             safe_idx[~valid] = self._n_markers  # sink column for padding writes
             masked_int = mean_intensity.masked_fill(~valid, 0.0)
             intensity_vec.scatter_(1, safe_idx, masked_int)
-            intensity_vec = intensity_vec[:, :self._n_markers]  # drop sink
+            intensity_vec = intensity_vec[:, : self._n_markers]  # drop sink
             if getattr(self, "compat_marker0_zero", True):
                 intensity_vec = intensity_vec.clone()
                 intensity_vec[:, 0] = 0.0
