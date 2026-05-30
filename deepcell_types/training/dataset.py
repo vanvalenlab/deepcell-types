@@ -163,7 +163,6 @@ class FullImageDataset(Dataset):
         self.crop_size = dct_config.CROP_SIZE
         self.output_size = dct_config.OUTPUT_SIZE
         self.transform = transform
-        self.ct_mapping = dct_config.celltype_mapping
         self.domain_mapping = dct_config.domain_mapping
         self.marker2idx = dct_config.marker2idx
         self._idx2marker = {v: k for k, v in self.marker2idx.items()}
@@ -345,7 +344,6 @@ class FullImageDataset(Dataset):
 
         # Pre-fetch references
         domain_mapping = self.domain_mapping
-        ct_mapping = self.ct_mapping
         ct2idx = self.ct2idx
 
         # Aggregate results for requested datasets
@@ -433,13 +431,12 @@ class FullImageDataset(Dataset):
                 ct_label = str(ct_label)
                 cell_idx = int(cell_idx)
 
-                if dataset_key in ct_mapping and ct_label in ct_mapping[dataset_key]:
-                    ct_label_standard = ct_mapping[dataset_key][ct_label]
-                else:
-                    ct_label_standard = ct_label
-
-                if ct_label_standard not in ct2idx:
+                # Cell types are canonical in the archive, so the stored label
+                # is already its standardized form; keep only types the model
+                # has a class for.
+                if ct_label not in ct2idx:
                     continue
+                ct_label_standard = ct_label
 
                 self.indices.append(
                     CellIndexRecord(

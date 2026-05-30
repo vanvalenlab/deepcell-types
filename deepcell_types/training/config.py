@@ -234,7 +234,7 @@ class TissueNetConfig:
         # Lazy-loaded caches
         self._all_mappings_computed = False
         self._domain_mapping_cache: Optional[Dict[str, str]] = None
-        self._celltype_mapping_cache: Optional[Dict[str, Dict[str, str]]] = None
+        self._dataset_celltypes_cache: Optional[Dict[str, List[str]]] = None
         self._tissue_celltype_mapping_cache: Optional[Dict[str, List[str]]] = None
         # Single source of truth for per-dataset MP DataFrames. Initialized
         # to None and replaced by LazyMarkerPositivityDict on first access of
@@ -413,11 +413,48 @@ class TissueNetConfig:
             )
 
         # Aggregate results (single-threaded, fast)
+        (
+            domain_mapping,
+            dataset_celltypes,
+            tissue_celltype_mapping,
+            mp_keys,
+        ) = self._aggregate_metadata(results, self._ct2idx)
+
+        self._domain_mapping_cache = domain_mapping
+        self._dataset_celltypes_cache = dataset_celltypes
+        self._tissue_celltype_mapping_cache = tissue_celltype_mapping
+        self._mp_keys = mp_keys
+        self._all_mappings_computed = True
+
+        logger.info(
+            f"Computed all mappings: {len(domain_mapping)} domains, "
+            f"{len(dataset_celltypes)} datasets with annotations, "
+            f"{len(tissue_celltype_mapping)} tissues, "
+            f"{len(mp_keys)} MP datasets"
+        )
+
+    @staticmethod
+    def _aggregate_metadata(results, ct2idx):
+        """Aggregate per-dataset metadata dicts into the cached mappings.
+
+        Pure (no I/O) so it is unit-testable without a zarr archive. Takes the
+        list of ``_read_dataset_metadata`` results and returns:
+
+        - ``domain_mapping``: dataset key -> modality, for every dataset.
+        - ``dataset_celltypes``: dataset key -> sorted list of *all* annotated
+          cell-type names (including names absent from ``ct2idx``); only
+          datasets that have annotations appear.
+        - ``tissue_celltype_mapping``: tissue -> sorted list of annotated cell
+          types that are in ``ct2idx``, merged across datasets. Tissues whose
+          allowed-CT set is empty are dropped so ``--apply_tissue_mask`` cannot
+          produce an all-Inf logit mask (NaN softmax) on a FOV whose tissue
+          lacks any labeled annotation in the archive.
+        - ``mp_keys``: datasets that expose a marker_positivity group.
+        """
         domain_mapping: Dict[str, str] = {}
-        celltype_mapping: Dict[str, Dict[str, str]] = {}
+        dataset_celltypes: Dict[str, List[str]] = {}
         tissue_ct_mapping: Dict[str, set] = {}
         mp_keys: List[str] = []
-        ct2idx = self._ct2idx
 
         for r in results:
             key = r["key"]
@@ -426,34 +463,18 @@ class TissueNetConfig:
             tissue = r["tissue"]
             ct_names = r["ct_names"]
             if ct_names is not None:
-                celltype_mapping[key] = {ct: ct for ct in ct_names}
+                dataset_celltypes[key] = sorted(ct_names)
                 if tissue is not None:
-                    if tissue not in tissue_ct_mapping:
-                        tissue_ct_mapping[tissue] = set()
-                    for ct in ct_names:
-                        if ct in ct2idx:
-                            tissue_ct_mapping[tissue].add(ct)
+                    valid = tissue_ct_mapping.setdefault(tissue, set())
+                    valid.update(ct for ct in ct_names if ct in ct2idx)
 
             if r["has_mp"]:
                 mp_keys.append(key)
 
-        self._domain_mapping_cache = domain_mapping
-        self._celltype_mapping_cache = celltype_mapping
-        # Drop tissues whose allowed-CT set is empty so --apply_tissue_mask
-        # doesn't silently produce an all-Inf logit mask (NaN softmax) on FOVs
-        # whose tissue lacks any labeled annotation in the archive.
-        self._tissue_celltype_mapping_cache = {
+        tissue_celltype_mapping = {
             k: sorted(v) for k, v in tissue_ct_mapping.items() if v
         }
-        self._mp_keys = mp_keys
-        self._all_mappings_computed = True
-
-        logger.info(
-            f"Computed all mappings: {len(domain_mapping)} domains, "
-            f"{len(celltype_mapping)} celltype maps, "
-            f"{len(self._tissue_celltype_mapping_cache)} tissues, "
-            f"{len(mp_keys)} MP datasets"
-        )
+        return domain_mapping, dataset_celltypes, tissue_celltype_mapping, mp_keys
 
     @property
     def domain_mapping(self) -> Dict[str, str]:
@@ -468,15 +489,18 @@ class TissueNetConfig:
         return self._domain_mapping_cache
 
     @property
-    def celltype_mapping(self) -> Dict[str, Dict[str, str]]:
-        """Per-dataset cell type mapping.
+    def dataset_celltypes(self) -> Dict[str, List[str]]:
+        """Per-dataset annotated cell-type names (post-standardization).
 
-        After archive migration, cell types are already canonical in the zarr,
-        so this is an identity mapping.
+        Maps each dataset key that has annotations to the sorted list of
+        cell-type names present in its archive annotations. Cell types are
+        already canonical in the zarr, so these are the names verbatim -- no
+        remapping. Names absent from ``ct2idx`` are retained here; callers
+        apply the ``ct2idx`` filter themselves.
         """
-        if self._celltype_mapping_cache is None:
+        if self._dataset_celltypes_cache is None:
             self._compute_all_mappings()
-        return self._celltype_mapping_cache
+        return self._dataset_celltypes_cache
 
     @property
     def marker_positivity_labels(self) -> "LazyMarkerPositivityDict":
@@ -532,7 +556,7 @@ class TissueNetConfig:
             split = json.load(f)
 
         train_datasets = list(split["train"].keys())
-        ct_mapping = self.celltype_mapping
+        dataset_celltypes = self.dataset_celltypes
         ct2idx = self.ct2idx
 
         tissue_types: Dict[str, set] = defaultdict(set)
@@ -540,11 +564,9 @@ class TissueNetConfig:
             tissue = self.get_tissue_for_dataset(ds_key)
             if tissue is None:
                 continue
-            ds_ct_map = ct_mapping.get(ds_key, {})
-            for ct_name in ds_ct_map.keys():
-                ct_standard = ds_ct_map.get(ct_name, ct_name)
-                if ct_standard in ct2idx:
-                    tissue_types[tissue].add(ct_standard)
+            for ct_name in dataset_celltypes.get(ds_key, ()):
+                if ct_name in ct2idx:
+                    tissue_types[tissue].add(ct_name)
 
         return {k: sorted(v) for k, v in tissue_types.items()}
 

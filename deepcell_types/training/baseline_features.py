@@ -294,7 +294,6 @@ def _extract_all_dataset_features(
                     return result
 
     zf = zarr.open_group(zarr_dir, mode="r")
-    ct_mapping = dct_config.celltype_mapping
     ct2idx = dct_config.ct2idx
     marker2idx = dct_config.marker2idx
     num_markers = len(marker2idx)
@@ -327,13 +326,12 @@ def _extract_all_dataset_features(
             continue
         cell_types_raw, cell_indices = cell_data
 
-        ds_ct_mapping = ct_mapping.get(dataset_key, {})
         valid_cells = []
         for ct_label, cell_idx in zip(cell_types_raw, cell_indices):
             ct_label = str(ct_label)
-            ct_standard = ds_ct_mapping.get(ct_label, ct_label)
-            if ct_standard in ct2idx:
-                valid_cells.append((ct_standard, cell_idx))
+            # Labels are canonical in the archive; keep only known classes.
+            if ct_label in ct2idx:
+                valid_cells.append((ct_label, cell_idx))
 
         if not valid_cells:
             continue

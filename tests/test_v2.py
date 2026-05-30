@@ -40,8 +40,8 @@ class MockTissueNetConfig:
         self.ct2idx = {"T_cell": 0, "B_cell": 1, "Macrophage": 2}
         self.marker2idx = {"CD3": 0, "CD4": 1, "CD8": 2, "CD45": 3}
         self.domain2idx = {"CODEX": 0, "MIBI": 1}
-        self.celltype_mapping = {
-            "TestDataset": {"T_cell": "T_cell", "B_cell": "B_cell", "Macrophage": "Macrophage"}
+        self.dataset_celltypes = {
+            "TestDataset": ["B_cell", "Macrophage", "T_cell"]
         }
         self.domain_mapping = {"TestDataset": "CODEX"}
         self.marker_positivity_labels = self._create_mock_mpi()
