@@ -62,6 +62,10 @@ Their `model.py` files, by contrast, import only `deepcell_types.*`/external (`m
 **Removed:**
 - `baselines/maps/` (submodule), `baselines/cellsighter/` (submodule, SHA `cebc391`).
 
+## Post-execution correction (cellsighter drift)
+
+> **Added after execution.** The claim below that "cellsighter has no drift (`cebc391` everywhere)" turned out to be **wrong**. The `deepcelltypes-cellsighter` repo was rebased/force-pushed; `cebc391` no longer exists on it and `main` had advanced to **`f9e336a`** (num_markers 271→269, `--zarr_dir` default fix, restored hierarchy-collapse + F1 eval, post-refactor imports; the `--test_split_file` option was removed → 17 options). cellsighter was **re-folded at `f9e336a`** in commit `0465aa0`. `model.py`/`__init__.py` and `convert_batch_for_cellsighter` were unchanged across `cebc391..f9e336a`, so only `run.py` (golden sha → `915b77d7`) and the option snapshot changed. References to `cebc391` below are historical.
+
 ## Source-SHA decision (maps drift)
 
 The branch's `maps` gitlink pins `64de63a`, but the maps repo's `main` has since advanced to **`85fa3229`** (commit "default to 50 epochs, remove early stopping"), which the main-repo checkout has. **Decision (user): fold in `85fa3229`** — the current maps, not the stale gitlink. This intentionally includes the early-stopping removal, so maps's option surface is **15** options (the `--min_epochs`/`--patience` options present at `64de63a` are gone). `maps/model.py` and `maps/__init__.py` are byte-identical across the two SHAs; only `run.py` differs, so this choice only affects the folded `run.py` and the `MAPS_OPTS` snapshot. cellsighter has no drift (`cebc391` everywhere). Task 0 obtains maps source at `85fa3229` and cellsighter at `cebc391` from the main-repo checkout `/data/xwang3/Projects/deepcell-types/baselines/{maps,cellsighter}/`. Golden sha256 recorded at `/tmp/baseline_round2_model_sha.txt` (model.py ×2) and `/tmp/baseline_round2_transform_src_sha.txt` (upstream run.py/__init__.py ×2, transform-proof inputs).
