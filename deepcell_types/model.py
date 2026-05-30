@@ -267,7 +267,9 @@ class CellTypeAnnotator(nn.Module):
         n_domains=8,
         marker_embeddings=None,
         dropout=0.1,
-        **kwargs,
+        spatial_pool_size=1,
+        resnet_base_channels=48,
+        compat_marker0_zero=True,
     ):
         super().__init__()
         self.d_model = d_model
@@ -275,7 +277,6 @@ class CellTypeAnnotator(nn.Module):
         self.n_domains = n_domains
 
         # 1. Spatial encoder
-        spatial_pool_size = kwargs.get("spatial_pool_size", 1)
         self.spatial_encoder = SpatialEncoder(out_dim=64, pool_size=spatial_pool_size)
         spatial_dim = self.spatial_encoder.out_features
 
@@ -283,7 +284,6 @@ class CellTypeAnnotator(nn.Module):
         channel_dim = 128
         # Canonical paper recipe is base_channels=48 (matches CLI default in
         # scripts/train.py and scripts/predict.py).
-        resnet_base_channels = kwargs.get("resnet_base_channels", 48)
         self.channel_encoder = PerChannelResNet(
             out_dim=channel_dim, base_channels=resnet_base_channels
         )
@@ -352,7 +352,7 @@ class CellTypeAnnotator(nn.Module):
         # inference parity with the v0.1.0 canonical checkpoint we explicitly
         # zero column 0 at forward time. Set compat_marker0_zero=False when
         # retraining from scratch (v0.2.0+) to recover the marker-0 signal.
-        self.compat_marker0_zero = bool(kwargs.get("compat_marker0_zero", True))
+        self.compat_marker0_zero = bool(compat_marker0_zero)
         n_markers = marker_embeddings.shape[0] if marker_embeddings is not None else 278
         self._n_markers = n_markers
         self.intensity_cls_branch = nn.Sequential(
@@ -598,7 +598,11 @@ def create_model(
     n_layers=4,
     dropout=0.1,
     use_conditioned_mp_head=True,
-    **kwargs,
+    n_celltypes=None,
+    n_domains=None,
+    spatial_pool_size=1,
+    resnet_base_channels=48,
+    compat_marker0_zero=True,
 ):
     """Factory function to create CellTypeAnnotator from config.
 
@@ -613,13 +617,22 @@ def create_model(
         dropout: dropout rate
         use_conditioned_mp_head: If True, replace linear MP head with
             MarkerConditionedMPHead (FiLM-conditioned)
-        **kwargs: passed to CellTypeAnnotator (e.g. spatial_pool_size)
+        n_celltypes: number of cell-type classes (defaults to
+            ``dct_config.NUM_CELLTYPES`` when None)
+        n_domains: number of domains (defaults to ``dct_config.NUM_DOMAINS``
+            when None)
+        spatial_pool_size: spatial encoder adaptive-pool output size
+        resnet_base_channels: per-channel ResNet stem width
+        compat_marker0_zero: zero marker-0 mean intensity for v0.1.0 checkpoint
+            parity (see CellTypeAnnotator)
 
     Returns:
         CellTypeAnnotator instance
     """
-    n_celltypes = kwargs.pop("n_celltypes", dct_config.NUM_CELLTYPES)
-    n_domains = kwargs.pop("n_domains", dct_config.NUM_DOMAINS)
+    if n_celltypes is None:
+        n_celltypes = dct_config.NUM_CELLTYPES
+    if n_domains is None:
+        n_domains = dct_config.NUM_DOMAINS
     model = CellTypeAnnotator(
         d_model=d_model,
         n_heads=n_heads,
@@ -628,7 +641,9 @@ def create_model(
         n_domains=n_domains,
         marker_embeddings=marker_embeddings,
         dropout=dropout,
-        **kwargs,
+        spatial_pool_size=spatial_pool_size,
+        resnet_base_channels=resnet_base_channels,
+        compat_marker0_zero=compat_marker0_zero,
     )
 
     if use_conditioned_mp_head and model.marker_embedder is not None:
