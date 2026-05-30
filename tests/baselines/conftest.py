@@ -25,3 +25,5 @@ if not _have("pandas"):
     collect_ignore.append("test_nimbus_metrics_characterization.py")
 if not _have("pandas"):
     collect_ignore.append("test_runner_round2.py")
+if not _have("torchvision"):
+    collect_ignore.append("test_cellsighter_convert_batch_characterization.py")

@@ -6,6 +6,7 @@ Frozen option snapshots are verbatim from the original per-baseline click comman
 """
 
 import click
+import pytest
 
 from deepcell_types.baselines import REGISTRY
 from deepcell_types.baselines.__main__ import cli
@@ -63,3 +64,15 @@ def test_maps_subcommand_options_frozen():
     cmd = cli.get_command(ctx, "maps")
     assert isinstance(cmd, click.Command)
     assert _param_names(cmd) == MAPS_OPTS
+
+
+def test_registry_has_cellsighter():
+    assert REGISTRY["cellsighter"] == "deepcell_types.baselines.cellsighter.run:main"
+
+
+def test_cellsighter_subcommand_options_frozen():
+    pytest.importorskip("torchvision")
+    ctx = click.Context(cli)
+    cmd = cli.get_command(ctx, "cellsighter")
+    assert isinstance(cmd, click.Command)
+    assert _param_names(cmd) == CELLSIGHTER_OPTS

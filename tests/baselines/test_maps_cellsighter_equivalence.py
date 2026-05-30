@@ -27,7 +27,7 @@ INIT_ORIG_SHA = {
 }
 
 # Packages present at each stage: maps lands in Task 1, cellsighter in Task 2.
-PKGS = ["maps"]
+PKGS = ["maps", "cellsighter"]
 
 
 def _sha(b: bytes) -> str:
