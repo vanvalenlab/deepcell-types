@@ -23,6 +23,7 @@ _REQUIRES = {
     "test_channel_aliases.py": ("zarr",),
     "test_ct_abstention_cli.py": ("pandas",),
     "test_dataset_cache.py": ("pandas",),
+    "test_dataset_celltypes.py": ("pandas",),
     "test_dataset_splits.py": ("zarr",),
     "test_embeddings_load.py": ("pandas",),
     "test_hierarchical_eval.py": ("pandas",),

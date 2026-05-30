@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from .archive import (  # noqa: F401  -- re-exported for backward compat
     _FINGERPRINT_CACHE,
@@ -44,6 +45,7 @@ CONFIG_DIR = Path(__file__).parent / "config"
 WARMUP_PCT = 0.05  # Warmup percentage for OneCycleLR scheduler
 
 
+
 class TissueNetConfig:
     """
     Configuration loaded from TissueNet zarr archive.
@@ -70,7 +72,9 @@ class TissueNetConfig:
     """
 
     # Constants
+    SEED = 0
     MAX_NUM_CHANNELS = 80
+    BATCH_SIZE = 400
     CROP_SIZE = 32  # Extraction size (direct 32x32 to match PatchDataset)
     OUTPUT_SIZE = 32  # Final patch size (no resize when equal to CROP_SIZE)
     STANDARD_MPP_RESOLUTION = 0.5
@@ -116,7 +120,7 @@ class TissueNetConfig:
         # Lazy-loaded caches
         self._all_mappings_computed = False
         self._domain_mapping_cache: Optional[Dict[str, str]] = None
-        self._celltype_mapping_cache: Optional[Dict[str, Dict[str, str]]] = None
+        self._dataset_celltypes_cache: Optional[Dict[str, List[str]]] = None
         self._tissue_celltype_mapping_cache: Optional[Dict[str, List[str]]] = None
         # Single source of truth for per-dataset MP DataFrames. Initialized
         # to None and replaced by LazyMarkerPositivityDict on first access of
@@ -135,6 +139,9 @@ class TissueNetConfig:
         self.NUM_CELLTYPES = len(self._ct2idx)
         self.NUM_MARKERS = len(self._all_channels)
 
+        # Tumor dataset flags (for binary tumor prediction head)
+        self._tumor_datasets = set(self._zf.attrs.get("tumor_datasets", []))
+
         logger.info(f"Loaded TissueNetConfig from {self.zarr_path}")
         logger.info(f"  Cell types: {self.NUM_CELLTYPES}")
         logger.info(f"  Channels: {len(self._all_channels)}")
@@ -148,6 +155,11 @@ class TissueNetConfig:
     def marker2idx(self) -> Dict[str, int]:
         """Marker/channel name to integer index mapping."""
         return self._marker2idx
+
+    @property
+    def tumor_datasets(self) -> set:
+        """Set of dataset keys that contain tumor cells."""
+        return self._tumor_datasets
 
     @property
     def domain2idx(self) -> Dict[str, int]:
@@ -177,6 +189,11 @@ class TissueNetConfig:
             tissues = sorted(t for t in set(self.tissue_celltype_mapping.keys()) if t)
             self._tissue2idx_cache = {t: i for i, t in enumerate(tissues)}
         return self._tissue2idx_cache
+
+    @property
+    def NUM_TISSUES(self) -> int:
+        """Number of unique tissues."""
+        return len(self.tissue2idx)
 
     @property
     def dataset_keys(self) -> List[str]:
@@ -252,12 +269,7 @@ class TissueNetConfig:
             # try/except is needed around it.
             mp_json_path = f"{zarr_dir_str}/{key}/marker_positivity/zarr.json"
             result["has_mp"] = os.path.exists(mp_json_path)
-        except (
-            FileNotFoundError,
-            OSError,
-            UnicodeDecodeError,
-            json.JSONDecodeError,
-        ) as e:
+        except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
             logger.warning("_read_dataset_metadata failed for %s: %s", key, e)
         return result
 
@@ -287,11 +299,48 @@ class TissueNetConfig:
             )
 
         # Aggregate results (single-threaded, fast)
+        (
+            domain_mapping,
+            dataset_celltypes,
+            tissue_celltype_mapping,
+            mp_keys,
+        ) = self._aggregate_metadata(results, self._ct2idx)
+
+        self._domain_mapping_cache = domain_mapping
+        self._dataset_celltypes_cache = dataset_celltypes
+        self._tissue_celltype_mapping_cache = tissue_celltype_mapping
+        self._mp_keys = mp_keys
+        self._all_mappings_computed = True
+
+        logger.info(
+            f"Computed all mappings: {len(domain_mapping)} domains, "
+            f"{len(dataset_celltypes)} datasets with annotations, "
+            f"{len(tissue_celltype_mapping)} tissues, "
+            f"{len(mp_keys)} MP datasets"
+        )
+
+    @staticmethod
+    def _aggregate_metadata(results, ct2idx):
+        """Aggregate per-dataset metadata dicts into the cached mappings.
+
+        Pure (no I/O) so it is unit-testable without a zarr archive. Takes the
+        list of ``_read_dataset_metadata`` results and returns:
+
+        - ``domain_mapping``: dataset key -> modality, for every dataset.
+        - ``dataset_celltypes``: dataset key -> sorted list of *all* annotated
+          cell-type names (including names absent from ``ct2idx``); only
+          datasets that have annotations appear.
+        - ``tissue_celltype_mapping``: tissue -> sorted list of annotated cell
+          types that are in ``ct2idx``, merged across datasets. Tissues whose
+          allowed-CT set is empty are dropped so ``--apply_tissue_mask`` cannot
+          produce an all-Inf logit mask (NaN softmax) on a FOV whose tissue
+          lacks any labeled annotation in the archive.
+        - ``mp_keys``: datasets that expose a marker_positivity group.
+        """
         domain_mapping: Dict[str, str] = {}
-        celltype_mapping: Dict[str, Dict[str, str]] = {}
+        dataset_celltypes: Dict[str, List[str]] = {}
         tissue_ct_mapping: Dict[str, set] = {}
         mp_keys: List[str] = []
-        ct2idx = self._ct2idx
 
         for r in results:
             key = r["key"]
@@ -300,33 +349,18 @@ class TissueNetConfig:
             tissue = r["tissue"]
             ct_names = r["ct_names"]
             if ct_names is not None:
-                celltype_mapping[key] = {ct: ct for ct in ct_names}
+                dataset_celltypes[key] = sorted(ct_names)
                 if tissue is not None:
-                    if tissue not in tissue_ct_mapping:
-                        tissue_ct_mapping[tissue] = set()
-                    for ct in ct_names:
-                        if ct in ct2idx:
-                            tissue_ct_mapping[tissue].add(ct)
+                    valid = tissue_ct_mapping.setdefault(tissue, set())
+                    valid.update(ct for ct in ct_names if ct in ct2idx)
 
             if r["has_mp"]:
                 mp_keys.append(key)
 
-        self._domain_mapping_cache = domain_mapping
-        self._celltype_mapping_cache = celltype_mapping
-        # Drop tissues whose allowed-CT set is empty to avoid an all-Inf logit
-        # mask (NaN softmax) on FOVs whose tissue lacks any labeled annotation.
-        self._tissue_celltype_mapping_cache = {
+        tissue_celltype_mapping = {
             k: sorted(v) for k, v in tissue_ct_mapping.items() if v
         }
-        self._mp_keys = mp_keys
-        self._all_mappings_computed = True
-
-        logger.info(
-            f"Computed all mappings: {len(domain_mapping)} domains, "
-            f"{len(celltype_mapping)} celltype maps, "
-            f"{len(self._tissue_celltype_mapping_cache)} tissues, "
-            f"{len(mp_keys)} MP datasets"
-        )
+        return domain_mapping, dataset_celltypes, tissue_celltype_mapping, mp_keys
 
     @property
     def domain_mapping(self) -> Dict[str, str]:
@@ -341,15 +375,18 @@ class TissueNetConfig:
         return self._domain_mapping_cache
 
     @property
-    def celltype_mapping(self) -> Dict[str, Dict[str, str]]:
-        """Per-dataset cell type mapping.
+    def dataset_celltypes(self) -> Dict[str, List[str]]:
+        """Per-dataset annotated cell-type names (post-standardization).
 
-        After archive migration, cell types are already canonical in the zarr,
-        so this is an identity mapping.
+        Maps each dataset key that has annotations to the sorted list of
+        cell-type names present in its archive annotations. Cell types are
+        already canonical in the zarr, so these are the names verbatim -- no
+        remapping. Names absent from ``ct2idx`` are retained here; callers
+        apply the ``ct2idx`` filter themselves.
         """
-        if self._celltype_mapping_cache is None:
+        if self._dataset_celltypes_cache is None:
             self._compute_all_mappings()
-        return self._celltype_mapping_cache
+        return self._dataset_celltypes_cache
 
     @property
     def marker_positivity_labels(self) -> "LazyMarkerPositivityDict":
@@ -384,6 +421,132 @@ class TissueNetConfig:
         if self._tissue_celltype_mapping_cache is None:
             self._compute_all_mappings()
         return self._tissue_celltype_mapping_cache
+
+    def build_tissue_mapping_from_split(self, split_file: str) -> Dict[str, List[str]]:
+        """Build per-tissue allowed cell types from a training split's ground truth.
+
+        Only cell types that actually appear in training annotations for datasets
+        sharing the same tissue are allowed. This is stricter than the archive-based
+        tissue_celltype_mapping, which includes ALL cell types from ALL annotations.
+
+        Args:
+            split_file: Path to FOV split JSON (must have 'train' key)
+
+        Returns:
+            dict mapping tissue name -> sorted list of allowed cell type names
+        """
+        import json
+        from collections import defaultdict
+
+        with open(split_file) as f:
+            split = json.load(f)
+
+        train_datasets = list(split["train"].keys())
+        dataset_celltypes = self.dataset_celltypes
+        ct2idx = self.ct2idx
+
+        tissue_types: Dict[str, set] = defaultdict(set)
+        for ds_key in train_datasets:
+            tissue = self.get_tissue_for_dataset(ds_key)
+            if tissue is None:
+                continue
+            for ct_name in dataset_celltypes.get(ds_key, ()):
+                if ct_name in ct2idx:
+                    tissue_types[tissue].add(ct_name)
+
+        return {k: sorted(v) for k, v in tissue_types.items()}
+
+    @property
+    def combined_celltype_mapping(self) -> Dict[str, List[str]]:
+        """
+        Combined cell type grouping mapping.
+
+        Maps group names (e.g., "Tcell", "Epithelial") to lists of individual
+        cell types that belong to that group. Loaded from combined_celltypes.yaml.
+        """
+        if not hasattr(self, "_combined_celltype_mapping_cache"):
+            yaml_path = CONFIG_DIR / "combined_celltypes.yaml"
+            if yaml_path.exists():
+                with open(yaml_path) as f:
+                    raw = yaml.safe_load(f)
+                # The YAML maps individual cell types to group names;
+                # invert to map group names to lists of cell types
+                groups: Dict[str, List[str]] = {}
+                for ct, group in raw.items():
+                    groups.setdefault(group, []).append(ct)
+                self._combined_celltype_mapping_cache = groups
+                logger.info(f"Loaded combined_celltype_mapping from {yaml_path}")
+            else:
+                logger.warning(f"combined_celltypes.yaml not found at {yaml_path}")
+                self._combined_celltype_mapping_cache = {}
+        return self._combined_celltype_mapping_cache
+
+    @property
+    def color_mapping(self) -> Dict[str, str]:
+        """Cell type to hex color mapping for visualization."""
+        return dict(self._zf.attrs.get("color_mapping", {}))
+
+    @property
+    def core_tree(self) -> Dict:
+        """Hierarchical cell type taxonomy."""
+        return dict(self._zf.attrs.get("core_tree", {}))
+
+    @property
+    def lineage_mapping(self) -> Dict[str, str]:
+        """Cell type to broad biological lineage mapping."""
+        return dict(self._zf.attrs.get("lineage_mapping", {}))
+
+    def get_channel_embedding(
+        self, embedding_model_name: str = "text-embedding-3-large"
+    ) -> Dict[str, List[float]]:
+        """Get marker/channel embeddings from zarr or fallback to JSON file."""
+        embeddings = self._zf.attrs.get(f"marker_embeddings_{embedding_model_name}")
+        if embeddings is not None:
+            return dict(embeddings)
+        # Fallback: look for the embeddings file shipped alongside the
+        # training subpackage. Narrow the except so bugs in JSON structure
+        # (KeyError/TypeError downstream) are NOT hidden here.
+        search_paths = [CONFIG_DIR]
+        for config_path in search_paths:
+            json_path = config_path / f"marker_embeddings-{embedding_model_name}.json"
+            if json_path.exists():
+                try:
+                    with open(json_path) as f:
+                        return json.load(f)
+                except (FileNotFoundError, OSError, json.JSONDecodeError) as e:
+                    logger.warning(
+                        "get_channel_embedding: failed to read %s: %s",
+                        json_path,
+                        e,
+                    )
+        logger.warning(f"Could not load marker embeddings for {embedding_model_name}")
+        return {}
+
+    def get_celltype_embedding(
+        self, embedding_model_name: str = "text-embedding-3-large"
+    ) -> Dict[str, List[float]]:
+        """Get cell type embeddings from zarr or fallback to JSON file."""
+        embeddings = self._zf.attrs.get(f"celltype_embeddings_{embedding_model_name}")
+        if embeddings is not None:
+            return dict(embeddings)
+        # Fallback to the embeddings JSON shipped alongside the training
+        # subpackage. Narrow except to only IO / JSON-decode errors.
+        config_path = CONFIG_DIR
+        json_path = config_path / f"celltype_embeddings-{embedding_model_name}.json"
+        if json_path.exists():
+            try:
+                with open(json_path) as f:
+                    return json.load(f)
+            except (FileNotFoundError, OSError, json.JSONDecodeError) as e:
+                logger.warning(
+                    "get_celltype_embedding: failed to read %s: %s",
+                    json_path,
+                    e,
+                )
+        logger.warning(
+            f"Could not load cell type embeddings for {embedding_model_name}"
+        )
+        return {}
 
     def load_marker_embeddings_array(
         self,
@@ -519,6 +682,26 @@ class TissueNetConfig:
             "Pass --svd_embeddings_path embeddings/svd_512.npz"
         )
 
+    def get_marker_positivity(self, dataset_key: str) -> Optional[pd.DataFrame]:
+        """
+        Get marker positivity DataFrame for a specific dataset.
+
+        Args:
+            dataset_key: Dataset key in the zarr archive
+
+        Returns:
+            DataFrame with cell types as index, markers as columns,
+            or None if not available.
+
+        Both this method and ``marker_positivity_labels[key]`` share a single
+        lazy cache — calling either first does not silently lose entries
+        populated by the other.
+        """
+        labels = self.marker_positivity_labels
+        if dataset_key not in labels:
+            return None
+        return labels[dataset_key]
+
     def _load_marker_positivity(self, dataset_key: str) -> Optional[pd.DataFrame]:
         """Load marker positivity from zarr for a dataset.
 
@@ -550,9 +733,7 @@ class TissueNetConfig:
                 "Failed to read marker_positivity attrs for %s (%s: %s); "
                 "MP signal will be unavailable for this dataset. Likely an "
                 "archive schema drift — rerun the archive-ingestion pipeline.",
-                dataset_key,
-                type(e).__name__,
-                e,
+                dataset_key, type(e).__name__, e,
                 exc_info=True,
             )
             return None
@@ -571,9 +752,7 @@ class TissueNetConfig:
                     "marker_positivity has %d row label(s) not in ct2idx (dead-code rows; "
                     "first seen in dataset %s): %s. Rerun the archive-ingestion "
                     "pipeline to repopulate the standardized labels.",
-                    len(new_rows),
-                    dataset_key,
-                    new_rows,
+                    len(new_rows), dataset_key, new_rows,
                 )
 
         try:
@@ -582,11 +761,66 @@ class TissueNetConfig:
             logger.warning(
                 "marker_positivity matrix for %s is malformed (%s); "
                 "MP signal disabled for this dataset.",
-                dataset_key,
-                e,
+                dataset_key, e,
                 exc_info=True,
             )
             return None
+
+    @staticmethod
+    def _normalize_tissue_name(tissue: str) -> str:
+        """Normalize tissue name to canonical form."""
+        return tissue.lower().strip()
+
+    def get_tissue_for_dataset(self, dataset_key: str) -> Optional[str]:
+        """Get normalized tissue type for a dataset key.
+
+        Narrow exceptions: a missing dataset (``KeyError``) is the only
+        expected failure. Anything else (``AttributeError`` on a malformed
+        zarr attr, ``TypeError`` from a non-string tissue value) is logged
+        and rethrown — silently disabling tissue masking is worse than
+        crashing because the symptom would be confusing per-cell errors in
+        the DataLoader.
+        """
+        try:
+            ds = self._zf[dataset_key]
+        except KeyError:
+            return None
+        try:
+            raw = ds.attrs.get("tissue", None)
+        except (AttributeError, ValueError) as e:
+            logger.warning(
+                "tissue attr read failed for %s (%s: %s) — tissue-aware "
+                "masking disabled for this dataset",
+                dataset_key, type(e).__name__, e,
+                exc_info=True,
+            )
+            return None
+        if raw is None:
+            return None
+        if not isinstance(raw, str):
+            logger.warning(
+                "tissue attr for %s has unexpected type %s (value=%r) — "
+                "tissue-aware masking disabled",
+                dataset_key, type(raw).__name__, raw,
+            )
+            return None
+        return self._normalize_tissue_name(raw)
+
+    def get_excluded_ct_indices(self, dataset_key: str) -> List[int]:
+        """Get cell type indices that should be excluded for a dataset's tissue.
+
+        Returns list of ct2idx indices NOT valid for this dataset's tissue.
+        """
+        tissue = self.get_tissue_for_dataset(dataset_key)
+        if tissue is None or tissue not in self.tissue_celltype_mapping:
+            return []
+
+        valid_cts = set(self.tissue_celltype_mapping[tissue])
+        excluded = []
+        for ct, idx in self.ct2idx.items():
+            if ct not in valid_cts:
+                excluded.append(idx)
+        return excluded
 
     def validate(self) -> bool:
         """
@@ -619,3 +853,4 @@ from .patch import (  # noqa: F401, E402
     extract_patch,
     extract_patch_from_zarr,
 )
+
