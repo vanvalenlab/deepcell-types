@@ -385,42 +385,6 @@ class TissueNetConfig:
             self._compute_all_mappings()
         return self._tissue_celltype_mapping_cache
 
-    def build_tissue_mapping_from_split(self, split_file: str) -> Dict[str, List[str]]:
-        """Build per-tissue allowed cell types from a training split's ground truth.
-
-        Only cell types that actually appear in training annotations for datasets
-        sharing the same tissue are allowed. This is stricter than the archive-based
-        tissue_celltype_mapping, which includes ALL cell types from ALL annotations.
-
-        Args:
-            split_file: Path to FOV split JSON (must have 'train' key)
-
-        Returns:
-            dict mapping tissue name -> sorted list of allowed cell type names
-        """
-        import json
-        from collections import defaultdict
-
-        with open(split_file) as f:
-            split = json.load(f)
-
-        train_datasets = list(split["train"].keys())
-        ct_mapping = self.celltype_mapping
-        ct2idx = self.ct2idx
-
-        tissue_types: Dict[str, set] = defaultdict(set)
-        for ds_key in train_datasets:
-            tissue = self.get_tissue_for_dataset(ds_key)
-            if tissue is None:
-                continue
-            ds_ct_map = ct_mapping.get(ds_key, {})
-            for ct_name in ds_ct_map.keys():
-                ct_standard = ds_ct_map.get(ct_name, ct_name)
-                if ct_standard in ct2idx:
-                    tissue_types[tissue].add(ct_standard)
-
-        return {k: sorted(v) for k, v in tissue_types.items()}
-
     def load_marker_embeddings_array(
         self,
         embedding_model_name: str = "text-embedding-3-large",
@@ -623,50 +587,6 @@ class TissueNetConfig:
                 exc_info=True,
             )
             return None
-
-    @staticmethod
-    def _normalize_tissue_name(tissue: str) -> str:
-        """Normalize tissue name to canonical form."""
-        return tissue.lower().strip()
-
-    def get_tissue_for_dataset(self, dataset_key: str) -> Optional[str]:
-        """Get normalized tissue type for a dataset key.
-
-        Narrow exceptions: a missing dataset (``KeyError``) is the only
-        expected failure. Anything else (``AttributeError`` on a malformed
-        zarr attr, ``TypeError`` from a non-string tissue value) is logged
-        and rethrown — silently disabling tissue masking is worse than
-        crashing because the symptom would be confusing per-cell errors in
-        the DataLoader.
-        """
-        try:
-            ds = self._zf[dataset_key]
-        except KeyError:
-            return None
-        try:
-            raw = ds.attrs.get("tissue", None)
-        except (AttributeError, ValueError) as e:
-            logger.warning(
-                "tissue attr read failed for %s (%s: %s) — tissue-aware "
-                "masking disabled for this dataset",
-                dataset_key,
-                type(e).__name__,
-                e,
-                exc_info=True,
-            )
-            return None
-        if raw is None:
-            return None
-        if not isinstance(raw, str):
-            logger.warning(
-                "tissue attr for %s has unexpected type %s (value=%r) — "
-                "tissue-aware masking disabled",
-                dataset_key,
-                type(raw).__name__,
-                raw,
-            )
-            return None
-        return self._normalize_tissue_name(raw)
 
     def validate(self) -> bool:
         """
