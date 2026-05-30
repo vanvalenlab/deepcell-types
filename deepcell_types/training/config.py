@@ -13,7 +13,6 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-import yaml
 
 from .archive import (  # noqa: F401  -- re-exported for backward compat
     _FINGERPRINT_CACHE,
