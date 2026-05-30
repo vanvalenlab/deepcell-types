@@ -3,24 +3,32 @@ Tests for CellTypeAnnotator, FullImageDataset, FocalLoss with class weights,
 FOV splits, DropOutChannels.
 """
 
-import os
-from pathlib import Path
-
 import numpy as np
 import torch
 import pytest
 
 from deepcell_types.model import (
-    CellTypeAnnotator, SpatialEncoder, PerChannelResNet, ResBlock,
-    MaskedMarkerHead, mask_marker_channels, create_model,
+    CellTypeAnnotator,
+    SpatialEncoder,
+    PerChannelResNet,
+    ResBlock,
+    MaskedMarkerHead,
+    mask_marker_channels,
+    create_model,
     MarkerConditionedMPHead,
 )
 from deepcell_types.training.losses import FocalLoss
 from deepcell_types.training.dataset import (
-    CellIndexRecord, FullImageDataset, DropOutChannels, create_fov_splits,
+    CellIndexRecord,
+    FullImageDataset,
+    DropOutChannels,
+    create_fov_splits,
     compute_sample_weights,
 )
-from deepcell_types.training.utils import BatchData, seed_everything, get_tissue_ct_exclude
+from deepcell_types.training.utils import (
+    BatchData,
+    seed_everything,
+)
 from deepcell_types.training.config import compute_distance_transform
 
 
@@ -28,8 +36,10 @@ from deepcell_types.training.config import compute_distance_transform
 # Fixtures
 # =============================================================================
 
+
 class MockTissueNetConfig:
     """Mock TissueNetConfig for testing."""
+
     MAX_NUM_CHANNELS = 10  # smaller for fast tests
     CROP_SIZE = 32
     OUTPUT_SIZE = 32
@@ -51,6 +61,7 @@ class MockTissueNetConfig:
 
     def _create_mock_mpi(self):
         import pandas as pd
+
         df = pd.DataFrame(
             {
                 "CD3": [0.8, 0.1, 0.0],
@@ -58,12 +69,9 @@ class MockTissueNetConfig:
                 "CD8": [0.1, 0.9, 0.0],
                 "CD45": [0.9, 0.8, 0.9],
             },
-            index=["T_cell", "B_cell", "Macrophage"]
+            index=["T_cell", "B_cell", "Macrophage"],
         )
         return {"TestDataset": df}
-
-    def get_excluded_ct_indices(self, dataset_key):
-        return []
 
 
 @pytest.fixture
@@ -81,6 +89,7 @@ def marker_embeddings():
 # =============================================================================
 # Model tests
 # =============================================================================
+
 
 class TestCellTypeAnnotator:
     """Tests for model architecture."""
@@ -108,42 +117,24 @@ class TestCellTypeAnnotator:
         pad_mask = torch.zeros(B, C_max, dtype=torch.bool)
         pad_mask[:, 4:] = True
 
-        ct_logits, domain_logits, mp_logits, cls_emb, ch_out, tumor_logit = model(sample, spatial, ch_idx, pad_mask)
+        ct_logits, domain_logits, mp_logits, cls_emb, ch_out, _ = model(
+            sample, spatial, ch_idx, pad_mask
+        )
 
         assert ct_logits.shape == (B, n_celltypes)
         assert domain_logits.shape == (B, n_domains)
         assert mp_logits.shape == (B, C_max)
         assert cls_emb.shape == (B, 64)
         assert ch_out.shape == (B, C_max, 64)
-        assert tumor_logit is None  # no tumor_head by default
-
-    def test_ct_exclude(self, marker_embeddings):
-        """Verify tissue-specific exclusion works."""
-        B, C_max = 2, 10
-        model = CellTypeAnnotator(
-            d_model=64, n_heads=4, n_layers=2,
-            n_celltypes=3, n_domains=2,
-            marker_embeddings=marker_embeddings,
-        )
-
-        sample = torch.randn(B, C_max, 1, 32, 32)
-        spatial = torch.randn(B, 3, 32, 32)
-        ch_idx = torch.zeros(B, C_max, dtype=torch.long)
-        pad_mask = torch.zeros(B, C_max, dtype=torch.bool)
-        pad_mask[:, 4:] = True
-
-        # Exclude class 2 for first sample
-        ct_exclude = [[2], []]
-        ct_logits, _, _, _, _, _ = model(sample, spatial, ch_idx, pad_mask, ct_exclude=ct_exclude)
-
-        assert ct_logits[0, 2].item() == pytest.approx(-1e4, abs=1.0)
-        assert ct_logits[1, 2].item() != pytest.approx(-1e4, abs=1.0)
 
     def test_no_marker_embeddings(self):
         """Model should work without marker embeddings."""
         model = CellTypeAnnotator(
-            d_model=64, n_heads=4, n_layers=2,
-            n_celltypes=3, n_domains=2,
+            d_model=64,
+            n_heads=4,
+            n_layers=2,
+            n_celltypes=3,
+            n_domains=2,
             marker_embeddings=None,
         )
         sample = torch.randn(2, 10, 1, 32, 32)
@@ -151,14 +142,19 @@ class TestCellTypeAnnotator:
         ch_idx = torch.zeros(2, 10, dtype=torch.long)
         pad_mask = torch.zeros(2, 10, dtype=torch.bool)
 
-        ct_logits, domain_logits, mp_logits, cls_emb, _, _ = model(sample, spatial, ch_idx, pad_mask)
+        ct_logits, domain_logits, mp_logits, cls_emb, _, _ = model(
+            sample, spatial, ch_idx, pad_mask
+        )
         assert ct_logits.shape == (2, 3)
 
     def test_train_eval_consistency(self, marker_embeddings):
         """Marker embeddings should be normalized in BOTH train and eval."""
         model = CellTypeAnnotator(
-            d_model=64, n_heads=4, n_layers=1,
-            n_celltypes=3, n_domains=2,
+            d_model=64,
+            n_heads=4,
+            n_layers=1,
+            n_celltypes=3,
+            n_domains=2,
             marker_embeddings=marker_embeddings,
         )
         torch.manual_seed(42)
@@ -206,6 +202,7 @@ class TestResBlock:
 # Loss tests
 # =============================================================================
 
+
 class TestFocalLossWithWeights:
     def test_focal_loss_with_class_weights(self):
         """FocalLoss should accept and use class weights."""
@@ -246,6 +243,7 @@ class TestFocalLossWithWeights:
 # =============================================================================
 # Dataset tests
 # =============================================================================
+
 
 class TestDropOutChannels:
     def test_drops_only_valid_channels(self):
@@ -325,12 +323,24 @@ class TestFOVSplits:
         class MockDataset:
             def __init__(self):
                 self.indices = [
-                    CellIndexRecord(0, "T", "T_cell", "CODEX", 1, "FOV1", "DS1", (10, 10)),
-                    CellIndexRecord(0, "T", "T_cell", "CODEX", 2, "FOV1", "DS1", (20, 20)),
-                    CellIndexRecord(0, "B", "B_cell", "CODEX", 1, "FOV2", "DS1", (10, 10)),
-                    CellIndexRecord(0, "B", "B_cell", "CODEX", 2, "FOV2", "DS1", (20, 20)),
-                    CellIndexRecord(0, "M", "Macrophage", "CODEX", 1, "FOV3", "DS1", (10, 10)),
-                    CellIndexRecord(0, "M", "Macrophage", "CODEX", 2, "FOV3", "DS1", (20, 20)),
+                    CellIndexRecord(
+                        0, "T", "T_cell", "CODEX", 1, "FOV1", "DS1", (10, 10)
+                    ),
+                    CellIndexRecord(
+                        0, "T", "T_cell", "CODEX", 2, "FOV1", "DS1", (20, 20)
+                    ),
+                    CellIndexRecord(
+                        0, "B", "B_cell", "CODEX", 1, "FOV2", "DS1", (10, 10)
+                    ),
+                    CellIndexRecord(
+                        0, "B", "B_cell", "CODEX", 2, "FOV2", "DS1", (20, 20)
+                    ),
+                    CellIndexRecord(
+                        0, "M", "Macrophage", "CODEX", 1, "FOV3", "DS1", (10, 10)
+                    ),
+                    CellIndexRecord(
+                        0, "M", "Macrophage", "CODEX", 2, "FOV3", "DS1", (20, 20)
+                    ),
                 ]
 
         dataset = MockDataset()
@@ -353,11 +363,21 @@ class TestFOVSplits:
         class MockDataset:
             def __init__(self):
                 self.indices = [
-                    CellIndexRecord(0, "T", "T_cell", "CODEX", 1, "FOV1", "DS1", (10, 10)),
-                    CellIndexRecord(0, "T", "T_cell", "CODEX", 2, "FOV2", "DS1", (20, 20)),
-                    CellIndexRecord(0, "T", "T_cell", "CODEX", 3, "FOV3", "DS1", (30, 30)),
-                    CellIndexRecord(1, "B", "B_cell", "MIBI", 1, "FOV4", "DS2", (10, 10)),
-                    CellIndexRecord(1, "B", "B_cell", "MIBI", 2, "FOV5", "DS2", (20, 20)),
+                    CellIndexRecord(
+                        0, "T", "T_cell", "CODEX", 1, "FOV1", "DS1", (10, 10)
+                    ),
+                    CellIndexRecord(
+                        0, "T", "T_cell", "CODEX", 2, "FOV2", "DS1", (20, 20)
+                    ),
+                    CellIndexRecord(
+                        0, "T", "T_cell", "CODEX", 3, "FOV3", "DS1", (30, 30)
+                    ),
+                    CellIndexRecord(
+                        1, "B", "B_cell", "MIBI", 1, "FOV4", "DS2", (10, 10)
+                    ),
+                    CellIndexRecord(
+                        1, "B", "B_cell", "MIBI", 2, "FOV5", "DS2", (20, 20)
+                    ),
                 ]
 
         dataset = MockDataset()
@@ -378,10 +398,14 @@ class TestComputeSampleWeights:
                 # 5000 T_cells, 100 B_cells — both above the 1000-sample cap floor,
                 # so B_cell (rarer) should get a higher weight than T_cell.
                 self.indices = [
-                    CellIndexRecord(0, "T", "T_cell", "CODEX", i, "FOV1", "DS1", (10, 10))
+                    CellIndexRecord(
+                        0, "T", "T_cell", "CODEX", i, "FOV1", "DS1", (10, 10)
+                    )
                     for i in range(5000)
                 ] + [
-                    CellIndexRecord(0, "B", "B_cell", "CODEX", i + 5000, "FOV1", "DS1", (20, 20))
+                    CellIndexRecord(
+                        0, "B", "B_cell", "CODEX", i + 5000, "FOV1", "DS1", (20, 20)
+                    )
                     for i in range(100)
                 ]
 
@@ -403,10 +427,14 @@ class TestComputeSampleWeights:
             def __init__(self):
                 # 10 T_cells, 1 B_cell — both below the 1000-sample cap floor
                 self.indices = [
-                    CellIndexRecord(0, "T", "T_cell", "CODEX", i, "FOV1", "DS1", (10, 10))
+                    CellIndexRecord(
+                        0, "T", "T_cell", "CODEX", i, "FOV1", "DS1", (10, 10)
+                    )
                     for i in range(10)
                 ] + [
-                    CellIndexRecord(0, "B", "B_cell", "CODEX", 11, "FOV1", "DS1", (20, 20))
+                    CellIndexRecord(
+                        0, "B", "B_cell", "CODEX", 11, "FOV1", "DS1", (20, 20)
+                    )
                 ]
 
         dataset = MockDataset()
@@ -415,6 +443,7 @@ class TestComputeSampleWeights:
 
         # Both are below the 1000-count cap, so they get equal weights
         import pytest
+
         assert weights[10].item() == pytest.approx(weights[0].item(), rel=1e-5)
 
 
@@ -446,14 +475,12 @@ class TestMarkerPositivityHandling:
 
         ch_names = ["CD3", "CD4", "CD8", "CD45"]
 
-        mp, vm = dataset._calculate_marker_positivity(
-            "TestDataset", "B_cell", ch_names
-        )
+        mp, vm = dataset._calculate_marker_positivity("TestDataset", "B_cell", ch_names)
 
         # CD4 for B_cell is "?" -> should be masked
         assert not vm[1]  # CD4 index 1
-        assert vm[0]      # CD3 is valid
-        assert vm[2]      # CD8 is valid
+        assert vm[0]  # CD3 is valid
+        assert vm[2]  # CD8 is valid
 
     def test_no_labels_all_masked(self, dct_config):
         """Datasets without marker positivity labels should have all-False validity mask."""
@@ -482,9 +509,7 @@ class TestMarkerPositivityHandling:
             "TestDataset": pd.DataFrame({"Ki67": [1.0]}, index=["T_cell"])
         }
 
-        mp, vm = dataset._calculate_marker_positivity(
-            "TestDataset", "T_cell", ["KI67"]
-        )
+        mp, vm = dataset._calculate_marker_positivity("TestDataset", "T_cell", ["KI67"])
 
         assert mp[0] == 1.0
         assert vm[0]
@@ -493,6 +518,7 @@ class TestMarkerPositivityHandling:
 # =============================================================================
 # Masked Marker Pre-training tests
 # =============================================================================
+
 
 class TestMaskedMarkerHead:
     def test_output_shape(self):
@@ -529,7 +555,9 @@ class TestMaskMarkerChannels:
         assert mean_expr.shape == (B, C_max)
 
         # Only valid channels should be masked
-        assert not masked_indices[:, 7:].any(), "Padding channels should never be masked"
+        assert not masked_indices[:, 7:].any(), (
+            "Padding channels should never be masked"
+        )
 
         # Masked channels should be zeroed in sample
         for i in range(B):
@@ -604,8 +632,11 @@ class TestPretrainEndToEnd:
         """End-to-end: model + masking + reconstruction loss."""
         B, C_max, H, W = 4, 10, 32, 32
         model = CellTypeAnnotator(
-            d_model=64, n_heads=4, n_layers=2,
-            n_celltypes=3, n_domains=2,
+            d_model=64,
+            n_heads=4,
+            n_layers=2,
+            n_celltypes=3,
+            n_domains=2,
             marker_embeddings=marker_embeddings,
         )
         recon_head = MaskedMarkerHead(d_model=64)
@@ -642,6 +673,7 @@ class TestPretrainEndToEnd:
 # =============================================================================
 # Integration tests
 # =============================================================================
+
 
 class TestBatchData:
     def test_batch_data_creation(self):
@@ -701,59 +733,15 @@ class TestSeedEverything:
         assert torch.allclose(a, b)
 
 
-class TestGetTissueCTExclude:
-    def test_returns_none_when_no_exclusions(self, dct_config):
-        """Should return None when no datasets have exclusions."""
-        bd = BatchData(
-            sample=torch.randn(2, 5, 1, 16, 16),
-            spatial_context=torch.randn(2, 3, 16, 16),
-            ch_idx=torch.zeros(2, 5, dtype=torch.long),
-            mask=torch.zeros(2, 5, dtype=torch.bool),
-            ct_idx=torch.zeros(2, dtype=torch.long),
-            domain_idx=torch.zeros(2, dtype=torch.long),
-            marker_positivity=torch.zeros(2, 5),
-            marker_positivity_mask=torch.ones(2, 5, dtype=torch.bool),
-            cell_index=torch.zeros(2, dtype=torch.long),
-            dataset_name=("TestDataset", "TestDataset"),
-            fov_name=("FOV1", "FOV2"),
-        )
-        result = get_tissue_ct_exclude(bd, dct_config)
-        # MockTissueNetConfig.get_excluded_ct_indices always returns []
-        assert result is None
-
-    def test_returns_exclusions_when_present(self):
-        """Should return exclusion list when config has exclusions."""
-        class MockConfig:
-            def get_excluded_ct_indices(self, ds_name):
-                if ds_name == "DS_with_exclusions":
-                    return [1, 2]
-                return []
-
-        bd = BatchData(
-            sample=torch.randn(2, 5, 1, 16, 16),
-            spatial_context=torch.randn(2, 3, 16, 16),
-            ch_idx=torch.zeros(2, 5, dtype=torch.long),
-            mask=torch.zeros(2, 5, dtype=torch.bool),
-            ct_idx=torch.zeros(2, dtype=torch.long),
-            domain_idx=torch.zeros(2, dtype=torch.long),
-            marker_positivity=torch.zeros(2, 5),
-            marker_positivity_mask=torch.ones(2, 5, dtype=torch.bool),
-            cell_index=torch.zeros(2, dtype=torch.long),
-            dataset_name=("DS_with_exclusions", "DS_no_exclusions"),
-            fov_name=("FOV1", "FOV2"),
-        )
-        result = get_tissue_ct_exclude(bd, MockConfig())
-        assert result is not None
-        assert result[0] == [1, 2]
-        assert result[1] == []
-
-
 class TestCreateModel:
     def test_creates_model(self, dct_config, marker_embeddings):
         """Factory should return correct model type with right dimensions."""
         model = create_model(
-            dct_config, marker_embeddings,
-            d_model=64, n_heads=4, n_layers=2,
+            dct_config,
+            marker_embeddings,
+            d_model=64,
+            n_heads=4,
+            n_layers=2,
         )
         assert isinstance(model, CellTypeAnnotator)
         assert model.n_celltypes == dct_config.NUM_CELLTYPES
@@ -765,10 +753,12 @@ class TestCreateModel:
 # MarkerConditionedMPHead tests
 # =============================================================================
 
+
 class TestMarkerConditionedMPHead:
     def test_output_shape(self, marker_embeddings):
         """MarkerConditionedMPHead should produce (B, C_max) output."""
         from deepcell_types.model import MarkerEmbeddingLayer
+
         d_model = 64
         mel = MarkerEmbeddingLayer(d_model, marker_embeddings)
         head = MarkerConditionedMPHead(d_model, mel)
@@ -783,6 +773,7 @@ class TestMarkerConditionedMPHead:
     def test_gradient_flow(self, marker_embeddings):
         """Gradients should flow through the head."""
         from deepcell_types.model import MarkerEmbeddingLayer
+
         d_model = 64
         mel = MarkerEmbeddingLayer(d_model, marker_embeddings)
         head = MarkerConditionedMPHead(d_model, mel)
@@ -799,6 +790,7 @@ class TestMarkerConditionedMPHead:
     def test_different_markers_different_outputs(self, marker_embeddings):
         """Different marker indices should produce different FiLM modulations."""
         from deepcell_types.model import MarkerEmbeddingLayer
+
         d_model = 64
         mel = MarkerEmbeddingLayer(d_model, marker_embeddings)
         head = MarkerConditionedMPHead(d_model, mel)
@@ -815,14 +807,18 @@ class TestMarkerConditionedMPHead:
 # Attention extraction tests
 # =============================================================================
 
+
 class TestAttentionExtraction:
     def test_return_attn_weights(self, marker_embeddings):
         """forward with return_attn_weights=True should return 6 values."""
         B, C_max, H, W = 2, 10, 32, 32
         n_layers = 2
         model = CellTypeAnnotator(
-            d_model=64, n_heads=4, n_layers=n_layers,
-            n_celltypes=3, n_domains=2,
+            d_model=64,
+            n_heads=4,
+            n_layers=n_layers,
+            n_celltypes=3,
+            n_domains=2,
             marker_embeddings=marker_embeddings,
             dropout=0.0,
         )
@@ -834,17 +830,26 @@ class TestAttentionExtraction:
         pad_mask[:, 4:] = True
 
         outputs = model(sample, spatial, ch_idx, pad_mask, return_attn_weights=True)
-        assert len(outputs) == 7
+        assert len(outputs) == 6
 
-        ct_logits, domain_logits, mp_logits, cls_emb, ch_out, tumor_logit, cls_to_channels = outputs
+        (
+            ct_logits,
+            domain_logits,
+            mp_logits,
+            cls_emb,
+            ch_out,
+            cls_to_channels,
+        ) = outputs
         assert cls_to_channels.shape == (n_layers, B, C_max)
-        assert tumor_logit is None  # no tumor_head
 
     def test_no_attn_weights_default(self, marker_embeddings):
-        """Default forward should return 6 values (no attention)."""
+        """Default forward returns fixed-arity AnnotatorOutput; attn field is None."""
         model = CellTypeAnnotator(
-            d_model=64, n_heads=4, n_layers=2,
-            n_celltypes=3, n_domains=2,
+            d_model=64,
+            n_heads=4,
+            n_layers=2,
+            n_celltypes=3,
+            n_domains=2,
             marker_embeddings=marker_embeddings,
         )
 
@@ -855,12 +860,16 @@ class TestAttentionExtraction:
 
         outputs = model(sample, spatial, ch_idx, pad_mask)
         assert len(outputs) == 6
+        assert outputs.cls_to_channels is None
 
     def test_attn_weights_sum_to_one(self, marker_embeddings):
         """CLS→all attention weights should approximately sum to 1."""
         model = CellTypeAnnotator(
-            d_model=64, n_heads=4, n_layers=2,
-            n_celltypes=3, n_domains=2,
+            d_model=64,
+            n_heads=4,
+            n_layers=2,
+            n_celltypes=3,
+            n_domains=2,
             marker_embeddings=marker_embeddings,
             dropout=0.0,
         )
@@ -870,7 +879,9 @@ class TestAttentionExtraction:
         ch_idx = torch.zeros(2, 10, dtype=torch.long)
         pad_mask = torch.zeros(2, 10, dtype=torch.bool)
 
-        *_, cls_to_channels = model(sample, spatial, ch_idx, pad_mask, return_attn_weights=True)
+        *_, cls_to_channels = model(
+            sample, spatial, ch_idx, pad_mask, return_attn_weights=True
+        )
         # cls_to_channels is CLS row excluding CLS column, but CLS→CLS weight is missing
         # so sum should be <= 1 and close to 1 (CLS→CLS is typically small)
         for layer_idx in range(cls_to_channels.shape[0]):
@@ -880,57 +891,19 @@ class TestAttentionExtraction:
 
 
 # =============================================================================
-# Tumor head tests
-# =============================================================================
-
-class TestTumorHead:
-    def test_tumor_head_output(self, marker_embeddings):
-        """Model should return tumor_logit as 6th output when tumor_head=True."""
-        B, C_max = 4, 10
-        model = CellTypeAnnotator(
-            d_model=64, n_heads=4, n_layers=2,
-            n_celltypes=3, n_domains=2,
-            marker_embeddings=marker_embeddings,
-            tumor_head=True,
-        )
-        sample = torch.randn(B, C_max, 1, 32, 32)
-        spatial = torch.randn(B, 3, 32, 32)
-        ch_idx = torch.zeros(B, C_max, dtype=torch.long)
-        pad_mask = torch.zeros(B, C_max, dtype=torch.bool)
-        pad_mask[:, 4:] = True
-
-        outputs = model(sample, spatial, ch_idx, pad_mask)
-        assert len(outputs) == 6
-        tumor_logit = outputs[5]
-        assert tumor_logit.shape == (B, 1)
-
-    def test_no_tumor_head_default(self, marker_embeddings):
-        """Model without tumor_head=True should return None for tumor_logit."""
-        model = CellTypeAnnotator(
-            d_model=64, n_heads=4, n_layers=2,
-            n_celltypes=3, n_domains=2,
-            marker_embeddings=marker_embeddings,
-        )
-        sample = torch.randn(2, 10, 1, 32, 32)
-        spatial = torch.randn(2, 3, 32, 32)
-        ch_idx = torch.zeros(2, 10, dtype=torch.long)
-        pad_mask = torch.zeros(2, 10, dtype=torch.bool)
-
-        outputs = model(sample, spatial, ch_idx, pad_mask)
-        assert len(outputs) == 6
-        assert outputs[5] is None
-
-
-# =============================================================================
 # create_model with conditioned MP head tests
 # =============================================================================
+
 
 class TestCreateModelWithConditionedHead:
     def test_conditioned_head_enabled(self, dct_config, marker_embeddings):
         """create_model with use_conditioned_mp_head=True should use MarkerConditionedMPHead."""
         model = create_model(
-            dct_config, marker_embeddings,
-            d_model=64, n_heads=4, n_layers=2,
+            dct_config,
+            marker_embeddings,
+            d_model=64,
+            n_heads=4,
+            n_layers=2,
             use_conditioned_mp_head=True,
         )
         assert isinstance(model.marker_pos_head, MarkerConditionedMPHead)
@@ -938,8 +911,11 @@ class TestCreateModelWithConditionedHead:
     def test_conditioned_head_disabled(self, dct_config, marker_embeddings):
         """create_model with use_conditioned_mp_head=False should use plain Linear."""
         model = create_model(
-            dct_config, marker_embeddings,
-            d_model=64, n_heads=4, n_layers=2,
+            dct_config,
+            marker_embeddings,
+            d_model=64,
+            n_heads=4,
+            n_layers=2,
             use_conditioned_mp_head=False,
         )
         assert isinstance(model.marker_pos_head, torch.nn.Linear)
@@ -947,8 +923,11 @@ class TestCreateModelWithConditionedHead:
     def test_conditioned_head_forward(self, dct_config, marker_embeddings):
         """Full forward pass with MarkerConditionedMPHead should work."""
         model = create_model(
-            dct_config, marker_embeddings,
-            d_model=64, n_heads=4, n_layers=2,
+            dct_config,
+            marker_embeddings,
+            d_model=64,
+            n_heads=4,
+            n_layers=2,
             use_conditioned_mp_head=True,
         )
 
@@ -970,8 +949,11 @@ class TestCreateModelWithConditionedHead:
     def test_no_embeddings_falls_back_to_linear(self, dct_config):
         """Without marker embeddings, should fall back to Linear head."""
         model = create_model(
-            dct_config, None,
-            d_model=64, n_heads=4, n_layers=2,
+            dct_config,
+            None,
+            d_model=64,
+            n_heads=4,
+            n_layers=2,
             use_conditioned_mp_head=True,
         )
         # marker_embedder is None, so conditioned head can't be created
@@ -981,6 +963,7 @@ class TestCreateModelWithConditionedHead:
 # =============================================================================
 # TestInstanceNormZeroInput
 # =============================================================================
+
 
 class TestInstanceNormZeroInput:
     """InstanceNorm on zero inputs should not produce NaN or Inf (critical regression test)."""
@@ -1025,8 +1008,11 @@ class TestInstanceNormZeroInput:
         pad_mask[:, 4:] = True  # channels 4-7 are padding
 
         model = CellTypeAnnotator(
-            d_model=64, n_heads=4, n_layers=2,
-            n_celltypes=3, n_domains=2,
+            d_model=64,
+            n_heads=4,
+            n_layers=2,
+            n_celltypes=3,
+            n_domains=2,
             marker_embeddings=None,
             dropout=0.0,
         )
@@ -1041,19 +1027,22 @@ class TestInstanceNormZeroInput:
         # Determinism: running again with same inputs produces identical outputs
         with torch.no_grad():
             _, _, _, _, channel_outputs2, _ = model(sample, spatial, ch_idx, pad_mask)
-        assert torch.equal(channel_outputs, channel_outputs2), \
+        assert torch.equal(channel_outputs, channel_outputs2), (
             "Model outputs are not deterministic in eval mode"
+        )
 
 
 # =============================================================================
 # TestLabelRemap
 # =============================================================================
 
+
 class TestLabelRemap:
     """build_label_remap should be identity for 0-indexed ct2idx (post-migration)."""
 
     def test_maps_0indexed_identity(self):
         from deepcell_types.training.utils import build_label_remap
+
         # ct2idx is now 0-indexed after archive migration
         ct2idx = {"A": 0, "B": 1, "C": 2}
         remap = build_label_remap(ct2idx)
@@ -1063,6 +1052,7 @@ class TestLabelRemap:
 
     def test_remap_is_contiguous(self):
         from deepcell_types.training.utils import build_label_remap
+
         ct2idx = {f"CT{i}": i for i in range(9)}  # values 0-8
         remap = build_label_remap(ct2idx)
         mapped = [remap[i].item() for i in range(9)]
@@ -1071,6 +1061,7 @@ class TestLabelRemap:
     def test_zero_indexed_passthrough(self):
         """0-indexed ct2idx should still map correctly (values stay 0-based)."""
         from deepcell_types.training.utils import build_label_remap
+
         ct2idx = {"A": 0, "B": 1, "C": 2}
         remap = build_label_remap(ct2idx)
         assert remap[0] == 0
@@ -1082,6 +1073,7 @@ class TestLabelRemap:
 # TestLossesAndMetricsCompute
 # =============================================================================
 
+
 class TestLossesAndMetricsCompute:
     """LossesAndMetrics.compute() should expose macro-F1 as the single CT metric,
     matching sklearn's confusion-matrix-based macro-F1."""
@@ -1090,6 +1082,7 @@ class TestLossesAndMetricsCompute:
         """Build a LossesAndMetrics with torchmetrics internals but only use conf_mat_ct_metric."""
         from deepcell_types.training.utils import LossesAndMetrics, MPMetricsTracker
         from deepcell_types.training.losses import FocalLoss
+
         torchmetrics = pytest.importorskip("torchmetrics")
 
         lm = LossesAndMetrics(
@@ -1097,7 +1090,9 @@ class TestLossesAndMetricsCompute:
             domain_loss_fn=torch.nn.CrossEntropyLoss(),
             marker_pos_loss_fn=torch.nn.BCEWithLogitsLoss(),
             acc_domain_metric=torchmetrics.Accuracy(task="multiclass", num_classes=2),
-            conf_mat_ct_metric=torchmetrics.ConfusionMatrix(task="multiclass", num_classes=num_classes),
+            conf_mat_ct_metric=torchmetrics.ConfusionMatrix(
+                task="multiclass", num_classes=num_classes
+            ),
             mp_metrics=MPMetricsTracker(),
         )
         return lm
@@ -1107,14 +1102,17 @@ class TestLossesAndMetricsCompute:
         preds = logits.argmax(dim=1)
         lm.conf_mat_ct_metric.update(preds, targets)
         # Provide dummy updates for the other metrics so compute() works
-        lm.acc_domain_metric.update(torch.zeros(len(targets), dtype=torch.long),
-                                    torch.zeros(len(targets), dtype=torch.long))
+        lm.acc_domain_metric.update(
+            torch.zeros(len(targets), dtype=torch.long),
+            torch.zeros(len(targets), dtype=torch.long),
+        )
 
     @staticmethod
     def _sklearn_macro_f1(targets, preds):
         """Reference macro-F1 over classes present in the targets (support > 0),
         matching _conf_mat_summary's has_support reduction."""
         from sklearn.metrics import f1_score
+
         labels_present = sorted(set(targets.tolist()))
         return f1_score(
             targets, preds, average="macro", labels=labels_present, zero_division=0
@@ -1160,7 +1158,10 @@ class TestLossesAndMetricsCompute:
         self._update_conf_mat(m, preds_logits, targets)
         result = m.compute()
         preds = preds_logits.argmax(dim=1).numpy()
-        assert abs(result["ct_macro_f1"] - self._sklearn_macro_f1(targets.numpy(), preds)) < 1e-4
+        assert (
+            abs(result["ct_macro_f1"] - self._sklearn_macro_f1(targets.numpy(), preds))
+            < 1e-4
+        )
 
     def test_zero_support_classes_excluded(self):
         """Classes with no samples should be excluded from the macro-F1 denominator."""
@@ -1183,7 +1184,7 @@ class TestLossesAndMetricsCompute:
         # class 1: 2 samples, 2 correct
         # class 2: 1 sample, 1 correct
         # class 3: 1 sample, 0 correct (→ class 0)
-        targets_list = [0]*10 + [1]*2 + [2]*1 + [3]*1
+        targets_list = [0] * 10 + [1] * 2 + [2] * 1 + [3] * 1
         correct_remaining = {0: 8, 1: 2, 2: 1, 3: 0}
         wrong_pred = {0: 1, 1: 0, 2: 0, 3: 0}
         logits_list = []
@@ -1200,18 +1201,23 @@ class TestLossesAndMetricsCompute:
         self._update_conf_mat(m, logits, targets)
         result = m.compute()
         preds = logits.argmax(dim=1).numpy()
-        assert abs(result["ct_macro_f1"] - self._sklearn_macro_f1(targets.numpy(), preds)) < 1e-4
+        assert (
+            abs(result["ct_macro_f1"] - self._sklearn_macro_f1(targets.numpy(), preds))
+            < 1e-4
+        )
 
 
 # =============================================================================
 # TestMPMetricsTracker
 # =============================================================================
 
+
 class TestMPMetricsTracker:
     """MPMetricsTracker should compute per-marker and macro-averaged MP metrics."""
 
     def test_perfect_predictions(self):
         from deepcell_types.training.utils import MPMetricsTracker
+
         tracker = MPMetricsTracker()
         # 2 markers, all correct
         pred = torch.tensor([0.9, 0.1, 0.8, 0.2])
@@ -1228,6 +1234,7 @@ class TestMPMetricsTracker:
     def test_macro_vs_micro_divergence(self):
         """Macro should differ from micro when marker frequencies are imbalanced."""
         from deepcell_types.training.utils import MPMetricsTracker
+
         tracker = MPMetricsTracker()
         # Marker 0: 100 samples, all correct (F1=1.0)
         pred_0 = torch.cat([torch.ones(50) * 0.9, torch.ones(50) * 0.1])
@@ -1247,6 +1254,7 @@ class TestMPMetricsTracker:
 
     def test_per_marker_breakdown(self):
         from deepcell_types.training.utils import MPMetricsTracker
+
         tracker = MPMetricsTracker()
         pred = torch.tensor([0.9, 0.1, 0.9])
         target = torch.tensor([1.0, 0.0, 0.0])
@@ -1262,6 +1270,7 @@ class TestMPMetricsTracker:
 
     def test_reset(self):
         from deepcell_types.training.utils import MPMetricsTracker
+
         tracker = MPMetricsTracker()
         tracker.update(torch.tensor([0.9]), torch.tensor([1.0]), torch.tensor([0]))
         tracker.reset()
@@ -1271,6 +1280,7 @@ class TestMPMetricsTracker:
     def test_learned_thresholds_improve_f1(self):
         """Learned thresholds should be >= fixed 0.5 F1 (optimized on same data)."""
         from deepcell_types.training.utils import MPMetricsTracker
+
         tracker = MPMetricsTracker()
         # Marker with low-confidence true positives (scores around 0.3-0.4)
         preds = torch.tensor([0.35, 0.38, 0.32, 0.40, 0.05, 0.08, 0.03, 0.06])
@@ -1294,6 +1304,7 @@ class TestMPMetricsTracker:
     def test_compute_at_fixed_vs_default(self):
         """compute_at_fixed_threshold(0.5) should match compute() when no thresholds set."""
         from deepcell_types.training.utils import MPMetricsTracker
+
         tracker = MPMetricsTracker()
         pred = torch.tensor([0.9, 0.1, 0.8, 0.2])
         target = torch.tensor([1.0, 0.0, 1.0, 0.0])
@@ -1307,6 +1318,7 @@ class TestMPMetricsTracker:
 # =============================================================================
 # TestStrictChannelContract
 # =============================================================================
+
 
 class TestStrictChannelContract:
     """Channel names must be CANONICAL — no runtime alias resolution and no
@@ -1364,11 +1376,13 @@ class TestStrictChannelContract:
 # TestComputeSampleWeightsCorrectness
 # =============================================================================
 
+
 class TestComputeSampleWeightsCorrectness:
     """compute_sample_weights should use sqrt-inverse-frequency weighting."""
 
     def _make_mock_dataset(self, ct_labels):
         """Build a minimal mock dataset whose .indices[i][2] is the ct_label."""
+
         class _MockDataset:
             def __init__(self, labels):
                 # indices tuple: (ds_idx, tissue, ct_label_standard, modality, cell_idx, fov, ds_name, shape)
@@ -1376,6 +1390,7 @@ class TestComputeSampleWeightsCorrectness:
                     CellIndexRecord(0, "T", label, "CODEX", i, "FOV1", "DS1", (10, 10))
                     for i, label in enumerate(labels)
                 ]
+
         return _MockDataset(ct_labels)
 
     def test_sqrt_inverse_frequency(self):
@@ -1390,12 +1405,13 @@ class TestComputeSampleWeightsCorrectness:
         # Class "A" weight: sqrt(10000/1000) = sqrt(10) ≈ 3.162
         # Class "B" weight: sqrt(10000/9000) ≈ 1.054
         # Ratio should be sqrt(9000/1000) = 3.0
-        w_a = weights[0].item()      # first "A" sample
-        w_b = weights[1000].item()   # first "B" sample
+        w_a = weights[0].item()  # first "A" sample
+        w_b = weights[1000].item()  # first "B" sample
         expected_ratio = (9000 / 1000) ** 0.5  # = 3.0
         actual_ratio = w_a / w_b
-        assert abs(actual_ratio - expected_ratio) < 0.01, \
+        assert abs(actual_ratio - expected_ratio) < 0.01, (
             f"Weight ratio {actual_ratio:.4f} != expected {expected_ratio:.4f}"
+        )
 
     def test_single_class_uniform_weights(self):
         """All same class → all weights equal."""
@@ -1421,10 +1437,12 @@ class TestComputeSampleWeightsCorrectness:
         common_weight = weights[0].item()
         # With cap floor=1000: rare effective=1000, common effective=10000
         # ratio = sqrt(10000/1000) ≈ sqrt(10) ≈ 3.16
-        assert rare_weight > common_weight * 2, \
+        assert rare_weight > common_weight * 2, (
             f"Rare class weight ({rare_weight:.2f}) should be > 2x common ({common_weight:.2f})"
-        assert rare_weight < common_weight * 20, \
+        )
+        assert rare_weight < common_weight * 20, (
             f"Cap should prevent extreme oversampling: {rare_weight:.2f} < 20x {common_weight:.2f}"
+        )
 
     def test_weights_length_matches_indices(self):
         """Returned weights tensor length should match number of indices."""
@@ -1443,6 +1461,7 @@ class TestPredLoggerOutputFormat:
 
     def test_pred_logger_saves_string_names(self, tmp_path):
         from deepcell_types.training.utils import PredLogger
+
         ct2idx = self._make_ct2idx()
         logger = PredLogger(ct2idx)
         logger.log(
@@ -1455,11 +1474,13 @@ class TestPredLoggerOutputFormat:
         path = tmp_path / "preds.csv"
         logger.save(str(path))
         df = import_pandas().read_csv(path)
-        assert df["cell_type_actual"].tolist() == ["CD4T", "Macrophage", "Tumor"], \
+        assert df["cell_type_actual"].tolist() == ["CD4T", "Macrophage", "Tumor"], (
             f"Expected string names, got: {df['cell_type_actual'].tolist()}"
+        )
 
     def test_save_baseline_predictions_saves_string_names(self, tmp_path):
         from deepcell_types.training.utils import save_baseline_predictions
+
         ct2idx = self._make_ct2idx()
         path = tmp_path / "baseline_preds.csv"
         save_baseline_predictions(
@@ -1472,12 +1493,14 @@ class TestPredLoggerOutputFormat:
             output_path=path,
         )
         df = import_pandas().read_csv(path)
-        assert df["cell_type_actual"].tolist() == ["CD4T", "Macrophage", "Tumor"], \
+        assert df["cell_type_actual"].tolist() == ["CD4T", "Macrophage", "Tumor"], (
             f"Expected string names, got: {df['cell_type_actual'].tolist()}"
+        )
 
     def test_pred_and_actual_same_dtype(self, tmp_path):
         """Predicted class (argmax col name) and actual must both be strings for direct comparison."""
         from deepcell_types.training.utils import PredLogger
+
         ct2idx = {"CD4T": 4, "Macrophage": 13}
         logger = PredLogger(ct2idx)
         logger.log(
@@ -1494,37 +1517,13 @@ class TestPredLoggerOutputFormat:
         pred = df[prob_cols].idxmax(axis=1)
         actual = df["cell_type_actual"]
         # Both must be strings so direct == comparison works
-        assert (pred == actual).all(), \
-            f"pred={pred.tolist()} actual={actual.tolist()}"
+        assert (pred == actual).all(), f"pred={pred.tolist()} actual={actual.tolist()}"
 
 
 def import_pandas():
     import pandas as pd
+
     return pd
-
-
-class TestTumorDatasets:
-    """Tests for tumor_datasets config loading."""
-
-    def test_tumor_datasets_loaded(self):
-        """TissueNetConfig should expose tumor_datasets as a set."""
-        from deepcell_types.training.config import TissueNetConfig
-
-        candidates = []
-        if os.environ.get("DATA_DIR"):
-            candidates.append(
-                Path(os.environ["DATA_DIR"]) / "expanded-tissuenet.zarr"
-            )
-        zarr_path = next(
-            (candidate for candidate in candidates if candidate.exists()), None
-        )
-        if zarr_path is None:
-            pytest.skip("No zarr archive")
-
-        config = TissueNetConfig(zarr_path)
-        assert hasattr(config, 'tumor_datasets')
-        assert isinstance(config.tumor_datasets, set)
-        assert len(config.tumor_datasets) > 0
 
 
 if __name__ == "__main__":

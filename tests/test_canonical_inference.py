@@ -13,7 +13,6 @@ from deepcell_types.config import DCTConfig
 from deepcell_types.predict import (
     _InferenceResultBuffer,
     _build_model,
-    _excluded_celltype_indices,
     _model_path,
     predict,
 )
@@ -259,33 +258,6 @@ def test_build_model_raises_on_celltype_count_mismatch(tmp_path):
         _build_model(checkpoint, config, torch.device("cpu"))
 
 
-def test_excluded_celltype_indices_rejects_unknown_tissue(tmp_path):
-    archive_path = _make_archive(tmp_path)
-    config = DCTConfig(zarr_path=archive_path)
-    with pytest.raises(ValueError, match="Unknown tissue_filter"):
-        _excluded_celltype_indices(config, "not-a-real-tissue", batch_size=2)
-
-
-def test_excluded_celltype_indices_restricts_to_allowed(tmp_path):
-    archive_path = _make_archive(tmp_path)
-    config = DCTConfig(zarr_path=archive_path)
-    # liver fixture only annotates "Tumor" — the excluded set must include
-    # every index that is NOT Tumor.
-    excluded = _excluded_celltype_indices(config, "liver", batch_size=3)
-    assert excluded is not None
-    assert len(excluded) == 3
-    tumor_idx = config.ct2idx["Tumor"]
-    for row in excluded:
-        assert tumor_idx not in row
-        assert set(row) | {tumor_idx} == set(range(len(config.ct2idx)))
-
-
-def test_excluded_celltype_indices_none_passthrough(tmp_path):
-    archive_path = _make_archive(tmp_path)
-    config = DCTConfig(zarr_path=archive_path)
-    assert _excluded_celltype_indices(config, None, batch_size=4) is None
-
-
 def test_patch_dataset_rejects_only_unknown_channel_names(tmp_path):
     archive_path = _make_archive(tmp_path)
     config = DCTConfig(zarr_path=archive_path)
@@ -324,54 +296,6 @@ def test_predict_returns_prediction_result_when_requested(tmp_path):
     assert result.probabilities.shape == (1, len(config.ct2idx))
     assert result.cell_indices.tolist() == [1]
     assert np.isclose(result.probabilities.sum(), 1.0)
-
-
-def test_predict_tissue_exclude_alias_emits_deprecation(tmp_path):
-    archive_path = _make_archive(tmp_path)
-    config = DCTConfig(zarr_path=archive_path)
-    ckpt_path = _build_checkpoint(config, tmp_path)
-
-    raw = np.ones((1, 40, 40), dtype=np.float32)
-    mask = np.zeros((40, 40), dtype=np.int32)
-    mask[12:28, 12:28] = 1
-
-    with pytest.warns(FutureWarning, match="tissue_filter"):
-        predict(
-            raw,
-            mask,
-            ["CD45"],
-            0.5,
-            str(ckpt_path),
-            "cpu",
-            batch_size=1,
-            num_workers=0,
-            tissue_exclude="lung",
-            zarr_path=archive_path,
-        )
-
-
-def test_predict_rejects_both_tissue_args(tmp_path):
-    archive_path = _make_archive(tmp_path)
-    config = DCTConfig(zarr_path=archive_path)
-    ckpt_path = _build_checkpoint(config, tmp_path)
-    raw = np.ones((1, 40, 40), dtype=np.float32)
-    mask = np.zeros((40, 40), dtype=np.int32)
-    mask[12:28, 12:28] = 1
-
-    with pytest.raises(TypeError, match="not both"):
-        predict(
-            raw,
-            mask,
-            ["CD45"],
-            0.5,
-            str(ckpt_path),
-            "cpu",
-            batch_size=1,
-            num_workers=0,
-            tissue_filter="lung",
-            tissue_exclude="lung",
-            zarr_path=archive_path,
-        )
 
 
 def test_dct_and_tissuenet_config_agree_on_shared_constants(tmp_path):

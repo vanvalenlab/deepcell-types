@@ -6,8 +6,6 @@ from pathlib import Path
 from hashlib import md5
 from tqdm import tqdm
 import logging
-import tarfile
-import zipfile
 
 
 _api_endpoint = "https://users.deepcell.org/api/getData/"
@@ -160,38 +158,3 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
     logging.info(f"Successfully downloaded {fname} to {fpath}")
 
     return fpath
-
-
-def extract_archive(file_path, path="."):
-    """Extracts an archive if it matches tar, tar.gz, tar.bz, or zip formats.
-
-    Args:
-        file_path: Path to the archive file.
-        path: Where to extract the archive file.
-
-    Returns:
-        True if a match was found and an archive extraction was completed,
-        False otherwise.
-    """
-    logging.basicConfig(level=logging.INFO)
-
-    file_path = os.fspath(file_path) if isinstance(file_path, os.PathLike) else file_path
-    path = os.fspath(path) if isinstance(path, os.PathLike) else path
-
-    logging.info(f'Extracting {file_path}')
-
-    status = False
-
-    if tarfile.is_tarfile(file_path):
-        with tarfile.open(file_path) as archive:
-            archive.extractall(path)
-        status = True
-    elif zipfile.is_zipfile(file_path):
-        with zipfile.ZipFile(file_path) as archive:
-            archive.extractall(path)
-        status = True
-
-    if status:
-        logging.info(f'Successfully extracted {file_path} into {path}')
-    else:
-        logging.info(f'Failed to extract {file_path} into {path}')

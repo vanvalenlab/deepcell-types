@@ -28,14 +28,28 @@ from torchmetrics.classification import (
     MulticlassConfusionMatrix,
 )
 
-from deepcell_types.training.config import TissueNetConfig, WARMUP_PCT, CELL_TYPE_HIERARCHY
-from deepcell_types.training.dataset import create_dataloader, AugmentedDataset, FullImageDataset
+from deepcell_types.training.config import (
+    TissueNetConfig,
+    WARMUP_PCT,
+    CELL_TYPE_HIERARCHY,
+)
+from deepcell_types.training.dataset import (
+    create_dataloader,
+    AugmentedDataset,
+    FullImageDataset,
+)
 from deepcell_types.model import create_model
 from deepcell_types.training.losses import FocalLoss
 from deepcell_types.training.utils import (
-    BatchData, LossesAndMetrics, MPMetricsTracker, PredLogger,
-    log_epoch_metrics, log_confusion_matrix, seed_everything,
-    get_tissue_ct_exclude, build_label_remap,
+    BatchData,
+    LossesAndMetrics,
+    MPMetricsTracker,
+    PredLogger,
+    log_epoch_metrics,
+    log_confusion_matrix,
+    seed_everything,
+    build_label_remap,
+    load_matching_state_dict,
 )
 
 logger = logging.getLogger(__name__)
@@ -76,23 +90,18 @@ def forward_one_batch(
     prefix: str,
     losses_metrics: LossesAndMetrics,
     predlogger: PredLogger = None,
-    ct_exclude=None,
     loss_weights=None,
     label_remap: torch.Tensor = None,
     enable_amp: bool = False,
     hierarchical_loss_fn=None,
-    tumor_dataset_set: set = None,
-    dct_config=None,
 ):
     """Process one batch through model.
 
     Args:
-        loss_weights: dict with keys 'ct', 'domain', 'marker_pos', optionally 'tumor'
+        loss_weights: dict with keys 'ct', 'domain', 'marker_pos'
         label_remap: Lookup tensor to remap ct2idx values to compact 0-indexed labels.
             Identity for 0-indexed ct2idx (post-migration), kept for compatibility.
         enable_amp: Whether to use Automatic Mixed Precision (autocast)
-        tumor_dataset_set: Set of dataset keys with tumor cells (for tumor loss masking)
-        dct_config: TissueNetConfig (needed for tumor label index)
     """
     if loss_weights is None:
         loss_weights = DEFAULT_LOSS_WEIGHTS
@@ -109,23 +118,17 @@ def forward_one_batch(
         compact_ct_idx = batch_data.ct_idx
 
     # Forward pass + loss computations wrapped in autocast for AMP
-    with torch.amp.autocast('cuda', enabled=enable_amp):
-        ct_logits, domain_logits, marker_pos_logits, cls_embedding, _, tumor_logit = model(
+    with torch.amp.autocast("cuda", enabled=enable_amp):
+        out = model(
             batch_data.sample,
             batch_data.spatial_context,
             batch_data.ch_idx,
             batch_data.mask,
-            ct_exclude,
             domain_idx=batch_data.domain_idx,
         )
-
-        # Defensive check: target class should never be in the exclude set
-        # (ct_exclude is already None when no_ct_exclude=True, so checking is not None suffices)
-        if ct_exclude is not None:
-            for i, excl in enumerate(ct_exclude):
-                if excl and compact_ct_idx[i].item() in excl:
-                    import logging
-                    logging.warning(f"Target class {compact_ct_idx[i].item()} is in ct_exclude for sample {i}. Check tissue_celltype_mapping.")
+        ct_logits = out.ct_logits
+        domain_logits = out.domain_logits
+        marker_pos_logits = out.marker_pos_logits
 
         # Cell type loss (FocalLoss with class weights)
         ct_loss = losses_metrics.ct_loss_fn(ct_logits, compact_ct_idx)
@@ -133,7 +136,9 @@ def forward_one_batch(
             ct_loss = ct_loss + hierarchical_loss_fn(ct_logits, compact_ct_idx)
 
         # Domain loss
-        domain_loss = losses_metrics.domain_loss_fn(domain_logits, batch_data.domain_idx)
+        domain_loss = losses_metrics.domain_loss_fn(
+            domain_logits, batch_data.domain_idx
+        )
 
         # Marker positivity loss (independent BCE, only on valid channels)
         valid_channels = ~batch_data.mask  # True = real channel
@@ -149,37 +154,11 @@ def forward_one_batch(
         else:
             marker_pos_loss = torch.tensor(0.0, device=device)
 
-        # Tumor binary prediction loss (masked to tumor_datasets)
-        tumor_loss = torch.tensor(0.0, device=device)
-        if tumor_logit is not None and loss_weights.get("tumor", 0) > 0:
-            tumor_raw = dct_config.ct2idx.get("Tumor", -1)
-            if tumor_raw >= 0:
-                # Remap raw ct2idx value to compact label space to match compact_ct_idx
-                if label_remap is not None:
-                    tumor_compact = label_remap[tumor_raw].item()
-                else:
-                    tumor_compact = tumor_raw
-            else:
-                tumor_compact = -1
-            # Only compute tumor loss if the class exists in ct2idx
-            if tumor_compact >= 0:
-                tumor_label = (compact_ct_idx == tumor_compact).float()
-                tumor_mask = torch.tensor(
-                    [dn in tumor_dataset_set for dn in batch_data.dataset_name],
-                    dtype=torch.float, device=device,
-                )
-                if tumor_mask.sum() > 0:
-                    per_sample_loss = F.binary_cross_entropy_with_logits(
-                        tumor_logit.squeeze(-1), tumor_label, reduction='none'
-                    )
-                    tumor_loss = (per_sample_loss * tumor_mask).sum() / tumor_mask.sum()
-
         # Combined loss with corrected weights
         loss = (
             loss_weights["ct"] * ct_loss
             + loss_weights["domain"] * domain_loss
             + loss_weights["marker_pos"] * marker_pos_loss
-            + loss_weights.get("tumor", 0) * tumor_loss
         )
 
     # Compute probabilities for metrics
@@ -214,7 +193,6 @@ def forward_one_batch(
         "ct_loss": ct_loss.item(),
         "domain_loss": domain_loss.item(),
         "marker_pos_loss": marker_pos_loss.item(),
-        "tumor_loss": tumor_loss.item(),
     }
 
 
@@ -228,56 +206,187 @@ def forward_one_batch(
 @click.option("--epochs", type=int, default=50)
 @click.option("--batch_size", type=int, default=256)
 @click.option("--lr", type=float, default=3e-4)
-@click.option("--patience", type=int, default=10, help="Early stopping patience in validation checks (not epochs). Effective patience in epochs = patience * val_every.")
+@click.option(
+    "--patience",
+    type=int,
+    default=10,
+    help="Early stopping patience in validation checks (not epochs). Effective patience in epochs = patience * val_every.",
+)
 @click.option("--seed", type=int, default=42)
 @click.option("--debug", is_flag=True, help="Enable anomaly detection")
 @click.option("--num_workers", type=int, default=16)
-@click.option("--svd_embeddings_path", type=str, default=None, help="Path to SVD-reduced embeddings .npz")
-@click.option("--pretrained_path", type=str, default=None, help="Path to pre-trained backbone weights (from pretrain.py) — backbone-only load for fine-tuning")
-@click.option("--resume_path", type=str, default=None, help="Path to a full training checkpoint to resume (restores model/optimizer/scheduler/scaler/epoch). Distinct from --pretrained_path which is backbone-only.")
-@click.option("--num_dropout_channels", type=int, default=8, help="Number of channels to randomly drop during training")
-@click.option("--split_mode", type=click.Choice(["fov", "patch"]), default="fov",
-              help="Split strategy: 'fov' (default, no spatial leakage) or 'patch' (cell-level random)")
-@click.option("--split_file", type=str, default=None,
-              help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)")
-@click.option("--max_samples_per_epoch", type=int, default=None, help="Cap samples per epoch (e.g. 500000)")
-@click.option("--max_val_samples", type=int, default=None, help="Cap val set size (fixed random subset, e.g. 200000)")
-@click.option("--skip_distance_transform", is_flag=True, help="Skip distance transform computation (zeros instead)")
-@click.option("--val_every", type=int, default=1, help="Validate every N epochs (default 1, use 10 to match CellSighter). Note: --patience counts validation checks, so effective patience in training epochs = patience * val_every.")
-@click.option("--domain_weight", type=float, default=0.1, help="Weight for domain adversarial loss (0 = disabled). Default 0.1 enables DANN as part of the canonical recipe.")
-@click.option("--marker_pos_weight", type=float, default=1.0, help="Weight for marker positivity auxiliary loss (0 = disabled)")
-@click.option("--tumor_weight", type=float, default=0.0, help="Weight for binary tumor prediction loss (0 = disabled)")
-@click.option("--no_ct_exclude", is_flag=True, help="Disable tissue-aware cell type exclusion (matches baseline behavior)")
-@click.option("--no_class_weights", is_flag=True, help="Disable per-class weights in FocalLoss (use when WeightedRandomSampler is active to avoid double-weighting)")
-@click.option("--min_channels", type=int, default=0, help="Min model-visible marker channels per dataset (default 0 = no filter; retained as a no-op for legacy split-file compatibility)")
-@click.option("--hierarchical_weight", type=float, default=0.0, help="Weight for hierarchical coarse-grained loss (0 = disabled)")
-@click.option("--enable_amp", type=bool, default=True, help="Enable Automatic Mixed Precision (AMP) training (~2x speedup on CUDA, disabled automatically on CPU)")
-@click.option("--spatial_pool_size", type=int, default=1, help="Spatial pooling grid size (1=global avg, 4=4x4 spatial)")
-@click.option("--focal_gamma", type=float, default=2.0, help="FocalLoss gamma (0=CE, 2=default focal)")
-@click.option("--warmup_pct", type=float, default=None, help="Override warmup percentage for OneCycleLR (default from config.py)")
-@click.option("--resnet_channels", type=int, default=48, help="Base channels for PerChannelResNet (canonical: 48)")
-@click.option("--mean_intensity_mode", type=click.Choice(["none", "cls_residual", "per_channel", "both"]), default="cls_residual",
-              help="Add a mean-intensity-per-channel side input. Canonical: cls_residual=scatter intensities to global marker positions, MLP→add to CLS. Other modes: per_channel=project per-channel scalar intensity into d_model and add to fused tokens before the transformer; both=apply both; none=disable. All branches zero-init their output projection so warm-start from a baseline ckpt preserves predictions at step 0.")
-@click.option("--freeze_backbone", is_flag=True,
-              help="Freeze everything except the mean-intensity branches (and re-enable only intensity_cls_branch / intensity_per_channel_proj). Use with a warm-started ckpt to train only the new side input.")
-@click.option("--unfreeze_ct_head", is_flag=True,
-              help="Also keep the CT classifier head and CLS-token / final-norm trainable when --freeze_backbone is set. "
-                   "Lets the CT head adapt to the new adapter output without unfreezing the full transformer / per-channel encoder backbone.")
+@click.option(
+    "--svd_embeddings_path",
+    type=str,
+    default=None,
+    help="Path to SVD-reduced embeddings .npz",
+)
+@click.option(
+    "--pretrained_path",
+    type=str,
+    default=None,
+    help="Path to pre-trained backbone weights (from pretrain.py) — backbone-only load for fine-tuning",
+)
+@click.option(
+    "--resume_path",
+    type=str,
+    default=None,
+    help="Path to a full training checkpoint to resume (restores model/optimizer/scheduler/scaler/epoch). Distinct from --pretrained_path which is backbone-only.",
+)
+@click.option(
+    "--num_dropout_channels",
+    type=int,
+    default=8,
+    help="Number of channels to randomly drop during training",
+)
+@click.option(
+    "--split_mode",
+    type=click.Choice(["fov", "patch"]),
+    default="fov",
+    help="Split strategy: 'fov' (default, no spatial leakage) or 'patch' (cell-level random)",
+)
+@click.option(
+    "--split_file",
+    type=str,
+    default=None,
+    help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)",
+)
+@click.option(
+    "--max_samples_per_epoch",
+    type=int,
+    default=None,
+    help="Cap samples per epoch (e.g. 500000)",
+)
+@click.option(
+    "--max_val_samples",
+    type=int,
+    default=None,
+    help="Cap val set size (fixed random subset, e.g. 200000)",
+)
+@click.option(
+    "--skip_distance_transform",
+    is_flag=True,
+    help="Skip distance transform computation (zeros instead)",
+)
+@click.option(
+    "--val_every",
+    type=int,
+    default=1,
+    help="Validate every N epochs (default 1, use 10 to match CellSighter). Note: --patience counts validation checks, so effective patience in training epochs = patience * val_every.",
+)
+@click.option(
+    "--domain_weight",
+    type=float,
+    default=0.1,
+    help="Weight for domain adversarial loss (0 = disabled). Default 0.1 enables DANN as part of the canonical recipe.",
+)
+@click.option(
+    "--marker_pos_weight",
+    type=float,
+    default=1.0,
+    help="Weight for marker positivity auxiliary loss (0 = disabled)",
+)
+@click.option(
+    "--no_class_weights",
+    is_flag=True,
+    help="Disable per-class weights in FocalLoss (use when WeightedRandomSampler is active to avoid double-weighting)",
+)
+@click.option(
+    "--min_channels",
+    type=int,
+    default=0,
+    help="Min model-visible marker channels per dataset (default 0 = no filter; retained as a no-op for legacy split-file compatibility)",
+)
+@click.option(
+    "--hierarchical_weight",
+    type=float,
+    default=0.0,
+    help="Weight for hierarchical coarse-grained loss (0 = disabled)",
+)
+@click.option(
+    "--enable_amp",
+    type=bool,
+    default=True,
+    help="Enable Automatic Mixed Precision (AMP) training (~2x speedup on CUDA, disabled automatically on CPU)",
+)
+@click.option(
+    "--spatial_pool_size",
+    type=int,
+    default=1,
+    help="Spatial pooling grid size (1=global avg, 4=4x4 spatial)",
+)
+@click.option(
+    "--focal_gamma",
+    type=float,
+    default=2.0,
+    help="FocalLoss gamma (0=CE, 2=default focal)",
+)
+@click.option(
+    "--warmup_pct",
+    type=float,
+    default=None,
+    help="Override warmup percentage for OneCycleLR (default from config.py)",
+)
+@click.option(
+    "--resnet_channels",
+    type=int,
+    default=48,
+    help="Base channels for PerChannelResNet (canonical: 48)",
+)
+@click.option(
+    "--freeze_backbone",
+    is_flag=True,
+    help="Freeze everything except the mean-intensity branch (and re-enable only intensity_cls_branch). Use with a warm-started ckpt to train only the new side input.",
+)
+@click.option(
+    "--unfreeze_ct_head",
+    is_flag=True,
+    help="Also keep the CT classifier head and CLS-token / final-norm trainable when --freeze_backbone is set. "
+    "Lets the CT head adapt to the new adapter output without unfreezing the full transformer / per-channel encoder backbone.",
+)
 def main(
-    model_name, device_num, enable_wandb, zarr_dir, skip_datasets, keep_datasets,
-    epochs, batch_size, lr, patience, seed, debug, num_workers,
-    svd_embeddings_path, pretrained_path, resume_path, num_dropout_channels, split_mode,
+    model_name,
+    device_num,
+    enable_wandb,
+    zarr_dir,
+    skip_datasets,
+    keep_datasets,
+    epochs,
+    batch_size,
+    lr,
+    patience,
+    seed,
+    debug,
+    num_workers,
+    svd_embeddings_path,
+    pretrained_path,
+    resume_path,
+    num_dropout_channels,
+    split_mode,
     split_file,
-    max_samples_per_epoch, max_val_samples, skip_distance_transform, val_every,
-    domain_weight, marker_pos_weight, tumor_weight, no_ct_exclude, no_class_weights, min_channels, hierarchical_weight, enable_amp,
-    spatial_pool_size, focal_gamma, warmup_pct, resnet_channels,
-    mean_intensity_mode, freeze_backbone, unfreeze_ct_head,
+    max_samples_per_epoch,
+    max_val_samples,
+    skip_distance_transform,
+    val_every,
+    domain_weight,
+    marker_pos_weight,
+    no_class_weights,
+    min_channels,
+    hierarchical_weight,
+    enable_amp,
+    spatial_pool_size,
+    focal_gamma,
+    warmup_pct,
+    resnet_channels,
+    freeze_backbone,
+    unfreeze_ct_head,
 ):
     # Seed everything
     seed_everything(seed)
 
     # Lazy wandb init
     import wandb
+
     if enable_wandb:
         wandb.login()
     run = wandb.init(
@@ -296,8 +405,6 @@ def main(
             "architecture": "CellTypeAnnotator",
             "split_mode": split_mode,
             "domain_weight": domain_weight,
-            "tumor_weight": tumor_weight,
-            "no_ct_exclude": no_ct_exclude,
             "no_class_weights": no_class_weights,
         },
     )
@@ -307,19 +414,14 @@ def main(
 
     device = torch.device(device_num)
     # AMP is only supported on CUDA; disable automatically on CPU
-    enable_amp = enable_amp and device.type == 'cuda'
+    enable_amp = enable_amp and device.type == "cuda"
     dct_config = TissueNetConfig(zarr_dir)
     d_model = 256
 
-    # Fail fast if tumor loss is requested but Tumor class is absent from the archive
-    if tumor_weight > 0 and "Tumor" not in dct_config.ct2idx:
-        raise ValueError(
-            "tumor_weight > 0 but 'Tumor' is not in dct_config.ct2idx; "
-            "cannot compute tumor loss on an archive with no Tumor class."
-        )
-
     # Load marker embeddings
-    marker_embeddings = dct_config.load_marker_embeddings_array(svd_path=svd_embeddings_path)
+    marker_embeddings = dct_config.load_marker_embeddings_array(
+        svd_path=svd_embeddings_path
+    )
 
     use_cuda = device.type == "cuda"
 
@@ -348,7 +450,9 @@ def main(
     )
 
     wandb.config.update(metadata)
-    print(f"Train: {metadata.get('num_train', '?')}, Val: {metadata.get('num_val', '?')}")
+    print(
+        f"Train: {metadata.get('num_train', '?')}, Val: {metadata.get('num_val', '?')}"
+    )
 
     # Build label remap (ct2idx values are 1-indexed, need 0-indexed for loss/metrics)
     # Move to device once to avoid per-batch CPU→GPU transfer
@@ -377,32 +481,38 @@ def main(
             f"got {type(train_loader.dataset.dataset.dataset).__name__}. "
             "create_dataloader wrapping order may have changed."
         )
-    train_dataset_ref = train_loader.dataset.dataset.dataset  # Augmented -> Subset -> FullImageDataset
-    class_weights = compute_class_weights(dct_config, train_dataset_ref, label_remap).to(device)
+    train_dataset_ref = (
+        train_loader.dataset.dataset.dataset
+    )  # Augmented -> Subset -> FullImageDataset
+    class_weights = compute_class_weights(
+        dct_config, train_dataset_ref, label_remap
+    ).to(device)
 
     # Build model
-    model = create_model(dct_config, marker_embeddings, d_model=d_model,
-                         spatial_pool_size=spatial_pool_size,
-                         resnet_base_channels=resnet_channels,
-                         tumor_head=(tumor_weight > 0),
-                         mean_intensity_mode=mean_intensity_mode)
+    model = create_model(
+        dct_config,
+        marker_embeddings,
+        d_model=d_model,
+        spatial_pool_size=spatial_pool_size,
+        resnet_base_channels=resnet_channels,
+    )
     # Load pre-trained backbone weights (from masked marker pre-training)
     if pretrained_path and Path(pretrained_path).exists():
         print(f"Loading pre-trained weights from {pretrained_path}")
-        pretrained_state = torch.load(pretrained_path, map_location=device, weights_only=True)
+        pretrained_state = torch.load(
+            pretrained_path, map_location=device, weights_only=True
+        )
         # Accept both the legacy plain-state_dict and the new bundled checkpoint
         # (which stores the backbone under the "model" key).
-        if isinstance(pretrained_state, dict) and "model" in pretrained_state and isinstance(pretrained_state["model"], dict):
+        if (
+            isinstance(pretrained_state, dict)
+            and "model" in pretrained_state
+            and isinstance(pretrained_state["model"], dict)
+        ):
             pretrained_state = pretrained_state["model"]
         # Load only matching keys (skip MaskedMarkerHead / optimizer / scheduler keys)
-        model_state = model.state_dict()
-        loaded = 0
-        for k, v in pretrained_state.items():
-            if k in model_state and model_state[k].shape == v.shape:
-                model_state[k] = v
-                loaded += 1
-        model.load_state_dict(model_state)
-        print(f"  Loaded {loaded}/{len(model_state)} parameters from pre-trained model")
+        loaded = load_matching_state_dict(model, pretrained_state)
+        print(f"  Loaded {loaded}/{len(model.state_dict())} parameters from pre-trained model")
 
     model.to(device)
 
@@ -410,8 +520,8 @@ def main(
         n_total = sum(p.numel() for p in model.parameters())
         for p in model.parameters():
             p.requires_grad = False
-        # Re-enable the mean-intensity branches (always, under freeze_backbone)
-        unfreeze_modules = {"intensity_cls_branch", "intensity_per_channel_proj"}
+        # Re-enable the mean-intensity branch (always, under freeze_backbone)
+        unfreeze_modules = {"intensity_cls_branch"}
         # Optionally also unfreeze CT-task layers (head + CLS token + final norm).
         # Leaves the heavy backbone (transformer, per-channel encoder, marker
         # embedder LoRA, spatial encoder) still frozen.
@@ -425,10 +535,14 @@ def main(
         if unfreeze_ct_head and hasattr(model, "cls_token"):
             model.cls_token.requires_grad = True
         n_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        print(f"  freeze_backbone: trainable params = {n_trainable:,} / {n_total:,} ({100*n_trainable/n_total:.2f}%)"
-              + (" (with --unfreeze_ct_head)" if unfreeze_ct_head else ""))
+        print(
+            f"  freeze_backbone: trainable params = {n_trainable:,} / {n_total:,} ({100 * n_trainable / n_total:.2f}%)"
+            + (" (with --unfreeze_ct_head)" if unfreeze_ct_head else "")
+        )
         if n_trainable == 0:
-            raise click.UsageError("--freeze_backbone with no branch trainable — did you also pass --mean_intensity_mode?")
+            raise click.UsageError(
+                "--freeze_backbone left no parameters trainable; pass --unfreeze_ct_head or remove --freeze_backbone."
+            )
 
     summary(model, col_names=["trainable"])
 
@@ -436,7 +550,8 @@ def main(
     optimizer_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(
         optimizer_params,
-        lr=lr, weight_decay=0.01,
+        lr=lr,
+        weight_decay=0.01,
     )
     steps_per_epoch = len(train_loader)
     total_steps = epochs * steps_per_epoch
@@ -450,7 +565,7 @@ def main(
     )
 
     # GradScaler for AMP (no-op when enable_amp=False)
-    scaler = torch.amp.GradScaler('cuda', enabled=enable_amp)
+    scaler = torch.amp.GradScaler("cuda", enabled=enable_amp)
 
     # ---------- Checkpoint helpers (R4 H1: full training-state checkpoints) ----------
     # Snapshot of training-time config that must match on resume. If these differ we
@@ -482,9 +597,7 @@ def main(
         "batch_size": batch_size,
         "domain_weight": domain_weight,
         "marker_pos_weight": marker_pos_weight,
-        "tumor_weight": tumor_weight,
         "hierarchical_weight": hierarchical_weight,
-        "no_ct_exclude": bool(no_ct_exclude),
         "no_class_weights": bool(no_class_weights),
         "num_dropout_channels": num_dropout_channels,
         "spatial_pool_size": spatial_pool_size,
@@ -525,12 +638,16 @@ def main(
     # class weights in FocalLoss. Use --no_class_weights to match CellSighter behavior.
     focal_alpha = None if no_class_weights else class_weights
     # Build compact ct2idx for hierarchical evaluation (maps names to confusion matrix indices)
-    compact_ct2idx = {name: label_remap[idx].item() for name, idx in dct_config.ct2idx.items()}
+    compact_ct2idx = {
+        name: label_remap[idx].item() for name, idx in dct_config.ct2idx.items()
+    }
     losses_metrics = LossesAndMetrics(
         ct_loss_fn=FocalLoss(alpha=focal_alpha, gamma=focal_gamma),
         domain_loss_fn=torch.nn.CrossEntropyLoss(label_smoothing=0.01),
         marker_pos_loss_fn=None,  # handled inline in forward_one_batch
-        acc_domain_metric=MulticlassAccuracy(num_classes=dct_config.NUM_DOMAINS).to(device),
+        acc_domain_metric=MulticlassAccuracy(num_classes=dct_config.NUM_DOMAINS).to(
+            device
+        ),
         conf_mat_ct_metric=MulticlassConfusionMatrix(
             num_classes=dct_config.NUM_CELLTYPES
         ).to(device),
@@ -543,14 +660,18 @@ def main(
     if hierarchical_weight > 0:
         from deepcell_types.training.losses import HierarchicalLoss
         from deepcell_types.training.config import CONFIG_DIR as _TRAIN_CONFIG_DIR
+
         hierarchical_loss_fn = HierarchicalLoss(
             config_path=str(_TRAIN_CONFIG_DIR / "combined_celltypes.yaml"),
             ct2idx=dct_config.ct2idx,
             weight=hierarchical_weight,
         ).to(device)
 
-    loss_weights = {**DEFAULT_LOSS_WEIGHTS, "domain": domain_weight, "marker_pos": marker_pos_weight, "tumor": tumor_weight}
-    tumor_dataset_set = dct_config.tumor_datasets if tumor_weight > 0 else set()
+    loss_weights = {
+        **DEFAULT_LOSS_WEIGHTS,
+        "domain": domain_weight,
+        "marker_pos": marker_pos_weight,
+    }
     wandb.watch(model)
 
     # Early stopping state
@@ -576,15 +697,13 @@ def main(
                 "optimizer/scheduler/scaler/epoch NOT restored).",
                 resume_path,
             )
-            legacy_state = resume_ckpt["model"] if isinstance(resume_ckpt, dict) and "model" in resume_ckpt else resume_ckpt
-            model_state = model.state_dict()
-            loaded = 0
-            for k, v in legacy_state.items():
-                if k in model_state and model_state[k].shape == v.shape:
-                    model_state[k] = v
-                    loaded += 1
-            model.load_state_dict(model_state)
-            logger.info("Loaded %d/%d params (backbone-only).", loaded, len(model_state))
+            legacy_state = (
+                resume_ckpt["model"]
+                if isinstance(resume_ckpt, dict) and "model" in resume_ckpt
+                else resume_ckpt
+            )
+            loaded = load_matching_state_dict(model, legacy_state)
+            logger.info("Loaded %d/%d params (backbone-only).", loaded, len(model.state_dict()))
         else:
             # Full checkpoint: validate config
             ckpt_config = resume_ckpt.get("config", {})
@@ -602,7 +721,8 @@ def main(
                 logger.warning(
                     "Resumed checkpoint was trained with seed=%s but current run uses seed=%s; "
                     "RNG state will diverge from original run.",
-                    ckpt_config["seed"], seed,
+                    ckpt_config["seed"],
+                    seed,
                 )
 
             model.load_state_dict(resume_ckpt["model"])
@@ -618,35 +738,43 @@ def main(
                     resume_ckpt.get("best_val_macro_acc", 0.0),
                 )
             )
-            epochs_without_improvement = int(resume_ckpt.get("epochs_without_improvement", 0))
+            epochs_without_improvement = int(
+                resume_ckpt.get("epochs_without_improvement", 0)
+            )
             logger.info(
                 "Resumed: start_epoch=%d, best_val_macro_f1=%.4f, epochs_without_improvement=%d",
-                start_epoch, best_val_macro_f1, epochs_without_improvement,
+                start_epoch,
+                best_val_macro_f1,
+                epochs_without_improvement,
             )
             if start_epoch >= epochs:
                 logger.warning(
                     "start_epoch (%d) >= --epochs (%d); nothing to do. Increase --epochs to continue training.",
-                    start_epoch, epochs,
+                    start_epoch,
+                    epochs,
                 )
 
     # Training loop
-    for epoch in tqdm(range(start_epoch, epochs), desc="Epochs", initial=start_epoch, total=epochs):
+    for epoch in tqdm(
+        range(start_epoch, epochs), desc="Epochs", initial=start_epoch, total=epochs
+    ):
         # ===================== TRAIN =====================
         model.train()
         train_losses = defaultdict(list)
 
         for batch in tqdm(train_loader, desc=f"Epoch {epoch} (train)", leave=False):
             batch_data = BatchData(*batch)
-            ct_exclude = None if no_ct_exclude else get_tissue_ct_exclude(batch_data, dct_config, label_remap)
 
             loss, batch_losses = forward_one_batch(
-                batch_data, device, model, "train", losses_metrics,
-                ct_exclude=ct_exclude, loss_weights=loss_weights,
+                batch_data,
+                device,
+                model,
+                "train",
+                losses_metrics,
+                loss_weights=loss_weights,
                 label_remap=label_remap,
                 enable_amp=enable_amp,
                 hierarchical_loss_fn=hierarchical_loss_fn,
-                tumor_dataset_set=tumor_dataset_set,
-                dct_config=dct_config,
             )
 
             optimizer.zero_grad()
@@ -670,15 +798,16 @@ def main(
         # Log training metrics
         train_epoch_metrics = losses_metrics.compute()
         log_epoch_metrics(train_epoch_metrics, "train")
-        wandb.log({
-            "train/loss_epoch": np.mean(train_losses["loss"]),
-            "train/ct_loss_epoch": np.mean(train_losses["ct_loss"]),
-            "train/domain_loss_epoch": np.mean(train_losses["domain_loss"]),
-            "train/marker_pos_loss_epoch": np.mean(train_losses["marker_pos_loss"]),
-            "train/tumor_loss_epoch": np.mean(train_losses["tumor_loss"]),
-            "train/lr": scheduler.get_last_lr()[0],
-            "epoch": epoch,
-        })
+        wandb.log(
+            {
+                "train/loss_epoch": np.mean(train_losses["loss"]),
+                "train/ct_loss_epoch": np.mean(train_losses["ct_loss"]),
+                "train/domain_loss_epoch": np.mean(train_losses["domain_loss"]),
+                "train/marker_pos_loss_epoch": np.mean(train_losses["marker_pos_loss"]),
+                "train/lr": scheduler.get_last_lr()[0],
+                "epoch": epoch,
+            }
+        )
         losses_metrics.reset_metrics()
 
         # ===================== VALIDATION =====================
@@ -690,16 +819,17 @@ def main(
             with torch.no_grad():
                 for batch in tqdm(val_loader, desc=f"Epoch {epoch} (val)", leave=False):
                     batch_data = BatchData(*batch)
-                    ct_exclude = None if no_ct_exclude else get_tissue_ct_exclude(batch_data, dct_config, label_remap)
 
                     loss, batch_losses = forward_one_batch(
-                        batch_data, device, model, "val", losses_metrics,
-                        ct_exclude=ct_exclude, loss_weights=loss_weights,
+                        batch_data,
+                        device,
+                        model,
+                        "val",
+                        losses_metrics,
+                        loss_weights=loss_weights,
                         label_remap=label_remap,
                         enable_amp=enable_amp,
                         hierarchical_loss_fn=hierarchical_loss_fn,
-                        tumor_dataset_set=tumor_dataset_set,
-                        dct_config=dct_config,
                     )
 
                     for k, v in batch_losses.items():
@@ -707,12 +837,13 @@ def main(
 
             val_epoch_metrics = losses_metrics.compute()
             log_epoch_metrics(val_epoch_metrics, "val")
-            wandb.log({
-                "val/loss_epoch": np.mean(val_losses["loss"]),
-                "val/ct_loss_epoch": np.mean(val_losses["ct_loss"]),
-                "val/tumor_loss_epoch": np.mean(val_losses["tumor_loss"]),
-                "epoch": epoch,
-            })
+            wandb.log(
+                {
+                    "val/loss_epoch": np.mean(val_losses["loss"]),
+                    "val/ct_loss_epoch": np.mean(val_losses["ct_loss"]),
+                    "epoch": epoch,
+                }
+            )
             losses_metrics.reset_metrics()
 
             val_macro_f1 = val_epoch_metrics["ct_macro_f1"]
@@ -731,7 +862,9 @@ def main(
                 # Atomic save: write to .tmp then os.replace to avoid corrupt files on SIGTERM
                 tmp_path = best_model_path.with_suffix(best_model_path.suffix + ".tmp")
                 torch.save(
-                    build_checkpoint(epoch, best_val_macro_f1, epochs_without_improvement),
+                    build_checkpoint(
+                        epoch, best_val_macro_f1, epochs_without_improvement
+                    ),
                     tmp_path,
                 )
                 os.replace(tmp_path, best_model_path)
@@ -742,7 +875,9 @@ def main(
                     print(f"Early stopping at epoch {epoch} (patience={patience})")
                     break
         else:
-            print(f"Epoch {epoch}: train_macro_f1={train_epoch_metrics['ct_macro_f1']:.4f}")
+            print(
+                f"Epoch {epoch}: train_macro_f1={train_epoch_metrics['ct_macro_f1']:.4f}"
+            )
 
         # Save checkpoint every epoch (atomic: .tmp → os.replace)
         epoch_path = Path(f"models/model_{model_name}_epoch_{epoch}.pt")
@@ -762,7 +897,9 @@ def main(
     # per-epoch val used a cap for speed. This keeps the headline test number
     # apples-to-apples with baseline runs (which never cap their val set).
     if max_val_samples is not None:
-        print(f"\nBuilding full-val dataloader for final eval (per-epoch val was capped at {max_val_samples})...")
+        print(
+            f"\nBuilding full-val dataloader for final eval (per-epoch val was capped at {max_val_samples})..."
+        )
         _, final_val_loader, _ = create_dataloader(
             zarr_dir=zarr_dir,
             dct_config=dct_config,
@@ -792,16 +929,18 @@ def main(
     with torch.no_grad():
         for batch in tqdm(final_val_loader, desc="Final eval"):
             batch_data = BatchData(*batch)
-            ct_exclude = None if no_ct_exclude else get_tissue_ct_exclude(batch_data, dct_config, label_remap)
 
             loss, _ = forward_one_batch(
-                batch_data, device, model, "test", losses_metrics,
-                predlogger=predlogger, ct_exclude=ct_exclude,
-                loss_weights=loss_weights, label_remap=label_remap,
+                batch_data,
+                device,
+                model,
+                "test",
+                losses_metrics,
+                predlogger=predlogger,
+                loss_weights=loss_weights,
+                label_remap=label_remap,
                 enable_amp=enable_amp,
                 hierarchical_loss_fn=hierarchical_loss_fn,
-                tumor_dataset_set=tumor_dataset_set,
-                dct_config=dct_config,
             )
 
     final_metrics = losses_metrics.compute()
@@ -809,7 +948,8 @@ def main(
     log_epoch_metrics(final_metrics, "test")
 
     log_confusion_matrix(
-        losses_metrics.conf_mat_ct_metric, "test",
+        losses_metrics.conf_mat_ct_metric,
+        "test",
         sorted(dct_config.ct2idx, key=dct_config.ct2idx.get),
         metric_name="confusion_matrix_ct",
     )

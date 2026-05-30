@@ -289,7 +289,8 @@ def _extract_all_dataset_features(
                     )
                 else:
                     # Filter to requested datasets
-                    result = {k: v for k, v in cached.items() if k in set(dataset_keys)}
+                    wanted = set(dataset_keys)
+                    result = {k: v for k, v in cached.items() if k in wanted}
                     logger.info("Loaded features for %d datasets from cache", len(result))
                     return result
 

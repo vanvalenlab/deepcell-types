@@ -1,3 +1,5 @@
+from typing import NamedTuple, Optional
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -191,15 +193,18 @@ class MarkerEmbeddingLayer(nn.Module):
         return out
 
 
-class PreNormTransformerEncoderLayer(nn.Module):
-    """Pre-norm transformer encoder layer (more stable than post-norm).
+class ChannelWiseTransformerEncoderLayer(nn.Module):
+    """Channel-wise transformer encoder layer (pre-norm).
 
-    Follows the Xiong-2020 pre-norm convention: dropout is applied to the
-    output of each sublayer before the residual add (both attention and FF).
-    The FF branch already terminates in ``nn.Dropout`` inside ``self.ff``;
-    the attention branch uses a dedicated ``self.attn_dropout`` module (the
-    ``dropout`` arg of ``nn.MultiheadAttention`` only drops attention
-    weights, not the sublayer output).
+    Operates over marker/channel tokens (each channel is a token, plus the
+    prepended CLS). Internally uses the pre-norm (Xiong-2020) convention:
+    LayerNorm is applied to each sublayer's input, and dropout is applied to
+    the sublayer output before the residual add (both attention and FF). The
+    FF branch already terminates in ``nn.Dropout`` inside ``self.ff``; the
+    attention branch uses a dedicated ``self.attn_dropout`` module (the
+    ``dropout`` arg of ``nn.MultiheadAttention`` only drops attention weights,
+    not the sublayer output). Pre-norm keeps the residual stream a clean
+    identity highway, which trains more stably than post-norm.
     """
 
     def __init__(self, d_model, nhead, dim_feedforward, dropout=0.1):
@@ -243,6 +248,23 @@ class PreNormTransformerEncoderLayer(nn.Module):
         return x
 
 
+class AnnotatorOutput(NamedTuple):
+    """Structured return of :meth:`CellTypeAnnotator.forward`.
+
+    Fixed arity: ``cls_to_channels`` is ``None`` unless ``forward`` is called
+    with ``return_attn_weights=True``. Being a ``NamedTuple`` it still unpacks
+    positionally, so ``a, b, c, d, e, attn = out`` works alongside attribute
+    access (``out.ct_logits``).
+    """
+
+    ct_logits: torch.Tensor
+    domain_logits: torch.Tensor
+    marker_pos_logits: torch.Tensor
+    cls_embedding: torch.Tensor
+    channel_outputs: torch.Tensor
+    cls_to_channels: Optional[torch.Tensor] = None
+
+
 class CellTypeAnnotator(nn.Module):
     """Cell type annotator with marker-aware transformer.
 
@@ -264,8 +286,9 @@ class CellTypeAnnotator(nn.Module):
         n_domains=8,
         marker_embeddings=None,
         dropout=0.1,
-        tumor_head=False,
-        **kwargs,
+        spatial_pool_size=1,
+        resnet_base_channels=48,
+        compat_marker0_zero=True,
     ):
         super().__init__()
         self.d_model = d_model
@@ -273,7 +296,6 @@ class CellTypeAnnotator(nn.Module):
         self.n_domains = n_domains
 
         # 1. Spatial encoder
-        spatial_pool_size = kwargs.get("spatial_pool_size", 1)
         self.spatial_encoder = SpatialEncoder(out_dim=64, pool_size=spatial_pool_size)
         spatial_dim = self.spatial_encoder.out_features
 
@@ -281,7 +303,6 @@ class CellTypeAnnotator(nn.Module):
         channel_dim = 128
         # Canonical paper recipe is base_channels=48 (matches CLI default in
         # scripts/train.py and scripts/predict.py).
-        resnet_base_channels = kwargs.get("resnet_base_channels", 48)
         self.channel_encoder = PerChannelResNet(
             out_dim=channel_dim, base_channels=resnet_base_channels
         )
@@ -301,7 +322,7 @@ class CellTypeAnnotator(nn.Module):
         # Pre-norm transformer
         self.transformer_layers = nn.ModuleList(
             [
-                PreNormTransformerEncoderLayer(
+                ChannelWiseTransformerEncoderLayer(
                     d_model=d_model,
                     nhead=n_heads,
                     dim_feedforward=d_model * 4,
@@ -340,44 +361,27 @@ class CellTypeAnnotator(nn.Module):
             nn.Linear(d_model // 2, n_domains),
         )
 
-        # Tumor: optional binary prediction head
-        self._has_tumor_head = tumor_head
-        if tumor_head:
-            self.tumor_head = nn.Sequential(
-                nn.Linear(d_model, d_model // 4),
-                nn.SiLU(),
-                nn.Dropout(dropout),
-                nn.Linear(d_model // 4, 1),
-            )
-
-        # Mean-intensity-per-channel side input (zero-init → identity warm-start).
-        # Canonical paper recipe is "cls_residual" (matches CLI default in
-        # scripts/train.py). Older "none" was the pre-MeanInt-CLS default.
-        self.mean_intensity_mode = kwargs.get("mean_intensity_mode", "cls_residual")
+        # Mean-intensity-per-channel side input (CLS residual). Zero-init the
+        # output projection so a warm-started ckpt preserves predictions at
+        # step 0. This is the canonical paper recipe; it is always enabled.
         # v0.1.0 checkpoints were trained with a scatter that aliased padding
         # writes to column 0 of intensity_vec, so the model never saw the real
-        # mean intensity of whichever marker sits at index 0 in marker2idx.
-        # The fixed code (sink column) now routes those writes elsewhere. To
-        # keep inference parity with the v0.1.0 canonical checkpoint, we
-        # explicitly zero column 0 at forward time. Set to False when
+        # mean intensity of whichever marker sits at index 0 in marker2idx. The
+        # fixed code (sink column) now routes those writes elsewhere; to keep
+        # inference parity with the v0.1.0 canonical checkpoint we explicitly
+        # zero column 0 at forward time. Set compat_marker0_zero=False when
         # retraining from scratch (v0.2.0+) to recover the marker-0 signal.
-        self.compat_marker0_zero = bool(kwargs.get("compat_marker0_zero", True))
-        if self.mean_intensity_mode != "none":
-            n_markers = marker_embeddings.shape[0] if marker_embeddings is not None else 278
-            self._n_markers = n_markers
-            if self.mean_intensity_mode in ("cls_residual", "both"):
-                self.intensity_cls_branch = nn.Sequential(
-                    nn.Linear(n_markers, d_model),
-                    nn.GELU(),
-                    nn.Dropout(dropout),
-                    nn.Linear(d_model, d_model),
-                )
-                nn.init.zeros_(self.intensity_cls_branch[-1].weight)
-                nn.init.zeros_(self.intensity_cls_branch[-1].bias)
-            if self.mean_intensity_mode in ("per_channel", "both"):
-                self.intensity_per_channel_proj = nn.Linear(1, d_model)
-                nn.init.zeros_(self.intensity_per_channel_proj.weight)
-                nn.init.zeros_(self.intensity_per_channel_proj.bias)
+        self.compat_marker0_zero = bool(compat_marker0_zero)
+        n_markers = marker_embeddings.shape[0] if marker_embeddings is not None else 278
+        self._n_markers = n_markers
+        self.intensity_cls_branch = nn.Sequential(
+            nn.Linear(n_markers, d_model),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_model, d_model),
+        )
+        nn.init.zeros_(self.intensity_cls_branch[-1].weight)
+        nn.init.zeros_(self.intensity_cls_branch[-1].bias)
 
     def forward(
         self,
@@ -385,7 +389,6 @@ class CellTypeAnnotator(nn.Module):
         spatial_context,
         ch_idx,
         padding_mask,
-        ct_exclude=None,
         return_attn_weights=False,
         domain_idx=None,
     ):
@@ -395,19 +398,20 @@ class CellTypeAnnotator(nn.Module):
             spatial_context: (B, 3, H, W) - [self_mask, neighbor_mask, distance_transform]
             ch_idx: (B, C_max) - channel indices for marker embeddings
             padding_mask: (B, C_max) - True = padding channel
-            ct_exclude: Optional list of lists of excluded ct indices per sample
             return_attn_weights: If True, return CLS→channel attention weights
             domain_idx: (B,) long tensor - unused at the per-channel encoder level
                 (kept in signature because training scripts pass it); domain info
                 only enters the model via the DANN head (grad_reverse on CLS).
 
         Returns:
-            ct_logits: (B, n_celltypes) - cell type logits
-            domain_logits: (B, n_domains) - domain logits
-            marker_pos_logits: (B, C_max) - marker positivity logits (pre-sigmoid)
-            cls_embedding: (B, d_model) - CLS token embedding
-            channel_outputs: (B, C_max, d_model) - per-channel transformer outputs
-            (optional) cls_to_channels: (n_layers, B, C_max) - CLS→channel attention
+            AnnotatorOutput namedtuple with fields:
+            - ct_logits: (B, n_celltypes) - cell type logits
+            - domain_logits: (B, n_domains) - domain logits
+            - marker_pos_logits: (B, C_max) - marker positivity logits (pre-sigmoid)
+            - cls_embedding: (B, d_model) - CLS token embedding
+            - channel_outputs: (B, C_max, d_model) - per-channel transformer outputs
+            - cls_to_channels: (n_layers, B, C_max) CLS→channel attention when
+              ``return_attn_weights=True``, else ``None``
         """
         B, C_max = sample.shape[0], sample.shape[1]
 
@@ -429,9 +433,7 @@ class CellTypeAnnotator(nn.Module):
         # Use out-of-place masked_fill (same AMP-safe pattern as channel_feat
         # above); the expand() view is materialized by masked_fill.
         spatial_expanded = spatial_feat.unsqueeze(1).expand(-1, C_max, -1)
-        spatial_expanded = spatial_expanded.masked_fill(
-            padding_mask.unsqueeze(-1), 0.0
-        )
+        spatial_expanded = spatial_expanded.masked_fill(padding_mask.unsqueeze(-1), 0.0)
         fused = torch.cat([channel_feat, spatial_expanded], dim=-1)  # (B, C_max, 192)
         fused = self.fusion(fused)  # (B, C_max, d_model)
         # The fusion linear adds its bias to even the zeroed padding inputs,
@@ -447,17 +449,13 @@ class CellTypeAnnotator(nn.Module):
             fused = fused + marker_emb
 
         # 4b. Mean-intensity-per-channel side input (computed from sample masked by self_mask)
-        mean_intensity = None
-        if self.mean_intensity_mode != "none":
-            # sample is raw * self_mask, so sum / cell_size gives mean over the cell footprint
-            self_mask_2d = spatial_context[:, 0]  # (B, H, W)
-            cell_size = self_mask_2d.sum(dim=(-1, -2)).clamp(min=1.0)  # (B,)
-            mean_intensity = sample.sum(dim=(-1, -2, -3)) / cell_size.unsqueeze(-1)  # (B, C_max)
-            mean_intensity = mean_intensity.masked_fill(padding_mask, 0.0)
-            if self.mean_intensity_mode in ("per_channel", "both"):
-                per_ch = self.intensity_per_channel_proj(mean_intensity.unsqueeze(-1))  # (B, C_max, d_model)
-                per_ch = per_ch.masked_fill(padding_mask.unsqueeze(-1), 0.0)
-                fused = fused + per_ch
+        # sample is raw * self_mask, so sum / cell_size gives mean over the cell footprint
+        self_mask_2d = spatial_context[:, 0]  # (B, H, W)
+        cell_size = self_mask_2d.sum(dim=(-1, -2)).clamp(min=1.0)  # (B,)
+        mean_intensity = sample.sum(dim=(-1, -2, -3)) / cell_size.unsqueeze(
+            -1
+        )  # (B, C_max)
+        mean_intensity = mean_intensity.masked_fill(padding_mask, 0.0)
 
         # 5. Prepend CLS token
         cls_tokens = self.cls_token.expand(B, -1, -1)  # (B, 1, d_model)
@@ -506,7 +504,7 @@ class CellTypeAnnotator(nn.Module):
         # v0.1.0 checkpoint reproduces its training-time outputs bit-for-bit.
         # The flag is read from the model's stored architecture metadata so
         # a future retrain (v0.2.0) can flip it off with ``compat_marker0_zero=False``.
-        if self.mean_intensity_mode in ("cls_residual", "both") and mean_intensity is not None:
+        if mean_intensity is not None:
             intensity_vec = torch.zeros(
                 B, self._n_markers + 1, device=sample.device, dtype=mean_intensity.dtype
             )
@@ -515,7 +513,7 @@ class CellTypeAnnotator(nn.Module):
             safe_idx[~valid] = self._n_markers  # sink column for padding writes
             masked_int = mean_intensity.masked_fill(~valid, 0.0)
             intensity_vec.scatter_(1, safe_idx, masked_int)
-            intensity_vec = intensity_vec[:, :self._n_markers]  # drop sink
+            intensity_vec = intensity_vec[:, : self._n_markers]  # drop sink
             if getattr(self, "compat_marker0_zero", True):
                 intensity_vec = intensity_vec.clone()
                 intensity_vec[:, 0] = 0.0
@@ -523,19 +521,6 @@ class CellTypeAnnotator(nn.Module):
 
         # Cell type classification from CLS
         ct_logits = self.ct_head(cls_embedding)  # (B, n_celltypes)
-
-        # Apply tissue-specific exclusion
-        if ct_exclude is not None:
-            exclude_mask = torch.zeros_like(ct_logits, dtype=torch.bool)
-            for i, excl in enumerate(ct_exclude):
-                if excl:
-                    exclude_mask[i, list(excl)] = True
-            # -1e4 is AMP-safe: the smallest finite fp16 value is about
-            # -65504, so -1e4 round-trips exactly in fp16 (no overflow to
-            # -inf), while exp(-1e4) ≈ 0 makes softmax probability vanish.
-            # If the true class is ever filled with -1e4, log_softmax + NLL
-            # yields a large-but-finite loss (~1e4) rather than inf.
-            ct_logits = ct_logits.masked_fill(exclude_mask, -1e4)
 
         # Domain classification from CLS (with gradient reversal)
         domain_logits = self.domain_head(grad_reverse(cls_embedding))  # (B, n_domains)
@@ -550,32 +535,19 @@ class CellTypeAnnotator(nn.Module):
                 -1
             )  # (B, C_max)
 
-        # Tumor binary prediction from CLS
-        tumor_logit = (
-            self.tumor_head(cls_embedding) if self._has_tumor_head else None
-        )  # (B, 1) or None
-
+        cls_to_channels = None
         if return_attn_weights:
             cls_to_channels = torch.stack(
                 all_attn_weights, dim=0
             )  # (n_layers, B, C_max)
-            return (
-                ct_logits,
-                domain_logits,
-                marker_pos_logits,
-                cls_embedding,
-                channel_outputs,
-                tumor_logit,
-                cls_to_channels,
-            )
 
-        return (
-            ct_logits,
-            domain_logits,
-            marker_pos_logits,
-            cls_embedding,
-            channel_outputs,
-            tumor_logit,
+        return AnnotatorOutput(
+            ct_logits=ct_logits,
+            domain_logits=domain_logits,
+            marker_pos_logits=marker_pos_logits,
+            cls_embedding=cls_embedding,
+            channel_outputs=channel_outputs,
+            cls_to_channels=cls_to_channels,
         )
 
 
@@ -641,7 +613,11 @@ def create_model(
     n_layers=4,
     dropout=0.1,
     use_conditioned_mp_head=True,
-    **kwargs,
+    n_celltypes=None,
+    n_domains=None,
+    spatial_pool_size=1,
+    resnet_base_channels=48,
+    compat_marker0_zero=True,
 ):
     """Factory function to create CellTypeAnnotator from config.
 
@@ -656,13 +632,22 @@ def create_model(
         dropout: dropout rate
         use_conditioned_mp_head: If True, replace linear MP head with
             MarkerConditionedMPHead (FiLM-conditioned)
-        **kwargs: passed to CellTypeAnnotator (e.g. spatial_pool_size)
+        n_celltypes: number of cell-type classes (defaults to
+            ``dct_config.NUM_CELLTYPES`` when None)
+        n_domains: number of domains (defaults to ``dct_config.NUM_DOMAINS``
+            when None)
+        spatial_pool_size: spatial encoder adaptive-pool output size
+        resnet_base_channels: per-channel ResNet stem width
+        compat_marker0_zero: zero marker-0 mean intensity for v0.1.0 checkpoint
+            parity (see CellTypeAnnotator)
 
     Returns:
         CellTypeAnnotator instance
     """
-    n_celltypes = kwargs.pop("n_celltypes", dct_config.NUM_CELLTYPES)
-    n_domains = kwargs.pop("n_domains", dct_config.NUM_DOMAINS)
+    if n_celltypes is None:
+        n_celltypes = dct_config.NUM_CELLTYPES
+    if n_domains is None:
+        n_domains = dct_config.NUM_DOMAINS
     model = CellTypeAnnotator(
         d_model=d_model,
         n_heads=n_heads,
@@ -671,7 +656,9 @@ def create_model(
         n_domains=n_domains,
         marker_embeddings=marker_embeddings,
         dropout=dropout,
-        **kwargs,
+        spatial_pool_size=spatial_pool_size,
+        resnet_base_channels=resnet_base_channels,
+        compat_marker0_zero=compat_marker0_zero,
     )
 
     if use_conditioned_mp_head and model.marker_embedder is not None:
