@@ -178,9 +178,10 @@ class BatchData:
             cell_index=self.cell_index.to(device),
             dataset_name=self.dataset_name,
             fov_name=self.fov_name,
-            tissue_idx=self.tissue_idx.to(device) if self.tissue_idx is not None else None,
+            tissue_idx=self.tissue_idx.to(device)
+            if self.tissue_idx is not None
+            else None,
         )
-
 
 
 class PredLogger:
@@ -416,25 +417,6 @@ def make_generator(seed: int) -> torch.Generator:
     return gen
 
 
-def get_tissue_ct_exclude(batch_data, dct_config, label_remap=None):
-    """Build per-sample tissue-aware ct exclusion list.
-
-    Args:
-        batch_data: BatchData instance
-        dct_config: TissueNetConfig instance
-        label_remap: Optional lookup tensor from build_label_remap(). If provided,
-            remaps ct2idx values to compact 0-indexed space (required when model
-            outputs use compact indices).
-    """
-    ct_exclude = []
-    for ds_name in batch_data.dataset_name:
-        excluded = dct_config.get_excluded_ct_indices(ds_name)
-        if label_remap is not None and excluded:
-            excluded = [label_remap[idx].item() for idx in excluded]
-        ct_exclude.append(excluded)
-    return ct_exclude if any(ct_exclude) else None
-
-
 # Backward-compat re-exports: these were defined here pre-split.
 # Canonical homes are now metrics.py and baseline_features.py.
 from .metrics import (  # noqa: F401, E402
@@ -444,6 +426,7 @@ from .metrics import (  # noqa: F401, E402
     LossesAndMetrics,
     build_label_remap,
 )
+
 # Lazy re-exports from baseline_features. A direct ``from .baseline_features
 # import ...`` here would create a circular import when baseline_features is
 # imported first (it imports private helpers from this module): utils.py
@@ -462,7 +445,6 @@ _BASELINE_FEATURES_REEXPORTS = {
 def __getattr__(name):  # noqa: E402  (intentional module-level definition)
     if name in _BASELINE_FEATURES_REEXPORTS:
         from . import baseline_features
+
         return getattr(baseline_features, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-

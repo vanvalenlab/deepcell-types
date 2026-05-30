@@ -48,7 +48,6 @@ from deepcell_types.training.utils import (
     log_epoch_metrics,
     log_confusion_matrix,
     seed_everything,
-    get_tissue_ct_exclude,
     build_label_remap,
     load_matching_state_dict,
 )
@@ -91,7 +90,6 @@ def forward_one_batch(
     prefix: str,
     losses_metrics: LossesAndMetrics,
     predlogger: PredLogger = None,
-    ct_exclude=None,
     loss_weights=None,
     label_remap: torch.Tensor = None,
     enable_amp: bool = False,
@@ -126,18 +124,8 @@ def forward_one_batch(
             batch_data.spatial_context,
             batch_data.ch_idx,
             batch_data.mask,
-            ct_exclude,
             domain_idx=batch_data.domain_idx,
         )
-
-        # Defensive check: target class should never be in the exclude set
-        # (ct_exclude is already None when no_ct_exclude=True, so checking is not None suffices)
-        if ct_exclude is not None:
-            for i, excl in enumerate(ct_exclude):
-                if excl and compact_ct_idx[i].item() in excl:
-                    logging.warning(
-                        f"Target class {compact_ct_idx[i].item()} is in ct_exclude for sample {i}. Check tissue_celltype_mapping."
-                    )
 
         # Cell type loss (FocalLoss with class weights)
         ct_loss = losses_metrics.ct_loss_fn(ct_logits, compact_ct_idx)
@@ -296,11 +284,6 @@ def forward_one_batch(
     help="Weight for marker positivity auxiliary loss (0 = disabled)",
 )
 @click.option(
-    "--no_ct_exclude",
-    is_flag=True,
-    help="Disable tissue-aware cell type exclusion (matches baseline behavior)",
-)
-@click.option(
     "--no_class_weights",
     is_flag=True,
     help="Disable per-class weights in FocalLoss (use when WeightedRandomSampler is active to avoid double-weighting)",
@@ -384,7 +367,6 @@ def main(
     val_every,
     domain_weight,
     marker_pos_weight,
-    no_ct_exclude,
     no_class_weights,
     min_channels,
     hierarchical_weight,
@@ -420,7 +402,6 @@ def main(
             "architecture": "CellTypeAnnotator",
             "split_mode": split_mode,
             "domain_weight": domain_weight,
-            "no_ct_exclude": no_ct_exclude,
             "no_class_weights": no_class_weights,
         },
     )
@@ -614,7 +595,6 @@ def main(
         "domain_weight": domain_weight,
         "marker_pos_weight": marker_pos_weight,
         "hierarchical_weight": hierarchical_weight,
-        "no_ct_exclude": bool(no_ct_exclude),
         "no_class_weights": bool(no_class_weights),
         "num_dropout_channels": num_dropout_channels,
         "spatial_pool_size": spatial_pool_size,
@@ -781,11 +761,6 @@ def main(
 
         for batch in tqdm(train_loader, desc=f"Epoch {epoch} (train)", leave=False):
             batch_data = BatchData(*batch)
-            ct_exclude = (
-                None
-                if no_ct_exclude
-                else get_tissue_ct_exclude(batch_data, dct_config, label_remap)
-            )
 
             loss, batch_losses = forward_one_batch(
                 batch_data,
@@ -793,7 +768,6 @@ def main(
                 model,
                 "train",
                 losses_metrics,
-                ct_exclude=ct_exclude,
                 loss_weights=loss_weights,
                 label_remap=label_remap,
                 enable_amp=enable_amp,
@@ -842,11 +816,6 @@ def main(
             with torch.no_grad():
                 for batch in tqdm(val_loader, desc=f"Epoch {epoch} (val)", leave=False):
                     batch_data = BatchData(*batch)
-                    ct_exclude = (
-                        None
-                        if no_ct_exclude
-                        else get_tissue_ct_exclude(batch_data, dct_config, label_remap)
-                    )
 
                     loss, batch_losses = forward_one_batch(
                         batch_data,
@@ -854,7 +823,6 @@ def main(
                         model,
                         "val",
                         losses_metrics,
-                        ct_exclude=ct_exclude,
                         loss_weights=loss_weights,
                         label_remap=label_remap,
                         enable_amp=enable_amp,
@@ -958,11 +926,6 @@ def main(
     with torch.no_grad():
         for batch in tqdm(final_val_loader, desc="Final eval"):
             batch_data = BatchData(*batch)
-            ct_exclude = (
-                None
-                if no_ct_exclude
-                else get_tissue_ct_exclude(batch_data, dct_config, label_remap)
-            )
 
             loss, _ = forward_one_batch(
                 batch_data,
@@ -971,7 +934,6 @@ def main(
                 "test",
                 losses_metrics,
                 predlogger=predlogger,
-                ct_exclude=ct_exclude,
                 loss_weights=loss_weights,
                 label_remap=label_remap,
                 enable_amp=enable_amp,

@@ -31,7 +31,6 @@ from deepcell_types.training.utils import (
     log_epoch_metrics,
     log_confusion_matrix,
     seed_everything,
-    get_tissue_ct_exclude,
     build_label_remap,
 )
 
@@ -47,14 +46,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 @click.option("--zarr_dir", type=str, default=str(DATA_DIR))
 @click.option("--skip_datasets", type=str, multiple=True, default=[])
 @click.option("--keep_datasets", type=str, multiple=True, default=[])
-@click.option(
-    "--exclude_ct_tissue",
-    type=bool,
-    default=False,
-    help="Apply per-tissue cell-type exclusion at inference. Default False to match "
-    "canonical `--no_ct_exclude` training recipe; set True only if the checkpoint "
-    "was trained without `--no_ct_exclude`.",
-)
 @click.option("--batch_size", type=int, default=256)
 @click.option("--num_workers", type=int, default=16)
 @click.option("--svd_embeddings_path", type=str, default=None)
@@ -84,16 +75,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
     type=int,
     default=1,
     help="Spatial pooling grid size (must match training)",
-)
-@click.option(
-    "--apply_tissue_mask",
-    is_flag=True,
-    help="Mask tissue-inappropriate cell type logits before softmax (post-hoc fix for models trained with --no_ct_exclude)",
-)
-@click.option(
-    "--strict_tissue_mask",
-    is_flag=True,
-    help="Use training-split-based tissue mapping (stricter); requires --split_file and implies --apply_tissue_mask",
 )
 @click.option(
     "--learn_mp_thresholds",
@@ -145,7 +126,6 @@ def main(
     zarr_dir,
     skip_datasets,
     keep_datasets,
-    exclude_ct_tissue,
     batch_size,
     num_workers,
     svd_embeddings_path,
@@ -154,8 +134,6 @@ def main(
     split_file,
     min_channels,
     spatial_pool_size,
-    apply_tissue_mask,
-    strict_tissue_mask,
     learn_mp_thresholds,
     mp_threshold_file,
     save_attention,
@@ -293,7 +271,6 @@ def main(
                     batch_data.spatial_context,
                     batch_data.ch_idx,
                     batch_data.mask,
-                    None,
                     domain_idx=batch_data.domain_idx,
                 )
                 valid_mp_channels = ~batch_data.mask & batch_data.marker_positivity_mask
@@ -364,52 +341,6 @@ def main(
         ct2idx=compact_ct2idx,
     )
 
-    # Precompute tissue mask: dataset_name -> boolean mask of allowed ct indices
-    # Used by --apply_tissue_mask to mask out tissue-inappropriate logits post-hoc
-    # --strict_tissue_mask implies --apply_tissue_mask with training-split-based mapping
-    if strict_tissue_mask:
-        if split_file is None:
-            raise click.UsageError("--strict_tissue_mask requires --split_file")
-        apply_tissue_mask = True  # strict implies apply
-
-    tissue_mask_cache = {}  # dataset_name -> (n_celltypes,) bool tensor (True = allowed)
-    if apply_tissue_mask:
-        if strict_tissue_mask:
-            tcm = {
-                tissue: set(types)
-                for tissue, types in dct_config.build_tissue_mapping_from_split(
-                    split_file
-                ).items()
-            }
-            print(
-                f"Tissue mask: strict mode (training-split-based, {len(tcm)} tissues)"
-            )
-        else:
-            tcm = {
-                tissue: set(types)
-                for tissue, types in dct_config.tissue_celltype_mapping.items()
-            }
-            print(f"Tissue mask: archive-based ({len(tcm)} tissues)")
-        ct2idx = dct_config.ct2idx
-        n_ct = dct_config.NUM_CELLTYPES
-        for ds_name in metadata.get("active_datasets", []) if metadata else []:
-            tissue = dct_config.get_tissue_for_dataset(ds_name)
-            if tissue is None or tissue not in tcm or not tcm[tissue]:
-                # No tissue info or empty allowed list -> allow all types
-                tissue_mask_cache[ds_name] = torch.ones(
-                    n_ct, dtype=torch.bool, device=device
-                )
-            else:
-                allowed = torch.zeros(n_ct, dtype=torch.bool, device=device)
-                for ct in tcm[tissue]:
-                    if ct in ct2idx:
-                        allowed[ct2idx[ct]] = True
-                tissue_mask_cache[ds_name] = allowed
-        print(
-            f"Tissue mask: precomputed for {len(tissue_mask_cache)} datasets "
-            f"({sum(1 for v in tissue_mask_cache.values() if not v.all())} with restrictions)"
-        )
-
     # Predict
     model.eval()
 
@@ -420,10 +351,6 @@ def main(
     with torch.no_grad():
         for batch in tqdm(test_loader, desc="Predicting"):
             batch_data = BatchData(*batch)
-
-            ct_exclude = None
-            if exclude_ct_tissue:
-                ct_exclude = get_tissue_ct_exclude(batch_data, dct_config, label_remap)
 
             # Move to device
             batch_data = batch_data.to(device)
@@ -441,7 +368,6 @@ def main(
                 batch_data.spatial_context,
                 batch_data.ch_idx,
                 batch_data.mask,
-                ct_exclude,
                 return_attn_weights=save_attention,
                 domain_idx=batch_data.domain_idx,
             )
@@ -463,13 +389,6 @@ def main(
                     _,
                 ) = outputs
                 cls_to_channels = None
-
-            # Apply post-hoc tissue mask: mask out tissue-inappropriate logits
-            if apply_tissue_mask:
-                for i, ds_name in enumerate(batch_data.dataset_name):
-                    allowed = tissue_mask_cache.get(ds_name)
-                    if allowed is not None and not allowed.all():
-                        ct_logits[i, ~allowed] = float("-inf")
 
             probs = F.softmax(ct_logits, dim=-1)
 

@@ -31,7 +31,6 @@ from deepcell_types.training.dataset import (
 from deepcell_types.training.utils import (
     BatchData,
     seed_everything,
-    get_tissue_ct_exclude,
 )
 from deepcell_types.training.config import compute_distance_transform
 
@@ -80,9 +79,6 @@ class MockTissueNetConfig:
             index=["T_cell", "B_cell", "Macrophage"],
         )
         return {"TestDataset": df}
-
-    def get_excluded_ct_indices(self, dataset_key):
-        return []
 
 
 @pytest.fixture
@@ -137,33 +133,6 @@ class TestCellTypeAnnotator:
         assert mp_logits.shape == (B, C_max)
         assert cls_emb.shape == (B, 64)
         assert ch_out.shape == (B, C_max, 64)
-
-    def test_ct_exclude(self, marker_embeddings):
-        """Verify tissue-specific exclusion works."""
-        B, C_max = 2, 10
-        model = CellTypeAnnotator(
-            d_model=64,
-            n_heads=4,
-            n_layers=2,
-            n_celltypes=3,
-            n_domains=2,
-            marker_embeddings=marker_embeddings,
-        )
-
-        sample = torch.randn(B, C_max, 1, 32, 32)
-        spatial = torch.randn(B, 3, 32, 32)
-        ch_idx = torch.zeros(B, C_max, dtype=torch.long)
-        pad_mask = torch.zeros(B, C_max, dtype=torch.bool)
-        pad_mask[:, 4:] = True
-
-        # Exclude class 2 for first sample
-        ct_exclude = [[2], []]
-        ct_logits, _, _, _, _ = model(
-            sample, spatial, ch_idx, pad_mask, ct_exclude=ct_exclude
-        )
-
-        assert ct_logits[0, 2].item() == pytest.approx(-1e4, abs=1.0)
-        assert ct_logits[1, 2].item() != pytest.approx(-1e4, abs=1.0)
 
     def test_no_marker_embeddings(self):
         """Model should work without marker embeddings."""
@@ -769,54 +738,6 @@ class TestSeedEverything:
         seed_everything(42)
         b = torch.randn(10)
         assert torch.allclose(a, b)
-
-
-class TestGetTissueCTExclude:
-    def test_returns_none_when_no_exclusions(self, dct_config):
-        """Should return None when no datasets have exclusions."""
-        bd = BatchData(
-            sample=torch.randn(2, 5, 1, 16, 16),
-            spatial_context=torch.randn(2, 3, 16, 16),
-            ch_idx=torch.zeros(2, 5, dtype=torch.long),
-            mask=torch.zeros(2, 5, dtype=torch.bool),
-            ct_idx=torch.zeros(2, dtype=torch.long),
-            domain_idx=torch.zeros(2, dtype=torch.long),
-            marker_positivity=torch.zeros(2, 5),
-            marker_positivity_mask=torch.ones(2, 5, dtype=torch.bool),
-            cell_index=torch.zeros(2, dtype=torch.long),
-            dataset_name=("TestDataset", "TestDataset"),
-            fov_name=("FOV1", "FOV2"),
-        )
-        result = get_tissue_ct_exclude(bd, dct_config)
-        # MockTissueNetConfig.get_excluded_ct_indices always returns []
-        assert result is None
-
-    def test_returns_exclusions_when_present(self):
-        """Should return exclusion list when config has exclusions."""
-
-        class MockConfig:
-            def get_excluded_ct_indices(self, ds_name):
-                if ds_name == "DS_with_exclusions":
-                    return [1, 2]
-                return []
-
-        bd = BatchData(
-            sample=torch.randn(2, 5, 1, 16, 16),
-            spatial_context=torch.randn(2, 3, 16, 16),
-            ch_idx=torch.zeros(2, 5, dtype=torch.long),
-            mask=torch.zeros(2, 5, dtype=torch.bool),
-            ct_idx=torch.zeros(2, dtype=torch.long),
-            domain_idx=torch.zeros(2, dtype=torch.long),
-            marker_positivity=torch.zeros(2, 5),
-            marker_positivity_mask=torch.ones(2, 5, dtype=torch.bool),
-            cell_index=torch.zeros(2, dtype=torch.long),
-            dataset_name=("DS_with_exclusions", "DS_no_exclusions"),
-            fov_name=("FOV1", "FOV2"),
-        )
-        result = get_tissue_ct_exclude(bd, MockConfig())
-        assert result is not None
-        assert result[0] == [1, 2]
-        assert result[1] == []
 
 
 class TestCreateModel:

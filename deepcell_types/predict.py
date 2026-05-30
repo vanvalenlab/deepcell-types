@@ -184,32 +184,6 @@ def _build_model(checkpoint, dct_config, device):
     return model.to(device)
 
 
-def _excluded_celltype_indices(dct_config, tissue, batch_size):
-    if tissue is None:
-        return None
-    tct = dct_config.get_tct_mapping()
-    if tissue not in tct:
-        raise ValueError(
-            f"Unknown tissue_filter={tissue!r}. Valid tissues: {sorted(tct)}"
-        )
-    allowed = {
-        dct_config.ct2idx[name] for name in tct[tissue] if name in dct_config.ct2idx
-    }
-    return [
-        [idx for idx in range(len(dct_config.ct2idx)) if idx not in allowed]
-        for _ in range(batch_size)
-    ]
-
-
-_TISSUE_EXCLUDE_DEPRECATION_MSG = (
-    "predict(tissue_exclude=...) is deprecated and will be removed in a future "
-    "release; use tissue_filter=... instead. The semantics are unchanged — the "
-    "parameter restricts predictions to the cell types associated with the named "
-    "tissue. The old name was confusing because it reads as 'exclude this tissue' "
-    "when in fact it 'filters to this tissue'."
-)
-
-
 def predict(
     raw,
     mask,
@@ -219,12 +193,9 @@ def predict(
     device_num,
     batch_size=256,
     num_workers=0,
-    tissue_filter=None,
     zarr_path=None,
     return_probabilities=False,
     ct_abstention_k=0.2,
-    *,
-    tissue_exclude=None,
 ):
     """Run the cell-type prediction pipeline.
 
@@ -263,11 +234,6 @@ def predict(
         ``IterableDataset`` that holds the full FOV in memory, so each worker
         is an extra copy AND re-runs the per-FOV preprocessing — only raise
         this on machines with abundant RAM and CPU.
-    tissue_filter : str, optional, default=None
-        If provided, restrict predictions to the cell types associated with
-        the named tissue (e.g. ``"colon"`` → predict only from colon-associated
-        cell types). Previously named ``tissue_exclude``; that name is still
-        accepted for back-compat but emits a ``DeprecationWarning``.
     zarr_path : str or pathlib.Path, optional, default=None
         Canonical checkpoints read marker and cell type metadata from a TissueNet
         zarr archive. Pass the archive path here or set the
@@ -286,9 +252,6 @@ def predict(
         ``k=None`` to disable abstention and get the raw argmax label for
         every cell. Has no effect on FOVs with fewer than 4 cells (the
         IQR is undefined).
-    tissue_exclude : str, optional, default=None
-        Deprecated alias for ``tissue_filter``. Keyword-only; emits a
-        ``DeprecationWarning`` on use.
 
     Returns
     -------
@@ -301,18 +264,6 @@ def predict(
         cell indices, predicted names, and an ``abstained`` boolean
         mask. See :class:`PredictionResult`.
     """
-    if tissue_exclude is not None:
-        if tissue_filter is not None:
-            raise TypeError(
-                "Pass either tissue_filter= or tissue_exclude= (the deprecated "
-                "alias), not both."
-            )
-        # FutureWarning (rather than DeprecationWarning) so end-user scripts
-        # actually see the message — DeprecationWarning is silenced by default
-        # outside __main__ and test contexts.
-        warnings.warn(_TISSUE_EXCLUDE_DEPRECATION_MSG, FutureWarning, stacklevel=2)
-        tissue_filter = tissue_exclude
-
     device = torch.device(device_num)
     checkpoint = _torch_load_weights(_model_path(model_name), device)
 
@@ -330,15 +281,11 @@ def predict(
         for sample, spatial_context, ch_idx, attn_mask, cell_index in tqdm(
             data_loader, desc="(inference)"
         ):
-            ct_exclude = _excluded_celltype_indices(
-                dct_config, tissue_filter, len(sample)
-            )
             ct_logits, *_ = model(
                 sample.to(device),
                 spatial_context.to(device),
                 ch_idx.to(device),
                 attn_mask.to(device),
-                ct_exclude=ct_exclude,
             )
             probs = F.softmax(ct_logits, dim=-1)
             pred_logger.log(

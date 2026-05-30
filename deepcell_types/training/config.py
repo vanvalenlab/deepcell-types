@@ -427,9 +427,8 @@ class TissueNetConfig:
 
         self._domain_mapping_cache = domain_mapping
         self._celltype_mapping_cache = celltype_mapping
-        # Drop tissues whose allowed-CT set is empty so --apply_tissue_mask
-        # doesn't silently produce an all-Inf logit mask (NaN softmax) on FOVs
-        # whose tissue lacks any labeled annotation in the archive.
+        # Drop tissues whose allowed-CT set is empty to avoid an all-Inf logit
+        # mask (NaN softmax) on FOVs whose tissue lacks any labeled annotation.
         self._tissue_celltype_mapping_cache = {
             k: sorted(v) for k, v in tissue_ct_mapping.items() if v
         }
@@ -782,22 +781,6 @@ class TissueNetConfig:
             )
             return None
         return self._normalize_tissue_name(raw)
-
-    def get_excluded_ct_indices(self, dataset_key: str) -> List[int]:
-        """Get cell type indices that should be excluded for a dataset's tissue.
-
-        Returns list of ct2idx indices NOT valid for this dataset's tissue.
-        """
-        tissue = self.get_tissue_for_dataset(dataset_key)
-        if tissue is None or tissue not in self.tissue_celltype_mapping:
-            return []
-
-        valid_cts = set(self.tissue_celltype_mapping[tissue])
-        excluded = []
-        for ct, idx in self.ct2idx.items():
-            if ct not in valid_cts:
-                excluded.append(idx)
-        return excluded
 
     def validate(self) -> bool:
         """

@@ -7,7 +7,7 @@ from typing import Optional
 
 
 class FocalLoss(torch.nn.Module):
-    """ Copied from: https://github.com/AdeelH/pytorch-multi-class-focal-loss
+    """Copied from: https://github.com/AdeelH/pytorch-multi-class-focal-loss
     Focal Loss, as described in https://arxiv.org/abs/1708.02002.
 
     It is essentially an enhancement to cross entropy loss and is
@@ -20,11 +20,13 @@ class FocalLoss(torch.nn.Module):
         - y: (batch_size,) or (batch_size, d1, d2, ..., dK), K > 0.
     """
 
-    def __init__(self,
-                 alpha: Optional[Tensor] = None,
-                 gamma: float = 0.,
-                 reduction: str = 'mean',
-                 ignore_index: int = -100):
+    def __init__(
+        self,
+        alpha: Optional[Tensor] = None,
+        gamma: float = 0.0,
+        reduction: str = "mean",
+        ignore_index: int = -100,
+    ):
         """Constructor.
 
         Args:
@@ -36,9 +38,8 @@ class FocalLoss(torch.nn.Module):
             ignore_index (int, optional): class label to ignore.
                 Defaults to -100.
         """
-        if reduction not in ('mean', 'sum', 'none'):
-            raise ValueError(
-                'Reduction must be one of: "mean", "sum", "none".')
+        if reduction not in ("mean", "sum", "none"):
+            raise ValueError('Reduction must be one of: "mean", "sum", "none".')
 
         super().__init__()
         self.alpha = alpha
@@ -47,14 +48,15 @@ class FocalLoss(torch.nn.Module):
         self.reduction = reduction
 
         self.nll_loss = torch.nn.NLLLoss(
-            weight=alpha, reduction='none', ignore_index=ignore_index)
+            weight=alpha, reduction="none", ignore_index=ignore_index
+        )
 
     def __repr__(self):
-        arg_keys = ['alpha', 'gamma', 'ignore_index', 'reduction']
+        arg_keys = ["alpha", "gamma", "ignore_index", "reduction"]
         arg_vals = [self.__dict__[k] for k in arg_keys]
-        arg_strs = [f'{k}={v!r}' for k, v in zip(arg_keys, arg_vals)]
-        arg_str = ', '.join(arg_strs)
-        return f'{type(self).__name__}({arg_str})'
+        arg_strs = [f"{k}={v!r}" for k, v in zip(arg_keys, arg_vals)]
+        arg_str = ", ".join(arg_strs)
+        return f"{type(self).__name__}({arg_str})"
 
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         if x.ndim > 2:
@@ -68,16 +70,14 @@ class FocalLoss(torch.nn.Module):
         unignored_mask = y != self.ignore_index
         y = y[unignored_mask]
         if len(y) == 0:
-            return torch.tensor(0., device=device)
+            return torch.tensor(0.0, device=device)
         x = x[unignored_mask]
 
         # compute weighted cross entropy term: -alpha * log(pt)
         # (alpha is already part of self.nll_loss)
-        # AMP note: callers may mask excluded classes with -1e4 (see
-        # ``model.py`` ct_exclude path). -1e4 is within fp16 range
-        # (±65504), so ``log_softmax`` cannot overflow to -inf. If the
-        # true class ever carries -1e4 (should be prevented upstream),
-        # the resulting loss is large-but-finite (~1e4), not NaN/inf.
+        # AMP note: callers may mask invalid classes with -1e4. -1e4 is within
+        # fp16 range (±65504), so ``log_softmax`` cannot overflow to -inf; the
+        # resulting loss stays large-but-finite, never NaN/inf.
         log_p = F.log_softmax(x, dim=-1)
         ce = self.nll_loss(log_p, y)
 
@@ -87,14 +87,14 @@ class FocalLoss(torch.nn.Module):
 
         # compute focal term: (1 - pt)^gamma
         pt = log_pt.exp()
-        focal_term = (1 - pt)**self.gamma
+        focal_term = (1 - pt) ** self.gamma
 
         # the full loss: -alpha * ((1 - pt)^gamma) * log(pt)
         loss = focal_term * ce
 
-        if self.reduction == 'mean':
+        if self.reduction == "mean":
             loss = loss.mean()
-        elif self.reduction == 'sum':
+        elif self.reduction == "sum":
             loss = loss.sum()
 
         return loss
@@ -150,8 +150,10 @@ class HierarchicalLoss(torch.nn.Module):
         with torch.amp.autocast("cuda", enabled=False):
             fine_probs = F.softmax(ct_logits.float(), dim=-1)
             coarse_probs = torch.zeros(
-                fine_probs.shape[0], self.n_coarse,
-                device=fine_probs.device, dtype=fine_probs.dtype,
+                fine_probs.shape[0],
+                self.n_coarse,
+                device=fine_probs.device,
+                dtype=fine_probs.dtype,
             )
             coarse_probs.scatter_add_(
                 1,

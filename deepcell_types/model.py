@@ -370,7 +370,6 @@ class CellTypeAnnotator(nn.Module):
         spatial_context,
         ch_idx,
         padding_mask,
-        ct_exclude=None,
         return_attn_weights=False,
         domain_idx=None,
     ):
@@ -380,7 +379,6 @@ class CellTypeAnnotator(nn.Module):
             spatial_context: (B, 3, H, W) - [self_mask, neighbor_mask, distance_transform]
             ch_idx: (B, C_max) - channel indices for marker embeddings
             padding_mask: (B, C_max) - True = padding channel
-            ct_exclude: Optional list of lists of excluded ct indices per sample
             return_attn_weights: If True, return CLS→channel attention weights
             domain_idx: (B,) long tensor - unused at the per-channel encoder level
                 (kept in signature because training scripts pass it); domain info
@@ -502,19 +500,6 @@ class CellTypeAnnotator(nn.Module):
 
         # Cell type classification from CLS
         ct_logits = self.ct_head(cls_embedding)  # (B, n_celltypes)
-
-        # Apply tissue-specific exclusion
-        if ct_exclude is not None:
-            exclude_mask = torch.zeros_like(ct_logits, dtype=torch.bool)
-            for i, excl in enumerate(ct_exclude):
-                if excl:
-                    exclude_mask[i, list(excl)] = True
-            # -1e4 is AMP-safe: the smallest finite fp16 value is about
-            # -65504, so -1e4 round-trips exactly in fp16 (no overflow to
-            # -inf), while exp(-1e4) ≈ 0 makes softmax probability vanish.
-            # If the true class is ever filled with -1e4, log_softmax + NLL
-            # yields a large-but-finite loss (~1e4) rather than inf.
-            ct_logits = ct_logits.masked_fill(exclude_mask, -1e4)
 
         # Domain classification from CLS (with gradient reversal)
         domain_logits = self.domain_head(grad_reverse(cls_embedding))  # (B, n_domains)
