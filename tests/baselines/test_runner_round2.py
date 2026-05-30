@@ -38,7 +38,6 @@ CELLSIGHTER_OPTS = {
     "keep_datasets",
     "split_file",
     "split_mode",
-    "test_split_file",
     "min_channels",
     "batch_size",
     "epochs",

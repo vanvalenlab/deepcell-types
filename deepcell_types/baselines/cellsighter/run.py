@@ -234,11 +234,6 @@ def evaluate(
 @click.option("--no_compile", is_flag=True, default=False,
               help="Disable torch.compile optimization")
 @click.option("--min_channels", type=int, default=3, help="Min non-DAPI channels per dataset (filters 2-channel datasets)")
-@click.option("--test_split_file", type=str, default=None,
-              help="If set, after training+selection on --split_file's val, run the FINAL "
-                   "evaluation/prediction on THIS split's val set instead. Lets selection "
-                   "(early stopping) use a held-out val while predictions are written on a "
-                   "separate frozen test set.")
 def main(
     model_name: str,
     device_num: str,
@@ -257,7 +252,6 @@ def main(
     no_amp: bool,
     no_compile: bool,
     min_channels: int,
-    test_split_file: str,
 ):
     """Train CellSighter baseline for cell type classification."""
     # Set device
@@ -439,35 +433,6 @@ def main(
     load_target = getattr(model, "_orig_mod", model)
     load_target.load_state_dict(best_checkpoint["model_state_dict"])
     print(f"Loaded best model from {model_path} (epoch {best_checkpoint['epoch']}, macro_acc={best_checkpoint['macro_accuracy']:.4f})")
-
-    # Optional: swap in a separate frozen test split for the final prediction pass.
-    if test_split_file is not None:
-        print(f"Loading separate test split for final predictions: {test_split_file}")
-        # Restrict the test loader to exactly the test split's FOVs. load_fov_splits
-        # is strict (loaded set must equal train ∪ val), so we derive keep from the
-        # test split itself rather than reusing the CLI --keep_datasets, which scopes
-        # the *training* loader to the (different) selection split.
-        import json as _json
-        _td = _json.loads(Path(test_split_file).read_text())
-        _test_keep = list(_td.get("train", {})) + list(_td.get("val", {}))
-        _, test_loader, _ = create_dataloader(
-            zarr_dir=zarr_dir,
-            dct_config=dct_config,
-            skip_datasets=skip_datasets,
-            keep_datasets=_test_keep,
-            batch_size=batch_size,
-            num_dropout_channels=0,
-            num_workers=8,
-            only_test=False,
-            use_fov_splits=(split_mode == "fov"),
-            split_file=test_split_file,
-            skip_distance_transform=True,
-            persistent_workers=True,
-            max_samples_per_epoch=500_000,
-            multiprocessing_context="spawn",
-            pin_memory=use_cuda,
-            min_channels=min_channels,
-        )
 
     # Final evaluation (returns compact 0-indexed labels and probabilities)
     print("\nFinal evaluation on test set...")

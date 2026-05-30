@@ -19,7 +19,7 @@ MODEL_ORIG_SHA = {
 }
 RUN_ORIG_SHA = {
     "maps": "e6810b88a47ad3239ae3670e0dccba964ba96328b4537f98005cd463c85ddf54",
-    "cellsighter": "e31f7634b0201217e0c9afe8bf42f4f6548937460c5e273e44a2f449a4b89114",
+    "cellsighter": "915b77d7abab1d505a4b638c4ea877a603c875fa290ebe6c95f1d3262624761d",
 }
 INIT_ORIG_SHA = {
     "maps": "5a0a765d62d2f11c841da99f34ccd63b226b47285fe85b6a9edbf92636a58f75",
