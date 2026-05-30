@@ -1,8 +1,0 @@
-[submodule "baselines/maps"]
-	path = baselines/maps
-	url = https://github.com/xuefei-wang/deepcelltypes-maps.git
-	branch = main
-[submodule "baselines/cellsighter"]
-	path = baselines/cellsighter
-	url = https://github.com/xuefei-wang/deepcelltypes-cellsighter.git
-	branch = main

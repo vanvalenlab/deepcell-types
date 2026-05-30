@@ -73,7 +73,9 @@ train = [
 # NOTE: baseline-nimbus pins nimbus-inference==0.0.5, which requires Python <3.12.
 baseline-xgboost = ["deepcell-types[train]", "xgboost", "optuna"]
 baseline-nimbus = ["deepcell-types[train]", "nimbus-inference==0.0.5", "opencv-python-headless"]
-baselines = ["deepcell-types[baseline-xgboost,baseline-nimbus]"]
+baseline-maps = ["deepcell-types[train]"]
+baseline-cellsighter = ["deepcell-types[train]", "torchvision"]
+baselines = ["deepcell-types[baseline-xgboost,baseline-nimbus,baseline-maps,baseline-cellsighter]"]
 all = ["deepcell-types[train,baselines]"]
 
 [project.urls]
@@ -87,7 +89,9 @@ packages = [
     'deepcell_types.utils',
     'deepcell_types.baselines',
     'deepcell_types.baselines.xgb',
-    'deepcell_types.baselines.nimbus'
+    'deepcell_types.baselines.nimbus',
+    'deepcell_types.baselines.maps',
+    'deepcell_types.baselines.cellsighter'
 ]
 include-package-data = true
 

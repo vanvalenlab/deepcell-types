@@ -15,9 +15,8 @@ def test_gitmodules_has_no_xgboost_or_nimbus():
     gm = (ROOT / ".gitmodules").read_text() if (ROOT / ".gitmodules").exists() else ""
     assert "baselines/xgboost" not in gm
     assert "baselines/nimbus" not in gm
-    # round-2 submodules remain
-    assert "baselines/maps" in gm
-    assert "baselines/cellsighter" in gm
+    # round 2 folded in maps + cellsighter too; no baseline submodules remain.
+    assert "baselines/" not in gm
 
 
 def test_notice_file_present():
