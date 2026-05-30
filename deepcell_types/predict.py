@@ -169,14 +169,16 @@ def _build_model(checkpoint, dct_config, device):
 
     marker_embeddings = np.zeros((n_markers, embedding_dim), dtype=np.float32)
     use_conditioned_mp_head = "marker_pos_head.film_scale.weight" in state_dict
-    has_tumor_head = any(key.startswith("tumor_head.") for key in state_dict)
     # Auto-detect mean_intensity_mode from ckpt keys
     has_cls = any(k.startswith("intensity_cls_branch.") for k in state_dict)
     has_pch = any(k.startswith("intensity_per_channel_proj.") for k in state_dict)
     mean_intensity_mode = (
-        "both" if has_cls and has_pch
-        else "cls_residual" if has_cls
-        else "per_channel" if has_pch
+        "both"
+        if has_cls and has_pch
+        else "cls_residual"
+        if has_cls
+        else "per_channel"
+        if has_pch
         else "none"
     )
 
@@ -188,7 +190,6 @@ def _build_model(checkpoint, dct_config, device):
         n_domains=_infer_n_domains(state_dict),
         resnet_base_channels=state_dict["channel_encoder.stem.0.weight"].shape[0],
         spatial_pool_size=_infer_spatial_pool_size(state_dict),
-        tumor_head=has_tumor_head,
         use_conditioned_mp_head=use_conditioned_mp_head,
         mean_intensity_mode=mean_intensity_mode,
     )
@@ -202,8 +203,7 @@ def _excluded_celltype_indices(dct_config, tissue, batch_size):
     tct = dct_config.get_tct_mapping()
     if tissue not in tct:
         raise ValueError(
-            f"Unknown tissue_filter={tissue!r}. "
-            f"Valid tissues: {sorted(tct)}"
+            f"Unknown tissue_filter={tissue!r}. Valid tissues: {sorted(tct)}"
         )
     allowed = {
         dct_config.ct2idx[name] for name in tct[tissue] if name in dct_config.ct2idx
@@ -323,9 +323,7 @@ def predict(
         # FutureWarning (rather than DeprecationWarning) so end-user scripts
         # actually see the message — DeprecationWarning is silenced by default
         # outside __main__ and test contexts.
-        warnings.warn(
-            _TISSUE_EXCLUDE_DEPRECATION_MSG, FutureWarning, stacklevel=2
-        )
+        warnings.warn(_TISSUE_EXCLUDE_DEPRECATION_MSG, FutureWarning, stacklevel=2)
         tissue_filter = tissue_exclude
 
     device = torch.device(device_num)

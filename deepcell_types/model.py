@@ -267,7 +267,6 @@ class CellTypeAnnotator(nn.Module):
         n_domains=8,
         marker_embeddings=None,
         dropout=0.1,
-        tumor_head=False,
         **kwargs,
     ):
         super().__init__()
@@ -342,16 +341,6 @@ class CellTypeAnnotator(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(d_model // 2, n_domains),
         )
-
-        # Tumor: optional binary prediction head
-        self._has_tumor_head = tumor_head
-        if tumor_head:
-            self.tumor_head = nn.Sequential(
-                nn.Linear(d_model, d_model // 4),
-                nn.SiLU(),
-                nn.Dropout(dropout),
-                nn.Linear(d_model // 4, 1),
-            )
 
         # Mean-intensity-per-channel side input (zero-init → identity warm-start).
         # Canonical paper recipe is "cls_residual" (matches CLI default in
@@ -560,11 +549,6 @@ class CellTypeAnnotator(nn.Module):
                 -1
             )  # (B, C_max)
 
-        # Tumor binary prediction from CLS
-        tumor_logit = (
-            self.tumor_head(cls_embedding) if self._has_tumor_head else None
-        )  # (B, 1) or None
-
         if return_attn_weights:
             cls_to_channels = torch.stack(
                 all_attn_weights, dim=0
@@ -575,7 +559,6 @@ class CellTypeAnnotator(nn.Module):
                 marker_pos_logits,
                 cls_embedding,
                 channel_outputs,
-                tumor_logit,
                 cls_to_channels,
             )
 
@@ -585,7 +568,6 @@ class CellTypeAnnotator(nn.Module):
             marker_pos_logits,
             cls_embedding,
             channel_outputs,
-            tumor_logit,
         )
 
 

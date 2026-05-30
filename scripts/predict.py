@@ -24,9 +24,15 @@ from deepcell_types.training.dataset import create_dataloader
 from deepcell_types.model import create_model
 from deepcell_types.training.losses import FocalLoss
 from deepcell_types.training.utils import (
-    BatchData, LossesAndMetrics, MPMetricsTracker, PredLogger,
-    log_epoch_metrics, log_confusion_matrix, seed_everything,
-    get_tissue_ct_exclude, build_label_remap,
+    BatchData,
+    LossesAndMetrics,
+    MPMetricsTracker,
+    PredLogger,
+    log_epoch_metrics,
+    log_confusion_matrix,
+    seed_everything,
+    get_tissue_ct_exclude,
+    build_label_remap,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,22 +47,60 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 @click.option("--zarr_dir", type=str, default=str(DATA_DIR))
 @click.option("--skip_datasets", type=str, multiple=True, default=[])
 @click.option("--keep_datasets", type=str, multiple=True, default=[])
-@click.option("--exclude_ct_tissue", type=bool, default=False,
-              help="Apply per-tissue cell-type exclusion at inference. Default False to match "
-                   "canonical `--no_ct_exclude` training recipe; set True only if the checkpoint "
-                   "was trained without `--no_ct_exclude`.")
+@click.option(
+    "--exclude_ct_tissue",
+    type=bool,
+    default=False,
+    help="Apply per-tissue cell-type exclusion at inference. Default False to match "
+    "canonical `--no_ct_exclude` training recipe; set True only if the checkpoint "
+    "was trained without `--no_ct_exclude`.",
+)
 @click.option("--batch_size", type=int, default=256)
 @click.option("--num_workers", type=int, default=16)
 @click.option("--svd_embeddings_path", type=str, default=None)
-@click.option("--model_path", type=str, default=None, help="Explicit path to model weights")
-@click.option("--resnet_channels", type=int, default=48, help="PerChannelResNet base channels (canonical: 48)")
-@click.option("--mean_intensity_mode", type=click.Choice(["auto", "none", "cls_residual", "per_channel", "both"]), default="auto",
-              help="Mean-intensity side-input mode (canonical: cls_residual). 'auto' detects from ckpt keys.")
-@click.option("--split_file", type=str, default=None, help="FOV split JSON; evaluates val set only")
-@click.option("--min_channels", type=int, default=0, help="Min model-visible marker channels per dataset (default 0 = no filter)")
-@click.option("--spatial_pool_size", type=int, default=1, help="Spatial pooling grid size (must match training)")
-@click.option("--apply_tissue_mask", is_flag=True, help="Mask tissue-inappropriate cell type logits before softmax (post-hoc fix for models trained with --no_ct_exclude)")
-@click.option("--strict_tissue_mask", is_flag=True, help="Use training-split-based tissue mapping (stricter); requires --split_file and implies --apply_tissue_mask")
+@click.option(
+    "--model_path", type=str, default=None, help="Explicit path to model weights"
+)
+@click.option(
+    "--resnet_channels",
+    type=int,
+    default=48,
+    help="PerChannelResNet base channels (canonical: 48)",
+)
+@click.option(
+    "--mean_intensity_mode",
+    type=click.Choice(["auto", "none", "cls_residual", "per_channel", "both"]),
+    default="auto",
+    help="Mean-intensity side-input mode (canonical: cls_residual). 'auto' detects from ckpt keys.",
+)
+@click.option(
+    "--split_file",
+    type=str,
+    default=None,
+    help="FOV split JSON; evaluates val set only",
+)
+@click.option(
+    "--min_channels",
+    type=int,
+    default=0,
+    help="Min model-visible marker channels per dataset (default 0 = no filter)",
+)
+@click.option(
+    "--spatial_pool_size",
+    type=int,
+    default=1,
+    help="Spatial pooling grid size (must match training)",
+)
+@click.option(
+    "--apply_tissue_mask",
+    is_flag=True,
+    help="Mask tissue-inappropriate cell type logits before softmax (post-hoc fix for models trained with --no_ct_exclude)",
+)
+@click.option(
+    "--strict_tissue_mask",
+    is_flag=True,
+    help="Use training-split-based tissue mapping (stricter); requires --split_file and implies --apply_tissue_mask",
+)
 @click.option(
     "--learn_mp_thresholds",
     is_flag=True,
@@ -66,14 +110,24 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
         "for a fair cross-model comparison, use fixed thresholds via --mp_threshold_file instead."
     ),
 )
-@click.option("--mp_threshold_file", type=str, default=None, help="Path to pre-computed per-marker MP thresholds JSON")
+@click.option(
+    "--mp_threshold_file",
+    type=str,
+    default=None,
+    help="Path to pre-computed per-marker MP thresholds JSON",
+)
 @click.option(
     "--save_attention",
     is_flag=True,
     default=False,
     help="Save CLS→channel attention artifacts as output/{model_name}_mp_artifacts.npz (~390 MB per run). Off by default.",
 )
-@click.option("--seed", type=int, default=42, help="Random seed for inference reproducibility (matters when comparing predictions across seeds).")
+@click.option(
+    "--seed",
+    type=int,
+    default=42,
+    help="Random seed for inference reproducibility (matters when comparing predictions across seeds).",
+)
 @click.option(
     "--ct_abstention_k",
     type=float,
@@ -91,16 +145,34 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
     ),
 )
 def main(
-    model_name, device_num, enable_wandb, zarr_dir, skip_datasets, keep_datasets,
-    exclude_ct_tissue, batch_size, num_workers, svd_embeddings_path,
-    model_path, resnet_channels, mean_intensity_mode, split_file, min_channels, spatial_pool_size,
-    apply_tissue_mask, strict_tissue_mask,
-    learn_mp_thresholds, mp_threshold_file,
-    save_attention, seed, ct_abstention_k,
+    model_name,
+    device_num,
+    enable_wandb,
+    zarr_dir,
+    skip_datasets,
+    keep_datasets,
+    exclude_ct_tissue,
+    batch_size,
+    num_workers,
+    svd_embeddings_path,
+    model_path,
+    resnet_channels,
+    mean_intensity_mode,
+    split_file,
+    min_channels,
+    spatial_pool_size,
+    apply_tissue_mask,
+    strict_tissue_mask,
+    learn_mp_thresholds,
+    mp_threshold_file,
+    save_attention,
+    seed,
+    ct_abstention_k,
 ):
     seed_everything(seed)
 
     import wandb
+
     if enable_wandb:
         wandb.login()
     run = wandb.init(
@@ -116,7 +188,9 @@ def main(
     d_model = 256
 
     # Load marker embeddings
-    marker_embeddings = dct_config.load_marker_embeddings_array(svd_path=svd_embeddings_path)
+    marker_embeddings = dct_config.load_marker_embeddings_array(
+        svd_path=svd_embeddings_path
+    )
 
     use_cuda = device.type == "cuda"
 
@@ -166,18 +240,17 @@ def main(
         model_path = f"models/model_{model_name}_best.pt"
     checkpoint = torch.load(model_path, map_location=device, weights_only=True)
 
-    # Auto-detect tumor head from checkpoint
-    has_tumor_head = False
-    if isinstance(checkpoint, dict) and "model" in checkpoint:
-        has_tumor_head = any(k.startswith("tumor_head.") for k in checkpoint["model"])
-    elif isinstance(checkpoint, dict):
-        has_tumor_head = any(k.startswith("tumor_head.") for k in checkpoint)
-
     # Auto-detect mean_intensity_mode from ckpt keys when requested
-    state_for_detect = checkpoint["model"] if (isinstance(checkpoint, dict) and "model" in checkpoint) else (checkpoint if isinstance(checkpoint, dict) else {})
+    state_for_detect = (
+        checkpoint["model"]
+        if (isinstance(checkpoint, dict) and "model" in checkpoint)
+        else (checkpoint if isinstance(checkpoint, dict) else {})
+    )
     if mean_intensity_mode == "auto":
         has_cls = any(k.startswith("intensity_cls_branch.") for k in state_for_detect)
-        has_pch = any(k.startswith("intensity_per_channel_proj.") for k in state_for_detect)
+        has_pch = any(
+            k.startswith("intensity_per_channel_proj.") for k in state_for_detect
+        )
         if has_cls and has_pch:
             mean_intensity_mode = "both"
         elif has_cls:
@@ -189,20 +262,31 @@ def main(
         print(f"Auto-detected mean_intensity_mode = {mean_intensity_mode}")
 
     # Build model
-    model = create_model(dct_config, marker_embeddings, d_model=d_model,
-                         resnet_base_channels=resnet_channels,
-                         tumor_head=has_tumor_head, spatial_pool_size=spatial_pool_size,
-                         mean_intensity_mode=mean_intensity_mode)
+    model = create_model(
+        dct_config,
+        marker_embeddings,
+        d_model=d_model,
+        resnet_base_channels=resnet_channels,
+        spatial_pool_size=spatial_pool_size,
+        mean_intensity_mode=mean_intensity_mode,
+    )
 
     if isinstance(checkpoint, dict) and "model" in checkpoint:
         model.load_state_dict(checkpoint["model"])
     else:
         # Legacy format: plain state_dict — detect old Linear MP head
-        if "marker_pos_head.weight" in checkpoint and "marker_pos_head.film_scale.weight" not in checkpoint:
-            model = create_model(dct_config, marker_embeddings, d_model=d_model,
-                                resnet_base_channels=resnet_channels,
-                                use_conditioned_mp_head=False,
-                                mean_intensity_mode=mean_intensity_mode).to(device)
+        if (
+            "marker_pos_head.weight" in checkpoint
+            and "marker_pos_head.film_scale.weight" not in checkpoint
+        ):
+            model = create_model(
+                dct_config,
+                marker_embeddings,
+                d_model=d_model,
+                resnet_base_channels=resnet_channels,
+                use_conditioned_mp_head=False,
+                mean_intensity_mode=mean_intensity_mode,
+            ).to(device)
         model.load_state_dict(checkpoint)
         print("Legacy checkpoint")
 
@@ -220,17 +304,26 @@ def main(
         max_threshold_batches = 500_000 // batch_size
         total_batches = len(train_loader)
         n_batches = min(max_threshold_batches, total_batches)
-        print(f"Learning per-marker MP thresholds from train set ({n_batches}/{total_batches} batches)...")
+        print(
+            f"Learning per-marker MP thresholds from train set ({n_batches}/{total_batches} batches)..."
+        )
         train_mp_tracker = MPMetricsTracker()
         model.eval()
         with torch.no_grad():
-            for i, batch in enumerate(tqdm(train_loader, desc="Learning MP thresholds (train)", total=n_batches)):
+            for i, batch in enumerate(
+                tqdm(
+                    train_loader, desc="Learning MP thresholds (train)", total=n_batches
+                )
+            ):
                 if i >= n_batches:
                     break
                 batch_data = BatchData(*batch).to(device)
-                _, _, marker_pos_logits, _, _, _ = model(
-                    batch_data.sample, batch_data.spatial_context,
-                    batch_data.ch_idx, batch_data.mask, None,
+                _, _, marker_pos_logits, _, _ = model(
+                    batch_data.sample,
+                    batch_data.spatial_context,
+                    batch_data.ch_idx,
+                    batch_data.mask,
+                    None,
                     domain_idx=batch_data.domain_idx,
                 )
                 valid_mp_channels = ~batch_data.mask & batch_data.marker_positivity_mask
@@ -241,42 +334,58 @@ def main(
                     train_mp_tracker.update(mp_pred, mp_target, mp_ch_indices)
 
         mp_thresholds = train_mp_tracker.find_optimal_thresholds()
-        named_thresholds = {idx2marker.get(k, str(k)): v for k, v in mp_thresholds.items()}
+        named_thresholds = {
+            idx2marker.get(k, str(k)): v for k, v in mp_thresholds.items()
+        }
 
         import json
+
         threshold_path = Path(f"output/{model_name}_mp_thresholds.json")
         threshold_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(threshold_path, 'w') as f:
+        with open(threshold_path, "w") as f:
             json.dump(named_thresholds, f, indent=2, sort_keys=True)
 
         t_values = list(mp_thresholds.values())
-        print(f"Learned thresholds for {len(mp_thresholds)} markers, saved to {threshold_path}")
-        print(f"  Range: [{min(t_values):.3f}, {max(t_values):.3f}], mean={np.mean(t_values):.3f}")
+        print(
+            f"Learned thresholds for {len(mp_thresholds)} markers, saved to {threshold_path}"
+        )
+        print(
+            f"  Range: [{min(t_values):.3f}, {max(t_values):.3f}], mean={np.mean(t_values):.3f}"
+        )
 
         # Report train set metrics at learned vs fixed thresholds
         train_learned = train_mp_tracker.compute()
         train_fixed = train_mp_tracker.compute_at_fixed_threshold(0.5)
-        print(f"  Train MP macro F1: {train_fixed['mp_macro_f1']:.4f} (fixed 0.5) → {train_learned['mp_macro_f1']:.4f} (learned)")
+        print(
+            f"  Train MP macro F1: {train_fixed['mp_macro_f1']:.4f} (fixed 0.5) → {train_learned['mp_macro_f1']:.4f} (learned)"
+        )
         del train_loader, train_mp_tracker
 
     elif mp_threshold_file is not None:
         import json
+
         with open(mp_threshold_file) as f:
             named_thresholds = json.load(f)
         mp_thresholds = {}
         for name, t in named_thresholds.items():
             if name in dct_config.marker2idx:
                 mp_thresholds[dct_config.marker2idx[name]] = t
-        print(f"Loaded {len(mp_thresholds)} per-marker thresholds from {mp_threshold_file}")
+        print(
+            f"Loaded {len(mp_thresholds)} per-marker thresholds from {mp_threshold_file}"
+        )
 
     # Metrics (with hierarchical eval to match train.py)
     label_remap = build_label_remap(dct_config.ct2idx).to(device)
-    compact_ct2idx = {name: label_remap[idx].item() for name, idx in dct_config.ct2idx.items()}
+    compact_ct2idx = {
+        name: label_remap[idx].item() for name, idx in dct_config.ct2idx.items()
+    }
     losses_metrics = LossesAndMetrics(
         ct_loss_fn=FocalLoss(gamma=2.0),
         domain_loss_fn=torch.nn.CrossEntropyLoss(),
         marker_pos_loss_fn=None,
-        acc_domain_metric=MulticlassAccuracy(num_classes=dct_config.NUM_DOMAINS).to(device),
+        acc_domain_metric=MulticlassAccuracy(num_classes=dct_config.NUM_DOMAINS).to(
+            device
+        ),
         conf_mat_ct_metric=MulticlassConfusionMatrix(
             num_classes=dct_config.NUM_CELLTYPES
         ).to(device),
@@ -298,9 +407,13 @@ def main(
         if strict_tissue_mask:
             tcm = {
                 tissue: set(types)
-                for tissue, types in dct_config.build_tissue_mapping_from_split(split_file).items()
+                for tissue, types in dct_config.build_tissue_mapping_from_split(
+                    split_file
+                ).items()
             }
-            print(f"Tissue mask: strict mode (training-split-based, {len(tcm)} tissues)")
+            print(
+                f"Tissue mask: strict mode (training-split-based, {len(tcm)} tissues)"
+            )
         else:
             tcm = {
                 tissue: set(types)
@@ -309,19 +422,23 @@ def main(
             print(f"Tissue mask: archive-based ({len(tcm)} tissues)")
         ct2idx = dct_config.ct2idx
         n_ct = dct_config.NUM_CELLTYPES
-        for ds_name in (metadata.get("active_datasets", []) if metadata else []):
+        for ds_name in metadata.get("active_datasets", []) if metadata else []:
             tissue = dct_config.get_tissue_for_dataset(ds_name)
             if tissue is None or tissue not in tcm or not tcm[tissue]:
                 # No tissue info or empty allowed list -> allow all types
-                tissue_mask_cache[ds_name] = torch.ones(n_ct, dtype=torch.bool, device=device)
+                tissue_mask_cache[ds_name] = torch.ones(
+                    n_ct, dtype=torch.bool, device=device
+                )
             else:
                 allowed = torch.zeros(n_ct, dtype=torch.bool, device=device)
                 for ct in tcm[tissue]:
                     if ct in ct2idx:
                         allowed[ct2idx[ct]] = True
                 tissue_mask_cache[ds_name] = allowed
-        print(f"Tissue mask: precomputed for {len(tissue_mask_cache)} datasets "
-              f"({sum(1 for v in tissue_mask_cache.values() if not v.all())} with restrictions)")
+        print(
+            f"Tissue mask: precomputed for {len(tissue_mask_cache)} datasets "
+            f"({sum(1 for v in tissue_mask_cache.values() if not v.all())} with restrictions)"
+        )
 
     # Predict
     model.eval()
@@ -329,7 +446,6 @@ def main(
     predlogger = PredLogger(dct_config.ct2idx)
 
     all_attn_mp = []
-    all_tumor_probs = []
 
     with torch.no_grad():
         for batch in tqdm(test_loader, desc="Predicting"):
@@ -360,9 +476,22 @@ def main(
                 domain_idx=batch_data.domain_idx,
             )
             if save_attention:
-                ct_logits, domain_logits, marker_pos_logits, cls_embedding, _, tumor_logit, cls_to_channels = outputs
+                (
+                    ct_logits,
+                    domain_logits,
+                    marker_pos_logits,
+                    _,
+                    _,
+                    cls_to_channels,
+                ) = outputs
             else:
-                ct_logits, domain_logits, marker_pos_logits, cls_embedding, _, tumor_logit = outputs
+                (
+                    ct_logits,
+                    domain_logits,
+                    marker_pos_logits,
+                    _,
+                    _,
+                ) = outputs
                 cls_to_channels = None
 
             # Apply post-hoc tissue mask: mask out tissue-inappropriate logits
@@ -370,7 +499,7 @@ def main(
                 for i, ds_name in enumerate(batch_data.dataset_name):
                     allowed = tissue_mask_cache.get(ds_name)
                     if allowed is not None and not allowed.all():
-                        ct_logits[i, ~allowed] = float('-inf')
+                        ct_logits[i, ~allowed] = float("-inf")
 
             probs = F.softmax(ct_logits, dim=-1)
 
@@ -380,11 +509,6 @@ def main(
             if save_attention:
                 attn_mp = cls_to_channels.mean(dim=0)  # (B, C_max)
                 all_attn_mp.append(attn_mp.cpu().numpy())
-
-            # Tumor probability
-            if tumor_logit is not None:
-                tumor_prob = torch.sigmoid(tumor_logit.squeeze(-1))  # (B,)
-                all_tumor_probs.append(tumor_prob.cpu().numpy())
 
             # Log predictions (PredLogger stores original ct2idx labels for CSV)
             predlogger.log(
@@ -412,7 +536,8 @@ def main(
     log_epoch_metrics(epoch_metrics, "test")
 
     log_confusion_matrix(
-        losses_metrics.conf_mat_ct_metric, "test",
+        losses_metrics.conf_mat_ct_metric,
+        "test",
         sorted(dct_config.ct2idx, key=dct_config.ct2idx.get),
         metric_name="confusion_matrix_ct",
     )
@@ -420,13 +545,18 @@ def main(
     if mp_thresholds is not None:
         fixed_metrics = losses_metrics.mp_metrics.compute_at_fixed_threshold(0.5)
         print("\nVal MP metrics comparison:")
-        print(f"  Fixed 0.5:          macro_f1={fixed_metrics['mp_macro_f1']:.4f}  macro_prec={fixed_metrics['mp_macro_precision']:.4f}  macro_rec={fixed_metrics['mp_macro_recall']:.4f}")
-        print(f"  Learned thresholds: macro_f1={epoch_metrics['mp_macro_f1']:.4f}  macro_prec={epoch_metrics['mp_macro_precision']:.4f}  macro_rec={epoch_metrics['mp_macro_recall']:.4f}")
+        print(
+            f"  Fixed 0.5:          macro_f1={fixed_metrics['mp_macro_f1']:.4f}  macro_prec={fixed_metrics['mp_macro_precision']:.4f}  macro_rec={fixed_metrics['mp_macro_recall']:.4f}"
+        )
+        print(
+            f"  Learned thresholds: macro_f1={epoch_metrics['mp_macro_f1']:.4f}  macro_prec={epoch_metrics['mp_macro_precision']:.4f}  macro_rec={epoch_metrics['mp_macro_recall']:.4f}"
+        )
 
     # Per-marker MP breakdown
     per_marker = losses_metrics.mp_metrics.compute_per_marker(idx2marker)
     if per_marker:
         import pandas as pd
+
         mp_df = pd.DataFrame(per_marker).T
         mp_df = mp_df.sort_values("f1", ascending=False)
         print(f"\nPer-marker MP metrics ({len(mp_df)} markers):")
@@ -438,13 +568,6 @@ def main(
     output_path = Path(f"output/{model_name}_prediction.csv")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     predlogger.save(output_path)
-
-    # Add tumor_probability column if tumor head was active
-    if all_tumor_probs:
-        import pandas as pd
-        df = pd.read_csv(output_path)
-        df["tumor_probability"] = np.concatenate(all_tumor_probs)
-        df.to_csv(output_path, index=False)
 
     print(f"Predictions saved to {output_path}")
 
@@ -484,11 +607,13 @@ def main(
         meta_rows = []
         for ds_key in _discover_fov_keys(root):
             a = dict(root[ds_key].attrs)
-            meta_rows.append({
-                "dataset_name": ds_key,
-                "tissue": a.get("tissue") or a.get("organ") or "unknown",
-                "modality": a.get("modality") or "unknown",
-            })
+            meta_rows.append(
+                {
+                    "dataset_name": ds_key,
+                    "tissue": a.get("tissue") or a.get("organ") or "unknown",
+                    "modality": a.get("modality") or "unknown",
+                }
+            )
         meta_df = pd.DataFrame(meta_rows)
         df = df.merge(meta_df, on="dataset_name", how="left")
         df["tissue"] = df["tissue"].fillna("unknown")
@@ -522,7 +647,10 @@ def main(
         coverage = n_kept / n_total if n_total else 0.0
         if n_kept > 0:
             macro_f1_post = hierarchical_macro_f1(
-                true_labels[kept], pred_labels_pre[kept], class_cols, CELL_TYPE_HIERARCHY
+                true_labels[kept],
+                pred_labels_pre[kept],
+                class_cols,
+                CELL_TYPE_HIERARCHY,
             )
         else:
             macro_f1_post = 0.0
@@ -533,11 +661,13 @@ def main(
         df.to_csv(output_path, index=False)
 
         print(f"\nCT abstention enabled (k={ct_abstention_k:.1f})")
-        print(f"Coverage: {coverage*100:.2f}% ({n_abstained:,} abstained / {n_total:,} total)")
+        print(
+            f"Coverage: {coverage * 100:.2f}% ({n_abstained:,} abstained / {n_total:,} total)"
+        )
         delta_pp = (macro_f1_post - macro_f1_pre) * 100
         print(
-            f"Macro F1 on kept cells: {macro_f1_post*100:.2f}% "
-            f"(vs {macro_f1_pre*100:.2f}% with no abstention; {delta_pp:+.2f}pp)"
+            f"Macro F1 on kept cells: {macro_f1_post * 100:.2f}% "
+            f"(vs {macro_f1_pre * 100:.2f}% with no abstention; {delta_pp:+.2f}pp)"
         )
 
     # Save attention-derived MP as analysis artifact (gated by --save_attention;
