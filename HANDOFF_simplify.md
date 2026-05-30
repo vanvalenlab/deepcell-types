@@ -83,10 +83,10 @@ PYTHONPATH=$WT $PY -m pytest tests/ -q -p no:cacheprovider   # baseline: 227 pas
 
 ---
 
-## TODO D — behavior-changing / judgment items (need explicit sign-off)
+## TODO D — behavior-changing / judgment items (RESOLVED 2026-05-30)
 
-These are intentionally NOT done because they change behavior or public surface.
-Each needs a human decision, not a blind refactor.
+All four were reviewed with the maintainer. **#3 done; #1, #2, #4 decided
+"no action"** with the rationale recorded inline below.
 
 1. **Unify the two preprocessing percentile paths.**
    `deepcell_types/preprocessing.py` has `_percentile_threshold` (NaN-percentile,
@@ -95,6 +95,11 @@ Each needs a human decision, not a blind refactor.
    against). They are deliberately NOT unified — the inference path must stay
    bit-compatible with the trained checkpoint. **Do not merge without retraining.**
    See the comment block above `_normalize_per_channel` in `preprocessing.py`.
+   **DECISION (2026-05-30): no action.** Audit confirmed the two functions are
+   identical for non-negative pixels but diverge on negatives (NaN-version drops
+   `image > 0`; nonzero-version keeps `np.nonzero`), and the two pipelines also use
+   different resampling. Unifying would risk changing published-checkpoint outputs
+   for no functional gain. Revisit at the next retrain.
 
 2. **Shadowed module-name pairs** — `config.py`/`training/config.py`,
    `dataset.py`/`training/dataset.py`, `abstention.py`/`training/abstention.py`.
@@ -103,11 +108,19 @@ Each needs a human decision, not a blind refactor.
    import paths and the baselines. **Recommendation: leave as-is.** Filename-only
    navigation hazard; the classes are uniquely named (DCTConfig vs
    TissueNetConfig, PatchDataset vs FullImageDataset).
+   **DECISION (2026-05-30): no action.** The pairs live in different packages
+   (`deepcell_types.config` vs `deepcell_types.training.config`) so there is no
+   real import collision — only a shared basename. Renaming breaks public/training
+   import paths (`from deepcell_types.config import DCTConfig`,
+   `from deepcell_types.training.config import ...` across scripts/tests/baselines)
+   for a cosmetic gain.
 
-3. **Remaining public-looking but in-repo-unused config members.** Some
-   `TissueNetConfig` members are unused within this repo but read like a stable
-   public API external notebooks may depend on. Removing them is a public-API
-   break — get sign-off and a deprecation cycle rather than deleting outright.
+3. **Remaining public-looking but in-repo-unused config members.** ✅ **DONE
+   (`41891b0`).** Audit found three dead methods on the training-internal
+   `TissueNetConfig` (`build_tissue_mapping_from_split` and its transitive-only
+   callees `get_tissue_for_dataset`, `_normalize_tissue_name`). Since
+   `TissueNetConfig` is not in any public `__all__`, this was dead-code removal,
+   not a public-API break. No public DCTConfig members were touched.
 
 4. **`forward()` still returns several heads** (domain_logits, marker_pos_logits,
    cls_embedding, channel_outputs) that not all callers use. Trimming the return
@@ -115,6 +128,10 @@ Each needs a human decision, not a blind refactor.
    do this with a clear caller audit. Now that TODO B made the output a named
    `AnnotatorOutput`, an unused head can be dropped by name with less risk, but it
    is still a public-contract change.
+   **DECISION (2026-05-30): no action.** Caller audit: every head has a consumer
+   except `cls_embedding` (0 consumers repo-wide). But the pooled CLS embedding is
+   a natural public output (embedding extraction / probing / clustering); kept
+   intentionally rather than churn the `AnnotatorOutput` contract for marginal gain.
 
 ---
 
