@@ -23,3 +23,5 @@ if not (_have("xgboost") and _have("optuna")):
 # metric reducer) is always co-installed with pandas via the [train] extra.
 if not _have("pandas"):
     collect_ignore.append("test_nimbus_metrics_characterization.py")
+if not _have("pandas"):
+    collect_ignore.append("test_runner_round2.py")

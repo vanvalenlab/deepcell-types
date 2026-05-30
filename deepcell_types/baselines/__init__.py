@@ -10,4 +10,5 @@ REGISTRY = {
     "xgboost": "deepcell_types.baselines.xgb.run:main",
     "xgboost-tune": "deepcell_types.baselines.xgb.tuning:main",
     "nimbus": "deepcell_types.baselines.nimbus.run:main",
+    "maps": "deepcell_types.baselines.maps.run:main",
 }
