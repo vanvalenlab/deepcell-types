@@ -25,5 +25,8 @@ if not _have("pandas"):
     collect_ignore.append("test_nimbus_metrics_characterization.py")
 if not _have("pandas"):
     collect_ignore.append("test_runner_round2.py")
-if not _have("torchvision"):
+# cellsighter.model imports torchvision AND (via deepcell_types.training.utils)
+# pandas, so both must be present or this test would error, not skip. torchvision
+# does not pull pandas, so guarding on torchvision alone is insufficient.
+if not (_have("torchvision") and _have("pandas")):
     collect_ignore.append("test_cellsighter_convert_batch_characterization.py")

@@ -32,6 +32,7 @@ def test_maps_model_forward_shape_and_determinism():
 
 def test_cellsighter_model_forward_shape_and_determinism():
     pytest.importorskip("torchvision")
+    pytest.importorskip("pandas")  # cellsighter.model -> training.utils imports pandas
     from deepcell_types.baselines.cellsighter.model import CellSighterModel
 
     torch.manual_seed(0)
