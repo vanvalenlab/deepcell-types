@@ -404,7 +404,7 @@ def main(
         dropout=dropout,
     ).to(device, dtype=torch.float64)
 
-    print(f"\nModel architecture:")
+    print("\nModel architecture:")
     print(
         f"  Input: {input_dim} -> Hidden: {hidden_dim} -> Output: {n_classes_compact}"
     )
@@ -541,7 +541,7 @@ def main(
     except ValueError:
         metrics["auroc"] = float("nan")
 
-    print(f"\nFinal Test Results:")
+    print("\nFinal Test Results:")
     print(f"  Macro Accuracy: {metrics['macro_accuracy']:.4f}")
     print(f"  Weighted Accuracy: {metrics['weighted_accuracy']:.4f}")
     print(f"  Macro F1: {metrics['macro_f1']:.4f}")

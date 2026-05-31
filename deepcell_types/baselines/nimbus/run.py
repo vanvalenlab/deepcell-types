@@ -30,13 +30,16 @@ from deepcell_types.training.config import TissueNetConfig
 def check_nimbus_installed():
     """Check if Nimbus-Inference is installed."""
     try:
-        import nimbus_inference
+        import nimbus_inference  # noqa: F401  # availability probe only
+
         return True
     except ImportError:
         return False
 
 
-def load_fov_data(zf, dataset_key: str, load_raw: bool = True) -> Tuple[Optional[np.ndarray], np.ndarray, List[str], Dict]:
+def load_fov_data(
+    zf, dataset_key: str, load_raw: bool = True
+) -> Tuple[Optional[np.ndarray], np.ndarray, List[str], Dict]:
     """
     Load FOV data from zarr archive.
 
@@ -104,7 +107,10 @@ def load_fov_data(zf, dataset_key: str, load_raw: bool = True) -> Tuple[Optional
                         target = (float(val[0]) * scale, float(val[1]) * scale)
                         found_idx = None
                         for key, cent in centroids_raw.items():
-                            if abs(cent[0] - target[0]) < 0.5 and abs(cent[1] - target[1]) < 0.5:
+                            if (
+                                abs(cent[0] - target[0]) < 0.5
+                                and abs(cent[1] - target[1]) < 0.5
+                            ):
                                 found_idx = int(key)
                                 break
                         if found_idx is not None:
@@ -168,7 +174,9 @@ def compute_marker_positivity_metrics(
     if not gt_records:
         return {"overall": {}, "per_marker": {}}
 
-    gt_long = pd.DataFrame(gt_records, columns=["dataset_name", "cell_type", "marker", "gt_binary"])
+    gt_long = pd.DataFrame(
+        gt_records, columns=["dataset_name", "cell_type", "marker", "gt_binary"]
+    )
 
     # Melt predictions to long format: one row per (cell, marker)
     pred_long = predictions.melt(
@@ -180,7 +188,9 @@ def compute_marker_positivity_metrics(
     pred_long["pred_binary"] = pred_long["pred_value"] >= threshold
 
     # Inner join to keep only (dataset, cell_type, marker) combos with GT
-    merged = pred_long.merge(gt_long, on=["dataset_name", "cell_type", "marker"], how="inner")
+    merged = pred_long.merge(
+        gt_long, on=["dataset_name", "cell_type", "marker"], how="inner"
+    )
 
     if len(merged) == 0:
         return {"overall": {}, "per_marker": {}}
@@ -230,7 +240,9 @@ def compute_marker_positivity_metrics(
         "mp_micro_precision": summary["mp_micro_precision"],
         "mp_micro_recall": summary["mp_micro_recall"],
         "mp_num_markers": summary["mp_num_markers"],
-        "mp_num_markers_excluded_from_macro_f1": summary["mp_num_markers_excluded_from_macro_f1"],
+        "mp_num_markers_excluded_from_macro_f1": summary[
+            "mp_num_markers_excluded_from_macro_f1"
+        ],
     }
 
     return {
@@ -325,6 +337,7 @@ def main(
     # Initialize wandb if enabled
     if enable_wandb:
         import wandb
+
         wandb.login()
         run = wandb.init(
             project="deepcelltypes-temp-train",
@@ -345,7 +358,9 @@ def main(
     marker_positivity_gt = dct_config.marker_positivity_labels
 
     print(f"Loading data from {zarr_dir}")
-    print(f"Datasets with marker positivity labels: {list(marker_positivity_gt.keys())}")
+    print(
+        f"Datasets with marker positivity labels: {list(marker_positivity_gt.keys())}"
+    )
 
     # Open zarr archive
     zf = zarr.open(zarr_dir, mode="r")
@@ -423,12 +438,13 @@ def main(
         sample_n = min(n_subset, len(candidates))
         chosen = rng.choice(candidates, size=sample_n, replace=False).tolist()
         per_channel = {}
-        print(f"Building normalization dict from {sample_n} FOVs (canonical n_subset={n_subset})...")
+        print(
+            f"Building normalization dict from {sample_n} FOVs (canonical n_subset={n_subset})..."
+        )
         for k in tqdm(chosen, desc="Norm sampling"):
             img = zf[k]["image"]
             ch_names = list(
-                img.attrs.get("standardized_channels")
-                or img.attrs.get("channels", [])
+                img.attrs.get("standardized_channels") or img.attrs.get("channels", [])
             )
             for ch_idx, ch_name in enumerate(ch_names):
                 ch_img = img[ch_idx][:].astype(np.float32)
@@ -441,9 +457,13 @@ def main(
         print(f"Normalization dict covers {len(norm_dict)} channels")
         return norm_dict
 
-    norm_dict = _build_normalization_dict(zf, dataset_keys, NORM_N_SUBSET, NORM_SEED, NORM_QUANTILE)
+    norm_dict = _build_normalization_dict(
+        zf, dataset_keys, NORM_N_SUBSET, NORM_SEED, NORM_QUANTILE
+    )
     if norm_dict is None:
-        print("Warning: no FOVs with raw image/ array — falling back to per-FOV q999 on preprocessed/raw")
+        print(
+            "Warning: no FOVs with raw image/ array — falling back to per-FOV q999 on preprocessed/raw"
+        )
 
     def _predict_with_tta(input_data: np.ndarray) -> np.ndarray:
         """Run Nimbus prediction with paper-mandated TTA (4 rotations × 2 flips averaged)."""
@@ -478,7 +498,9 @@ def main(
 
         try:
             # Load only mask and metadata (not raw — channels loaded lazily below)
-            _, mask, channel_names, cell_info = load_fov_data(zf, dataset_key, load_raw=False)
+            _, mask, channel_names, cell_info = load_fov_data(
+                zf, dataset_key, load_raw=False
+            )
         except Exception as e:
             print(f"Error loading {dataset_key}: {e}")
             continue
@@ -524,7 +546,8 @@ def main(
 
         # Resize binary mask from preprocessed (mask) resolution to model-target resolution.
         binary_mask_scaled = cv2.resize(
-            binary_mask.astype(np.float32), (w_scaled, h_scaled),
+            binary_mask.astype(np.float32),
+            (w_scaled, h_scaled),
             interpolation=cv2.INTER_NEAREST,
         )
 
@@ -551,11 +574,15 @@ def main(
 
             # Rescale to model magnification (matches canonical predict_fovs)
             channel_img_scaled = cv2.resize(
-                channel_img, (w_scaled, h_scaled), interpolation=cv2.INTER_LINEAR,
+                channel_img,
+                (w_scaled, h_scaled),
+                interpolation=cv2.INTER_LINEAR,
             )
 
             # Prepare input: (1, 2, H_scaled, W_scaled) - [marker, binary_mask]
-            input_data = np.stack([channel_img_scaled, binary_mask_scaled], axis=0)[np.newaxis, ...]
+            input_data = np.stack([channel_img_scaled, binary_mask_scaled], axis=0)[
+                np.newaxis, ...
+            ]
 
             # Run inference with paper-mandated TTA (4 rotations × 2 flips averaged)
             # Note: UNet forward already applies sigmoid, output is in [0, 1]
@@ -564,11 +591,15 @@ def main(
 
             # Resize prediction to mask resolution for per-cell aggregation
             pred_at_mask = cv2.resize(
-                pred_np, (w_mask, h_mask), interpolation=cv2.INTER_LINEAR,
+                pred_np,
+                (w_mask, h_mask),
+                interpolation=cv2.INTER_LINEAR,
             )
 
             # Vectorized mean prediction per cell (single pass over mask)
-            channel_preds = ndimage_mean(pred_at_mask, labels=mask, index=cell_indices_arr)
+            channel_preds = ndimage_mean(
+                pred_at_mask, labels=mask, index=cell_indices_arr
+            )
             channel_preds = np.nan_to_num(channel_preds, nan=0.0)
 
             fov_results[ch_name] = channel_preds.tolist()
@@ -596,48 +627,68 @@ def main(
         predictions_df, marker_positivity_gt, threshold=threshold
     )
 
-    print(f"\nOverall Marker Positivity Metrics (shared reduction with main model):")
-    overall = metrics['overall']
+    print("\nOverall Marker Positivity Metrics (shared reduction with main model):")
+    overall = metrics["overall"]
     for label, key in [
         ("Macro F1 (per-marker, NaN-excluded)", "mp_macro_f1"),
-        ("Micro F1 (global pool)",              "mp_micro_f1"),
-        ("Macro Precision",                     "mp_macro_precision"),
-        ("Macro Recall",                        "mp_macro_recall"),
-        ("Macro Accuracy",                      "mp_macro_accuracy"),
+        ("Micro F1 (global pool)", "mp_micro_f1"),
+        ("Macro Precision", "mp_macro_precision"),
+        ("Macro Recall", "mp_macro_recall"),
+        ("Macro Accuracy", "mp_macro_accuracy"),
     ]:
         val = overall.get(key, "N/A")
-        print(f"  {label}: {val:.4f}" if isinstance(val, (int, float)) else f"  {label}: {val}")
+        print(
+            f"  {label}: {val:.4f}"
+            if isinstance(val, (int, float))
+            else f"  {label}: {val}"
+        )
     print(f"  N Samples: {overall.get('n_samples', 'N/A')}")
-    print(f"  N Markers: {overall.get('mp_num_markers', 'N/A')} "
-          f"(excluded from macro_f1: {overall.get('mp_num_markers_excluded_from_macro_f1', 0)})")
+    print(
+        f"  N Markers: {overall.get('mp_num_markers', 'N/A')} "
+        f"(excluded from macro_f1: {overall.get('mp_num_markers_excluded_from_macro_f1', 0)})"
+    )
 
     # Print per-marker metrics (top 10 by sample count)
     if metrics["per_marker"]:
-        print(f"\nPer-Marker Metrics (top 10 by sample count):")
+        print("\nPer-Marker Metrics (top 10 by sample count):")
         sorted_markers = sorted(
-            metrics["per_marker"].items(),
-            key=lambda x: x[1]["n_samples"],
-            reverse=True
+            metrics["per_marker"].items(), key=lambda x: x[1]["n_samples"], reverse=True
         )[:10]
         for marker, m in sorted_markers:
-            print(f"  {marker}: Acc={m['accuracy']:.3f}, F1={m['f1']:.3f}, N={m['n_samples']}")
+            print(
+                f"  {marker}: Acc={m['accuracy']:.3f}, F1={m['f1']:.3f}, N={m['n_samples']}"
+            )
 
     # Log to wandb
     if enable_wandb:
-        wandb.log({
-            # Shared-with-main-model keys (apples-to-apples comparison):
-            "marker_positivity/mp_macro_f1": metrics["overall"].get("mp_macro_f1", 0),
-            "marker_positivity/mp_micro_f1": metrics["overall"].get("mp_micro_f1", 0),
-            "marker_positivity/mp_macro_precision": metrics["overall"].get("mp_macro_precision", 0),
-            "marker_positivity/mp_macro_recall": metrics["overall"].get("mp_macro_recall", 0),
-            "marker_positivity/mp_macro_accuracy": metrics["overall"].get("mp_macro_accuracy", 0),
-            "marker_positivity/mp_num_markers": metrics["overall"].get("mp_num_markers", 0),
-            # Legacy keys retained for analysis-script compat:
-            "marker_positivity/accuracy": metrics["overall"].get("accuracy", 0),
-            "marker_positivity/precision": metrics["overall"].get("precision", 0),
-            "marker_positivity/recall": metrics["overall"].get("recall", 0),
-            "marker_positivity/n_samples": metrics["overall"].get("n_samples", 0),
-        })
+        wandb.log(
+            {
+                # Shared-with-main-model keys (apples-to-apples comparison):
+                "marker_positivity/mp_macro_f1": metrics["overall"].get(
+                    "mp_macro_f1", 0
+                ),
+                "marker_positivity/mp_micro_f1": metrics["overall"].get(
+                    "mp_micro_f1", 0
+                ),
+                "marker_positivity/mp_macro_precision": metrics["overall"].get(
+                    "mp_macro_precision", 0
+                ),
+                "marker_positivity/mp_macro_recall": metrics["overall"].get(
+                    "mp_macro_recall", 0
+                ),
+                "marker_positivity/mp_macro_accuracy": metrics["overall"].get(
+                    "mp_macro_accuracy", 0
+                ),
+                "marker_positivity/mp_num_markers": metrics["overall"].get(
+                    "mp_num_markers", 0
+                ),
+                # Legacy keys retained for analysis-script compat:
+                "marker_positivity/accuracy": metrics["overall"].get("accuracy", 0),
+                "marker_positivity/precision": metrics["overall"].get("precision", 0),
+                "marker_positivity/recall": metrics["overall"].get("recall", 0),
+                "marker_positivity/n_samples": metrics["overall"].get("n_samples", 0),
+            }
+        )
 
     # Save predictions
     output_path = Path(f"output/{model_name}_nimbus_predictions.csv")
@@ -648,15 +699,20 @@ def main(
     # Save metrics
     metrics_path = Path(f"output/{model_name}_nimbus_metrics.json")
     import json
+
     # Convert numpy types to Python types for JSON serialization
     metrics_serializable = {
-        "overall": {k: float(v) if isinstance(v, (np.floating, float)) else int(v)
-                   for k, v in metrics["overall"].items()},
+        "overall": {
+            k: float(v) if isinstance(v, (np.floating, float)) else int(v)
+            for k, v in metrics["overall"].items()
+        },
         "per_marker": {
-            marker: {k: float(v) if isinstance(v, (np.floating, float)) else int(v)
-                    for k, v in m.items()}
+            marker: {
+                k: float(v) if isinstance(v, (np.floating, float)) else int(v)
+                for k, v in m.items()
+            }
             for marker, m in metrics["per_marker"].items()
-        }
+        },
     }
     with open(metrics_path, "w") as f:
         json.dump(metrics_serializable, f, indent=2)

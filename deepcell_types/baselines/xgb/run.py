@@ -247,7 +247,7 @@ def main(
         hierarchy=CELL_TYPE_HIERARCHY, ct2idx=compact_ct2idx,
     )
 
-    print(f"\nTest Results:")
+    print("\nTest Results:")
     print(f"  Macro Accuracy: {metrics['macro_accuracy']:.4f}")
     print(f"  Weighted Accuracy: {metrics['weighted_accuracy']:.4f}")
     print(f"  Macro F1: {metrics['macro_f1']:.4f}")

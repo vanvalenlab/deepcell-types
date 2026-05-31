@@ -12,7 +12,7 @@ import numpy as np
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import Tuple, List, Optional
+from typing import Tuple, Optional
 import optuna
 from optuna.samplers import TPESampler
 from optuna.pruners import MedianPruner
@@ -547,7 +547,7 @@ def main(
         }
         tuning_n_classes = len(train_present)
 
-    print(f"\nData splits:")
+    print("\nData splits:")
     print(
         f"  Inner-train (FOV-grouped): {len(X_train)} samples, "
         f"{len(np.unique(train_fov_names_subsampled[train_idx]))} FOVs, "
@@ -573,7 +573,7 @@ def main(
         device=device_num,
     )
 
-    print(f"\nBest trial:")
+    print("\nBest trial:")
     print(f"  Value ({metric}): {study.best_trial.value:.4f}")
     print(f"  Params: {best_params}")
 
@@ -592,7 +592,7 @@ def main(
         train_fov_names=train_fov_names_all,
     )
 
-    print(f"\nFinal Test Results:")
+    print("\nFinal Test Results:")
     print(f"  Macro Accuracy: {test_metrics['macro_accuracy']:.4f}")
     print(f"  Weighted Accuracy: {test_metrics['weighted_accuracy']:.4f}")
 

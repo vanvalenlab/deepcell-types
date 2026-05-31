@@ -117,3 +117,10 @@ dev = [
     "pytest",
     "ruff",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Baseline CLI runners read DATA_DIR from the environment between the
+# stdlib and deepcell_types import groups, so some module-level imports
+# deliberately follow that assignment. E402 is not meaningful here.
+"deepcell_types/baselines/**/run.py" = ["E402"]
+"deepcell_types/baselines/xgb/tuning.py" = ["E402"]
