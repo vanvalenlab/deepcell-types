@@ -85,19 +85,45 @@ import directly for custom training scripts.
 
 ## Baselines
 
-Comparison baselines from the paper live as git submodules under
-`baselines/`:
+All four paper comparison baselines are folded into `deepcell_types.baselines`
+and run via the unified runner `python -m deepcell_types.baselines <name>`.
+No submodules are required.
 
-- `baselines/cellsighter/` — ResNet-50 multiplexed cell classifier
-  ([Amitay et al., *Nature Communications* 2023](https://doi.org/10.1038/s41467-023-40066-7)).
-- `baselines/maps/` — MAPS MLP classifier
-  ([*Nature Communications* 2023](https://doi.org/10.1038/s41467-023-44188-w)).
-- `baselines/nimbus/` — Nimbus UNet marker-positivity baseline
+- **XGBoost** — XGBoost on mean-marker-intensity features.
+
+  ```bash
+  pip install -e ".[baseline-xgboost]"
+  python -m deepcell_types.baselines xgboost ...
+  python -m deepcell_types.baselines xgboost-tune ...
+  ```
+
+- **Nimbus** — Nimbus UNet marker-positivity baseline
   ([Rumberger et al., *Nature Methods* 2025](https://doi.org/10.1038/s41592-025-02683-6)).
-- `baselines/xgboost/` — XGBoost on mean-marker-intensity features.
 
-Each submodule has its own README and `pyproject.toml`. To populate
-them after cloning, run `git submodule update --init --recursive`.
+  ```bash
+  pip install -e ".[baseline-nimbus]"
+  python -m deepcell_types.baselines nimbus ...
+  ```
+
+  > **Note:** `baseline-nimbus` pins `nimbus-inference==0.0.5`, which
+  > requires Python <3.12. Use a Python 3.11 environment for this baseline.
+
+- **MAPS** — MAPS MLP classifier
+  ([*Nature Communications* 2023](https://doi.org/10.1038/s41467-023-44188-w)).
+
+  ```bash
+  pip install -e ".[baseline-maps]"
+  python -m deepcell_types.baselines maps ...
+  ```
+
+- **CellSighter** — ResNet-50 multiplexed cell classifier
+  ([Amitay et al., *Nature Communications* 2023](https://doi.org/10.1038/s41467-023-40066-7)).
+  Pulls in `torchvision`.
+
+  ```bash
+  pip install -e ".[baseline-cellsighter]"
+  python -m deepcell_types.baselines cellsighter ...
+  ```
 
 ## Citation
 ```

@@ -68,8 +68,14 @@ train = [
     # Used by scripts/generate_openai_embeddings*.py.
     "openai",
 ]
-# Baselines comparison (xgboost / optuna sweeps) and Nimbus inference baseline.
-baselines = ["xgboost", "optuna", "nimbus-inference"]
+# Comparison baselines, folded into deepcell_types.baselines. Each extra is
+# self-contained (pulls the train stack it needs) so it installs standalone.
+# NOTE: baseline-nimbus pins nimbus-inference==0.0.5, which requires Python <3.12.
+baseline-xgboost = ["deepcell-types[train]", "xgboost", "optuna"]
+baseline-nimbus = ["deepcell-types[train]", "nimbus-inference==0.0.5", "opencv-python-headless"]
+baseline-maps = ["deepcell-types[train]"]
+baseline-cellsighter = ["deepcell-types[train]", "torchvision"]
+baselines = ["deepcell-types[baseline-xgboost,baseline-nimbus,baseline-maps,baseline-cellsighter]"]
 all = ["deepcell-types[train,baselines]"]
 
 [project.urls]
@@ -80,7 +86,12 @@ all = ["deepcell-types[train,baselines]"]
 packages = [
     'deepcell_types',
     'deepcell_types.training',
-    'deepcell_types.utils'
+    'deepcell_types.utils',
+    'deepcell_types.baselines',
+    'deepcell_types.baselines.xgb',
+    'deepcell_types.baselines.nimbus',
+    'deepcell_types.baselines.maps',
+    'deepcell_types.baselines.cellsighter'
 ]
 include-package-data = true
 
@@ -93,6 +104,10 @@ deepcell_types = [
     # __file__, not via repo-root paths.
     "training/config/*.yaml",
 ]
+# Carry third-party baseline attribution into built wheels/sdists. With an
+# explicit packages list and no MANIFEST.in, non-.py files only ship if listed
+# here; otherwise NOTICE would be absent from pip-installed (non-editable) builds.
+"deepcell_types.baselines" = ["NOTICE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
