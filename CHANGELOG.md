@@ -4,7 +4,7 @@ All notable changes to `deepcell-types` are listed here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] — 2026-05-11
+## [0.1.0] — unreleased
 
 This release consolidates the training and inference pipelines into a
 single repository and switches the inference path to canonical-only
@@ -97,4 +97,4 @@ checkpoints. **Breaking changes** are noted below.
   `deepcell_types.training`. Inference-only installs (`pip install
   deepcell-types`) are unchanged.
 
-[0.1.0]: https://github.com/vanvalenlab/deepcell-types/releases/tag/v0.1.0
+[0.1.0]: https://github.com/vanvalenlab/deepcell-types/tree/master
