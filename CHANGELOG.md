@@ -20,14 +20,17 @@ checkpoints. **Breaking changes** are noted below.
   `FocalLoss`, `HierarchicalLoss`, `MPMetricsTracker`, and the new
   focused submodules `training/{archive,patch,metrics,baseline_features}.py`.
 - End-to-end training scripts under `scripts/` (`train.py`,
-  `pretrain.py`, `predict.py`, `benchmark_gold_standard.py`,
-  `ingest_gold_to_zarr.py`).
+  `pretrain.py`, `predict.py`).
 - Public top-level exports: `DCTConfig` and `PredictionResult` are now
   importable from `deepcell_types` directly.
 - `predict(return_probabilities=True)` returns a `PredictionResult`
   dataclass with the full per-cell softmax matrix and cell indices.
-- Four baseline submodules (`baselines/{cellsighter,maps,nimbus,xgboost}/`)
-  tracking the `main` branch of their respective forks.
+- Four paper comparison baselines vendored under
+  `deepcell_types.baselines` (`cellsighter`, `maps`, `nimbus`, `xgb`),
+  invoked through the unified runner
+  `python -m deepcell_types.baselines <name>`. Each ships a self-contained
+  install extra (`baseline-xgboost`, `baseline-nimbus`, `baseline-maps`,
+  `baseline-cellsighter`).
 
 ### Changed
 - **Breaking:** the legacy `CellTypeCLIPModel` class is removed.
@@ -70,8 +73,8 @@ checkpoints. **Breaking changes** are noted below.
   (`training/config/*.yaml`); previously the file was outside the
   package tree and absent after `pip install`, causing
   `_get_combined_celltype_mapping()` to silently return `{}`.
-- `tifffile` is now declared in `[train]` (was imported at module load
-  by `scripts/ingest_gold_to_zarr.py` without being a dependency).
+- `tifffile` is now declared in `[train]` (TIFF-based ingest tooling
+  imported it at module load without declaring it as a dependency).
 - Stale `deepcelltypes-kit` fallback paths in `training/config.py`
   pointed at a sibling repo that does not exist in the monorepo and
   silently returned `{}` — these have been removed; the fallback now

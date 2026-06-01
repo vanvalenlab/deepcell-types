@@ -62,10 +62,9 @@ train = [
     "click",
     "plotly",
     "kaleido>=0.2.1,<1.0,!=0.2.1.post1",
-    # Used by gold-standard ingest / refinement tools in
-    # deepcell-types-research-workspace/scripts_local/.
+    # Required by TIFF-based gold-standard ingest tooling.
     "tifffile",
-    # Used by scripts/generate_openai_embeddings*.py.
+    # Used by scripts/generate_openai_embeddings.py.
     "openai",
 ]
 # Comparison baselines, folded into deepcell_types.baselines. Each extra is

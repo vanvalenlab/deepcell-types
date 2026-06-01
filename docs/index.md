@@ -157,10 +157,6 @@ The end-to-end training and evaluation scripts live under `scripts/`:
   optional hierarchy-aware evaluation.
 - `scripts/pretrain.py` — masked-marker pretraining stage.
 
-Gold-standard benchmarking (Rumberger et al. 2025 comparison vs Nimbus,
-plus the CSV+TIFF→zarr ingest) lives in the research workspace under
-`scripts_local/` — see `deepcell-types-research-workspace`.
-
 All training scripts read mappings and metadata from a TissueNet zarr v3
 archive (`tissuenet-v10.zarr` is the current canonical release; v8 and v9
 are also accepted). Pass the archive path with

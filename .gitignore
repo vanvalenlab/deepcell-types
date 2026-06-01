@@ -178,5 +178,8 @@ uv.lock
 /reviews/
 audit/
 
+# Local agent planning / design artifacts (brainstorming specs, plans)
+docs/superpowers/
+
 # Per-project Claude Code settings (local-only, not for upstream)
 .claude/
