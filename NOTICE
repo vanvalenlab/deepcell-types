@@ -26,5 +26,6 @@ pytorch-multi-class-focal-loss (MIT License)
 --------------------------------------------------------------------------------
 deepcell-toolbox (Modified Apache License, Version 2.0)
   - Upstream:  https://github.com/vanvalenlab/deepcell-toolbox
-  - Used in:   deepcell_types/dct_kit/image_funcs.py  (percentile_threshold)
+  - Used in:   deepcell_types/preprocessing.py  (_percentile_threshold,
+               _percentile_threshold_nonzero)
   - License:   Modified Apache 2.0 (same template as this project's LICENSE).

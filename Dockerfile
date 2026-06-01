@@ -9,7 +9,7 @@
 #   # full training pipeline (deepcell_types.training + scripts/)
 #   docker build --build-arg DCT_EXTRAS="[train]" -t deepcell-types:train .
 #
-#   # baselines comparison (xgboost / optuna / nimbus-inference)
+#   # all four comparison baselines (xgboost / nimbus / maps / cellsighter)
 #   docker build --build-arg DCT_EXTRAS="[baselines]" -t deepcell-types:baselines .
 #
 #   # everything (train + baselines)

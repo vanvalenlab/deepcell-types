@@ -75,7 +75,7 @@ def read_v3_1d_array(array_dir: Path):
         return out
 
     # Read the zstd level from codec config (NOT hardcoded 0). Mirrors the
-    # inference-side read in dct_kit/config.py — keeping these in sync
+    # inference-side read in deepcell_types/config.py — keeping these in sync
     # prevents a latent correctness bug if archives are ever written at a
     # different compression level.
     zstd = None
