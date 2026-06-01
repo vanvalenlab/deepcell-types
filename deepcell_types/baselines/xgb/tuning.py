@@ -23,7 +23,10 @@ import xgboost as xgb
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
 
 from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
-from deepcell_types.training.baseline_features import extract_features_from_zarr, compute_baseline_metrics
+from deepcell_types.training.baseline_features import (
+    extract_features_from_zarr,
+    compute_baseline_metrics,
+)
 
 
 class XGBoostObjective:
@@ -94,8 +97,12 @@ class XGBoostObjective:
         y_prob = model.predict_proba(self.X_val)
 
         metrics = compute_baseline_metrics(
-            self.y_val, y_pred, y_prob, self.num_classes,
-            hierarchy=self.hierarchy, ct2idx=self.ct2idx,
+            self.y_val,
+            y_pred,
+            y_prob,
+            self.num_classes,
+            hierarchy=self.hierarchy,
+            ct2idx=self.ct2idx,
         )
 
         return metrics[self.metric]
@@ -152,8 +159,15 @@ def run_tuning(
 
     # Create objective
     objective = XGBoostObjective(
-        X_train, y_train, X_val, y_val, num_classes, metric,
-        hierarchy=hierarchy, ct2idx=ct2idx, device=device,
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+        num_classes,
+        metric,
+        hierarchy=hierarchy,
+        ct2idx=ct2idx,
+        device=device,
     )
 
     # Run optimization
@@ -221,6 +235,7 @@ def train_best_model(
     # by construction (X_test is never passed in).
     if train_fov_names is not None:
         from sklearn.model_selection import GroupShuffleSplit
+
         train_fov_array = np.asarray(train_fov_names)
         gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=42)
         inner_train_idx, inner_val_idx = next(
@@ -233,6 +248,7 @@ def train_best_model(
         )
     else:
         from sklearn.model_selection import StratifiedShuffleSplit
+
         # Stratification falls back to a plain shuffle if any class has <2
         # rows, since StratifiedShuffleSplit requires at least one row per
         # class in each partition.
@@ -242,6 +258,7 @@ def train_best_model(
             inner_train_idx, inner_val_idx = next(sss.split(X_train, y_train))
         else:
             from sklearn.model_selection import ShuffleSplit
+
             ss = ShuffleSplit(n_splits=1, test_size=0.1, random_state=42)
             inner_train_idx, inner_val_idx = next(ss.split(X_train))
         print(
@@ -267,7 +284,6 @@ def train_best_model(
     effective_num_classes = num_classes
     X_test_eff = X_test
     y_test_eff = y_test
-    test_drop_mask = None
     inner_remap = None
     if (
         len(train_present) != num_classes
@@ -288,7 +304,6 @@ def train_best_model(
         y_inner_val = y_inner_val[val_mask]
         X_test_eff = X_test[test_mask]
         y_test_eff = y_test[test_mask]
-        test_drop_mask = test_mask
         remap_fn = np.vectorize(inner_remap.get, otypes=[np.int64])
         y_inner_train = remap_fn(y_inner_train)
         y_inner_val = remap_fn(y_inner_val)
@@ -311,13 +326,19 @@ def train_best_model(
         eval_set=[(X_inner_val, y_inner_val)],
         verbose=True,
     )
-    print(f"  Best iteration: {model.best_iteration}, Best score: {model.best_score:.6f}")
+    print(
+        f"  Best iteration: {model.best_iteration}, Best score: {model.best_score:.6f}"
+    )
 
     y_pred = model.predict(X_test_eff)
     y_prob = model.predict_proba(X_test_eff)
     metrics = compute_baseline_metrics(
-        y_test_eff, y_pred, y_prob, effective_num_classes,
-        hierarchy=hierarchy, ct2idx=ct2idx,
+        y_test_eff,
+        y_pred,
+        y_prob,
+        effective_num_classes,
+        hierarchy=hierarchy,
+        ct2idx=ct2idx,
     )
 
     # ``inner_remap`` is None if no class was dropped from inner-train (the
@@ -333,11 +354,12 @@ def train_best_model(
 @click.option("--n_trials", type=int, default=100, help="Number of tuning trials")
 @click.option(
     "--metric",
-    type=click.Choice(["macro_accuracy", "weighted_accuracy",
-                       "macro_f1", "weighted_f1"]),
+    type=click.Choice(
+        ["macro_accuracy", "weighted_accuracy", "macro_f1", "weighted_f1"]
+    ),
     default="macro_accuracy",
     help="Metric to optimize. macro_f1 / weighted_f1 read the same key out of "
-         "compute_baseline_metrics() — no separate scorer required.",
+    "compute_baseline_metrics() — no separate scorer required.",
 )
 @click.option("--enable_wandb", type=bool, default=False)
 @click.option(
@@ -365,13 +387,36 @@ def train_best_model(
     default=None,
     help="Optuna storage URL (e.g., sqlite:///tuning.db) for distributed tuning",
 )
-@click.option("--split_mode", type=click.Choice(["fov", "patch"]), default="fov",
-              help="Split strategy: 'fov' (default, no spatial leakage) or 'patch' (cell-level random)")
-@click.option("--split_file", type=str, default=None,
-              help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)")
-@click.option("--min_channels", type=int, default=3, help="Min non-DAPI channels per dataset (filters 2-channel datasets)")
-@click.option("--max_tuning_samples", type=int, default=500000, help="Max training samples for tuning trials (subsample for speed)")
-@click.option("--device_num", type=str, default="cpu", help="Device for XGBoost (cpu or cuda:N for GPU acceleration)")
+@click.option(
+    "--split_mode",
+    type=click.Choice(["fov", "patch"]),
+    default="fov",
+    help="Split strategy: 'fov' (default, no spatial leakage) or 'patch' (cell-level random)",
+)
+@click.option(
+    "--split_file",
+    type=str,
+    default=None,
+    help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)",
+)
+@click.option(
+    "--min_channels",
+    type=int,
+    default=3,
+    help="Min non-DAPI channels per dataset (filters 2-channel datasets)",
+)
+@click.option(
+    "--max_tuning_samples",
+    type=int,
+    default=500000,
+    help="Max training samples for tuning trials (subsample for speed)",
+)
+@click.option(
+    "--device_num",
+    type=str,
+    default="cpu",
+    help="Device for XGBoost (cpu or cuda:N for GPU acceleration)",
+)
 def main(
     study_name: Optional[str],
     n_trials: int,
@@ -391,6 +436,7 @@ def main(
     # Initialize wandb if enabled
     if enable_wandb:
         import wandb
+
         wandb.login()
         run = wandb.init(
             project="deepcelltypes-temp-train",
@@ -419,7 +465,9 @@ def main(
     keep_datasets = list(keep_datasets) if keep_datasets else None
 
     if split_file is None:
-        raise click.UsageError("--split_file is required. Generate one with: python -m scripts.generate_splits")
+        raise click.UsageError(
+            "--split_file is required. Generate one with: python -m scripts.generate_splits"
+        )
 
     # Extract features directly from zarr (fast path, ~20-50x faster than DataLoader).
     # ``missing_value=np.nan`` so absent markers route through XGBoost's
@@ -441,7 +489,9 @@ def main(
     X_test, y_test = data["X_val"], data["y_val"]
     train_fov_names_full = np.asarray(data["train_fov_names"])
 
-    print(f"Training set: {X_train_full.shape[0]} samples, {X_train_full.shape[1]} features")
+    print(
+        f"Training set: {X_train_full.shape[0]} samples, {X_train_full.shape[1]} features"
+    )
     print(f"Test set: {X_test.shape[0]} samples, {X_test.shape[1]} features")
 
     # Remap labels to contiguous 0-indexed (XGBoost requires this).
@@ -495,11 +545,10 @@ def main(
     # subsampled training data) is kept from the previous stratified
     # version for run-to-run continuity.
     from sklearn.model_selection import GroupShuffleSplit
+
     gss_inner = GroupShuffleSplit(n_splits=1, test_size=0.25, random_state=42)
     train_idx, val_idx = next(
-        gss_inner.split(
-            X_train_full, y_train_full, groups=train_fov_names_subsampled
-        )
+        gss_inner.split(X_train_full, y_train_full, groups=train_fov_names_subsampled)
     )
 
     X_train = X_train_full[train_idx]
@@ -557,12 +606,17 @@ def main(
         f"  Inner-val (FOV-grouped):   {len(X_val_tuning)} samples, "
         f"{n_inner_val_fovs} FOVs"
     )
-    print(f"  Test:                      {len(X_test)} samples (held out, not used in tuning)")
+    print(
+        f"  Test:                      {len(X_test)} samples (held out, not used in tuning)"
+    )
 
     # Run hyperparameter tuning
     print(f"\nStarting hyperparameter tuning ({n_trials} trials)...")
     study, best_params = run_tuning(
-        X_train, y_train, X_val_tuning, y_val_tuning,
+        X_train,
+        y_train,
+        X_val_tuning,
+        y_val_tuning,
         num_classes=tuning_n_classes,
         n_trials=n_trials,
         metric=metric,
@@ -578,14 +632,19 @@ def main(
     print(f"  Params: {best_params}")
 
     # Train final model on FULL training set (not subsampled) with best params
-    print(f"\nTraining final model with best parameters on full data ({len(X_train_all)} samples)...")
+    print(
+        f"\nTraining final model with best parameters on full data ({len(X_train_all)} samples)..."
+    )
     X_train_combined = X_train_all
     y_train_combined = y_train_all
 
     model, test_metrics, inner_remap = train_best_model(
-        X_train_combined, y_train_combined,
-        X_test, y_test,
-        best_params, n_classes_compact,
+        X_train_combined,
+        y_train_combined,
+        X_test,
+        y_test,
+        best_params,
+        n_classes_compact,
         device=device_num,
         hierarchy=CELL_TYPE_HIERARCHY,
         ct2idx=compact_ct2idx,
@@ -606,16 +665,20 @@ def main(
     # Save best parameters
     params_path = output_dir / f"{study_name_safe}_best_params.json"
     with open(params_path, "w") as f:
-        json.dump({
-            "best_params": best_params,
-            "best_value": study.best_trial.value,
-            "metric": metric,
-            "n_trials": n_trials,
-            "test_metrics": {
-                "macro_accuracy": test_metrics["macro_accuracy"],
-                "weighted_accuracy": test_metrics["weighted_accuracy"],
+        json.dump(
+            {
+                "best_params": best_params,
+                "best_value": study.best_trial.value,
+                "metric": metric,
+                "n_trials": n_trials,
+                "test_metrics": {
+                    "macro_accuracy": test_metrics["macro_accuracy"],
+                    "weighted_accuracy": test_metrics["weighted_accuracy"],
+                },
             },
-        }, f, indent=2)
+            f,
+            indent=2,
+        )
     print(f"\nBest parameters saved to {params_path}")
 
     # Save model
@@ -629,16 +692,15 @@ def main(
     # evaluators need this to align ``model.predict()`` outputs (in the
     # contiguous post-GSS space) back to original ``ct2idx`` indices.
     idx2ct = {v: k for k, v in dct_config.ct2idx.items()}
+    # Inverse of the post-GSS label_to_compact map: compact idx -> original ct idx.
+    compact_to_label = {compact: orig for orig, compact in label_to_compact.items()}
     if inner_remap is not None:
         inv_inner = {v: k for k, v in inner_remap.items()}
         post_to_orig_ct = {
-            int(post): int(compact_to_label[int(inv_inner[post])])
-            for post in inv_inner
+            int(post): int(compact_to_label[int(inv_inner[post])]) for post in inv_inner
         }
     else:
-        post_to_orig_ct = {
-            int(c): int(orig) for c, orig in compact_to_label.items()
-        }
+        post_to_orig_ct = {int(c): int(orig) for c, orig in compact_to_label.items()}
     remap_meta = {
         "n_classes": int(model.n_classes_),
         "compact_to_orig_ct_idx": post_to_orig_ct,
@@ -663,12 +725,14 @@ def main(
 
     # Log to wandb if enabled
     if enable_wandb:
-        wandb.log({
-            "best_trial_value": study.best_trial.value,
-            "test/macro_accuracy": test_metrics["macro_accuracy"],
-            "test/weighted_accuracy": test_metrics["weighted_accuracy"],
-            **{f"best_param/{k}": v for k, v in best_params.items()},
-        })
+        wandb.log(
+            {
+                "best_trial_value": study.best_trial.value,
+                "test/macro_accuracy": test_metrics["macro_accuracy"],
+                "test/weighted_accuracy": test_metrics["weighted_accuracy"],
+                **{f"best_param/{k}": v for k, v in best_params.items()},
+            }
+        )
 
         # Log optimization history plot
         try:

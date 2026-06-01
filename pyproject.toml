@@ -118,6 +118,16 @@ dev = [
     "ruff",
 ]
 
+[tool.ruff]
+# maps/ and cellsighter/ are vendored verbatim from upstream and pinned
+# byte-for-byte by tests/baselines/test_maps_cellsighter_equivalence.py
+# (only the `from .model import` relocation rewrite is allowed). Linting them
+# would force edits that break that equivalence contract, so exclude them.
+extend-exclude = [
+    "deepcell_types/baselines/maps",
+    "deepcell_types/baselines/cellsighter",
+]
+
 [tool.ruff.lint.per-file-ignores]
 # Baseline CLI runners read DATA_DIR from the environment between the
 # stdlib and deepcell_types import groups, so some module-level imports

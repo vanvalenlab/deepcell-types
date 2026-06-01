@@ -9,11 +9,13 @@ Reference:
 import os
 import click
 import numpy as np
+import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 # Default data directory from environment
@@ -444,7 +446,7 @@ def main(
         hierarchy=CELL_TYPE_HIERARCHY, ct2idx=compact_ct2idx,
     )
 
-    print("\nFinal Test Results:")
+    print(f"\nFinal Test Results:")
     print(f"  Macro Accuracy: {metrics['macro_accuracy']:.4f}")
     print(f"  Weighted Accuracy: {metrics['weighted_accuracy']:.4f}")
     print(f"  Macro F1: {metrics['macro_f1']:.4f}")
