@@ -98,7 +98,7 @@ No submodules are required.
   ```
 
 - **Nimbus** — Nimbus UNet marker-positivity baseline
-  ([Rumberger et al., *Nature Methods* 2025](https://doi.org/10.1038/s41592-025-02683-6)).
+  ([Rumberger et al., *Nature Methods* 2025](https://doi.org/10.1038/s41592-025-02826-9)).
 
   ```bash
   pip install -e ".[baseline-nimbus]"
