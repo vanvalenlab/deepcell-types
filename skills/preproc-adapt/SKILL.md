@@ -166,7 +166,7 @@ over-corrects, **reconsider the diagnosis and try a different mechanism** rather
 up the same op's strength.
 
 ### 5. Stop
-Stop on success, after **≤3 rounds**, or when you hit a floor — whichever comes first:
+Stop on success, after **≤10 rounds**, or when you hit a floor — whichever comes first:
 - **Model-prior floor:** a residual that doesn't move under principled edits (e.g. a kidney's
   last ~6% spurious Tumor, or a liver's last ~10% Mast). Don't chase it — flag it and stop;
   it needs retraining, not preprocessing.
