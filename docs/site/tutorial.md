@@ -277,13 +277,22 @@ We now have all the necessary components to run the cell-type inference pipeline
 import deepcell_types
 ```
 
-To run the inference pipeline, you will need to download a trained model.
-See {ref}`download_models` for details.
+To run the inference pipeline, you will need a trained model. The
+`download_model` helper fetches the checkpoint to `$HOME/.deepcell/models`
+and returns the local path (it requires a `DEEPCELL_ACCESS_TOKEN`; see
+{ref}`download_models` for details). The returned path can be passed
+straight to `predict` as `model_name`.
 
 ```{code-cell} ipython3
-# Model & system-specific configuration
-model = "deepcell-types_2026-05-17"
-zarr_path = "/path/to/tissuenet-v10.zarr"
+from deepcell_types.utils import download_model
+
+# Downloads to $HOME/.deepcell/models on first call; subsequent calls reuse
+# the cached checkpoint and return its path immediately.
+model = download_model(version="2026-05-17")
+```
+
+```{code-cell} ipython3
+# System-specific configuration
 
 # NOTE: if you do not have a cuda-capable GPU, try "cpu"
 device = "cuda:0"
@@ -292,10 +301,13 @@ device = "cuda:0"
 num_data_loader_threads = 1
 ```
 
-If you are using a canonical checkpoint, `zarr_path` must point at the
-TissueNet archive whose root attrs define the current standardized marker and
-cell-type registry. You can also set the same path once via the
-`DEEPCELL_TYPES_ZARR_PATH` environment variable.
+The marker and cell-type registry the model needs is shipped with the
+package, so no additional data is required to run inference.
+If you instead want to source the registry from a local TissueNet zarr
+archive, pass `zarr_path="/path/to/tissuenet.zarr"` to `predict` (or set the
+`DEEPCELL_TYPES_ZARR_PATH` environment variable); the archive's root attrs
+must define the same standardized marker and cell-type registry the
+checkpoint was trained against.
 
 With the system all configured, we can now run the pipeline:
 
@@ -310,7 +322,6 @@ cell_types = deepcell_types.predict(
     model_name=model,
     device=device,
     num_workers=num_data_loader_threads,
-    zarr_path=zarr_path,
 )
 ```
 
@@ -330,7 +341,7 @@ cell (the historical behaviour), disable abstention with
 
     cell_types = deepcell_types.predict(
         img, mask, chnames, mpp,
-        model_name=model, device=device, zarr_path=zarr_path,
+        model_name=model, device=device,
         ct_abstention_k=0,
     )
 
