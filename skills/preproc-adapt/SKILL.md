@@ -174,6 +174,12 @@ the before/after composition.
   tissues with *opposite* expected compositions — that's removing a real artifact, not
   fitting the answer. Before dropping a channel, get independent evidence it's an
   artifact (e.g. a transcription-factor marker positive in most pixels cannot be real).
+- **Judge at BOTH lineage and cell-type level.** A spurious type can hide inside a
+  *correct* lineage — e.g. a panel with no mast marker still gets ~a third of cells called
+  Mast, which rolls into Myeloid, so a lineage-only check passes silently. Flag any cell
+  type predicted above a small fraction whose defining marker is absent from the panel; it
+  is almost always spurious. (Often driven by hot pixels mimicking granular cells —
+  `hot_pixel_removal` cuts it without the dynamic-range distortion `arcsinh` causes.)
 - **Bounded ops only.** If a needed op doesn't exist, add it to the library (with a
   test) rather than hand-writing a one-off transform.
 - **Some failures are not preprocessing-fixable.** If the panel lacks the markers to
