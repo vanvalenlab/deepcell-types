@@ -83,8 +83,7 @@ def apply_abstention(
 
     OWNERSHIP: abstention is a DeepCellTypes capability. This function must
     only ever be applied to **DCT model predictions** — never to baseline
-    predictions. Baselines are scored at full coverage (see
-    ``tests/baselines/test_no_baseline_abstention.py``).
+    predictions. Baselines are scored at full coverage.
 
     Adds two columns to ``df``:
       - ``abstained`` (bool): True iff max_softmax < fence within the cell's group.
