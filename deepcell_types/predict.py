@@ -297,9 +297,10 @@ def predict(
         is an extra copy AND re-runs the per-FOV preprocessing — only raise
         this on machines with abundant RAM and CPU.
     zarr_path : str or pathlib.Path, optional, default=None
-        Canonical checkpoints read marker and cell type metadata from a TissueNet
-        zarr archive. Pass the archive path here or set the
-        ``DEEPCELL_TYPES_ZARR_PATH`` environment variable.
+        Optional path to a TissueNet zarr archive to read the marker / cell-type
+        registry from (or set ``DEEPCELL_TYPES_ZARR_PATH``). When omitted, the
+        registry is read from the vocabulary snapshot shipped with the package,
+        so inference does not require the archive.
     return_probabilities : bool, default=False
         If False (default, back-compat), returns a list of cell-type names.
         If True, returns a :class:`PredictionResult` with the full per-cell

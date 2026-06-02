@@ -34,12 +34,14 @@ from deepcell_types.utils import download_model
 download_model()  # No argument == latest released version
 ```
 
-## TissueNet archive (required)
+## TissueNet archive (optional)
 
-In addition to the checkpoint, the canonical inference path reads its
-marker / cell-type / domain registry from a **TissueNet zarr v3 archive** at
-runtime (earlier releases bundled this registry as YAML inside the package).
-This is the same `tissuenet-v*.zarr` archive used for training. It is
+`predict()` does **not** require the TissueNet archive: the marker / cell-type
+registry it needs ships with the package as a small `vocab.json` snapshot, so
+`pip install deepcell-types` + `download_model()` is enough to run inference.
+
+The (multi-GB) `tissuenet-v*.zarr` archive is only needed if you want the
+tissue→cell-type mapping or are reproducing the training pipeline. It is
 distributed as a `.zip` that must be extracted before use:
 
 ```python
@@ -50,18 +52,16 @@ from deepcell_types.utils import download_training_data
 archive_dir = download_training_data(extract=True)
 ```
 
-Point `predict` at the extracted `tissuenet-v*.zarr` archive with the
-`zarr_path=` argument, or set it once
-for the session:
+When you do have an archive, point `predict` at it with the `zarr_path=`
+argument, or set it once for the session:
 
 ```bash
 export DEEPCELL_TYPES_ZARR_PATH=/path/to/tissuenet-v10.zarr
 ```
 
-If no archive is found via `zarr_path`, `DEEPCELL_TYPES_ZARR_PATH`, or
-`$DATA_DIR/tissuenet-v{10,9,8}.zarr`, `predict` raises `FileNotFoundError`.
-The checkpoint and archive must agree on the marker and cell-type counts,
-otherwise loading fails early with a `ValueError`.
+An explicit `zarr_path=` that doesn't contain an archive raises
+`FileNotFoundError`; the checkpoint and registry must agree on the marker and
+cell-type ordering, otherwise loading fails early with a `ValueError`.
 
 ## Running
 
