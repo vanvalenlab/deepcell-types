@@ -22,7 +22,7 @@ def test_default_config_matches_builtin_inference_path():
     raw, names = _fov()
     out = apply_config(raw, names, DEFAULT_CONFIG)  # (C,H,W)
     hwc = np.transpose(raw, (1, 2, 0))
-    ref = _normalize_per_channel(_percentile_threshold_nonzero(hwc, percentile=99.0))
+    ref = _normalize_per_channel(_percentile_threshold_nonzero(hwc, percentile=99.9))
     ref = np.transpose(ref, (2, 0, 1))
     assert out.shape == raw.shape
     np.testing.assert_allclose(out, ref, rtol=1e-5, atol=1e-6)

@@ -18,7 +18,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter, median_filter
 
 # Built-in inference percentile (mirrors DCTConfig.PERCENTILE_THRESHOLD).
-_DEFAULT_PERCENTILE = 99.0
+_DEFAULT_PERCENTILE = 99.9
 
 DEFAULT_CONFIG = [
     {"op": "clip_percentile", "p": _DEFAULT_PERCENTILE},

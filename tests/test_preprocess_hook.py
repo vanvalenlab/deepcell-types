@@ -58,3 +58,30 @@ def test_patchdataset_forwards_preprocess(monkeypatch):
     list(ds)  # triggers __iter__
     assert captured["preprocess"] is hook
     assert captured["channel_names"] == ds.channel_names_standard
+
+
+from deepcell_types.preprocessing import (
+    _percentile_threshold_nonzero,
+    _normalize_per_channel,
+)
+from deepcell_types.preprocessing_ops import make_preprocessor, DEFAULT_CONFIG
+
+
+def test_default_config_hook_equals_builtin_in_patch_generator():
+    raw, mask = _toy()
+    cfg = DCTConfig()
+    baseline = [p[0].copy() for p in patch_generator(raw, mask, 0.5, dct_config=cfg)]
+    hooked = [
+        p[0].copy()
+        for p in patch_generator(
+            raw,
+            mask,
+            0.5,
+            dct_config=cfg,
+            preprocess=make_preprocessor(DEFAULT_CONFIG),
+            channel_names=["CD3", "DAPI"],
+        )
+    ]
+    assert len(baseline) == len(hooked) and len(baseline) > 0
+    for b, h in zip(baseline, hooked):
+        np.testing.assert_allclose(b, h, rtol=1e-5, atol=1e-6)
