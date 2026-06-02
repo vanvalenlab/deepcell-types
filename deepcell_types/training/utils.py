@@ -91,7 +91,6 @@ def load_matching_state_dict(model, state_dict):
 def _feature_cache_metadata(
     zarr_dir: str,
     dct_config,
-    min_channels: int,
     dataset_keys: list,
     split_file: str | None = None,
 ) -> dict:
@@ -110,7 +109,6 @@ def _feature_cache_metadata(
         # (e.g. NaN for XGBoost) without re-extracting from zarr.
         "cache_version": 6,
         "zarr_dir": str(zarr_path),
-        "min_channels": min_channels,
         "dataset_keys_hash": _stable_hash(sorted(dataset_keys)),
         "marker2idx_hash": _stable_hash(dct_config.marker2idx),
         "ct2idx_hash": _stable_hash(dct_config.ct2idx),

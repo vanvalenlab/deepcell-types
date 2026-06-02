@@ -292,12 +292,6 @@ def forward_one_batch(
     help="Disable per-class weights in FocalLoss (use when WeightedRandomSampler is active to avoid double-weighting)",
 )
 @click.option(
-    "--min_channels",
-    type=int,
-    default=0,
-    help="Min model-visible marker channels per dataset (default 0 = no filter; retained as a no-op for legacy split-file compatibility)",
-)
-@click.option(
     "--hierarchical_weight",
     type=float,
     default=0.0,
@@ -371,7 +365,6 @@ def main(
     domain_weight,
     marker_pos_weight,
     no_class_weights,
-    min_channels,
     hierarchical_weight,
     enable_amp,
     spatial_pool_size,
@@ -446,7 +439,6 @@ def main(
         max_val_samples=max_val_samples,
         multiprocessing_context="spawn" if num_workers > 0 else None,
         pin_memory=use_cuda,
-        min_channels=min_channels,
     )
 
     wandb.config.update(metadata)
@@ -596,7 +588,6 @@ def main(
         "split_file": split_file,
         "split_mode": split_mode,
         "svd_embeddings_path": svd_embeddings_path,
-        "min_channels": min_channels,
         "max_samples_per_epoch": max_samples_per_epoch,
         "max_val_samples": max_val_samples,
         # Optimization-shape hyperparameters that move metrics by ≥0.5pp.
@@ -903,14 +894,18 @@ def main(
         )
         os.replace(epoch_tmp, epoch_path)
 
-    # ===================== TEST (on validation set with best model) =====================
+    # ============== FINAL VAL EVAL (best model on the full validation set) ==============
+    # NB: this is the VALIDATION set — the same set used for model selection /
+    # early stopping — so it is an optimistically-biased estimate, NOT a held-out
+    # test number. It is labeled "val_final" accordingly. The held-out test metric
+    # for the paper is produced by `scripts/predict.py` on the split file's
+    # `heldout` FOVs (which load_fov_splits excludes from both train and val).
     checkpoint = torch.load(best_model_path, map_location=device, weights_only=True)
     model.load_state_dict(checkpoint["model"])
     model.eval()
 
     # Final eval ALWAYS runs on the full val set (no max_val_samples cap), even when
-    # per-epoch val used a cap for speed. This keeps the headline test number
-    # apples-to-apples with baseline runs (which never cap their val set).
+    # per-epoch val used a cap for speed.
     if max_val_samples is not None:
         print(
             f"\nBuilding full-val dataloader for final eval (per-epoch val was capped at {max_val_samples})..."
@@ -935,7 +930,6 @@ def main(
             max_val_samples=None,
             multiprocessing_context="spawn" if num_workers > 0 else None,
             pin_memory=use_cuda,
-            min_channels=min_channels,
         )
     else:
         final_val_loader = val_loader
@@ -949,7 +943,7 @@ def main(
                 batch_data,
                 device,
                 model,
-                "test",
+                "val_final",
                 losses_metrics,
                 predlogger=predlogger,
                 loss_weights=loss_weights,
@@ -959,12 +953,12 @@ def main(
             )
 
     final_metrics = losses_metrics.compute()
-    print(f"\nFinal metrics (best model): {final_metrics}")
-    log_epoch_metrics(final_metrics, "test")
+    print(f"\nFinal val metrics (best model): {final_metrics}")
+    log_epoch_metrics(final_metrics, "val_final")
 
     log_confusion_matrix(
         losses_metrics.conf_mat_ct_metric,
-        "test",
+        "val_final",
         sorted(dct_config.ct2idx, key=dct_config.ct2idx.get),
         metric_name="confusion_matrix_ct",
     )

@@ -65,12 +65,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
     help="FOV split JSON; evaluates val set only",
 )
 @click.option(
-    "--min_channels",
-    type=int,
-    default=0,
-    help="Min model-visible marker channels per dataset (default 0 = no filter)",
-)
-@click.option(
     "--spatial_pool_size",
     type=int,
     default=1,
@@ -132,7 +126,6 @@ def main(
     model_path,
     resnet_channels,
     split_file,
-    min_channels,
     spatial_pool_size,
     learn_mp_thresholds,
     mp_threshold_file,
@@ -181,7 +174,6 @@ def main(
             num_dropout_channels=0,
             num_workers=num_workers,
             split_file=split_file,
-            min_channels=min_channels,
             use_weighted_sampler=False,
             fov_grouped_train=learn_mp_thresholds,
             persistent_workers=num_workers > 0,
@@ -200,7 +192,6 @@ def main(
             num_dropout_channels=0,
             num_workers=num_workers,
             only_test=True,
-            min_channels=min_channels,
             persistent_workers=num_workers > 0,
             multiprocessing_context="spawn" if num_workers > 0 else None,
             pin_memory=use_cuda,

@@ -400,12 +400,6 @@ def train_best_model(
     help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)",
 )
 @click.option(
-    "--min_channels",
-    type=int,
-    default=3,
-    help="Min non-DAPI channels per dataset (filters 2-channel datasets)",
-)
-@click.option(
     "--max_tuning_samples",
     type=int,
     default=500000,
@@ -428,7 +422,6 @@ def main(
     storage: Optional[str],
     split_mode: str,
     split_file: str,
-    min_channels: int,
     max_tuning_samples: int,
     device_num: str,
 ):
@@ -481,7 +474,6 @@ def main(
         split_file=split_file,
         skip_datasets=skip_datasets,
         keep_datasets=keep_datasets,
-        min_channels=min_channels,
         missing_value=np.nan,
     )
 

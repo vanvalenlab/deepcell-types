@@ -65,11 +65,18 @@ from deepcell_types.training.baseline_features import (
     default=0.1,
     help="Learning rate (eta)",
 )
-@click.option("--split_file", type=str, default=None,
-              help="Path to pre-computed FOV split JSON (required)")
-@click.option("--features_cache", type=str, default=None,
-              help="Path to cache extracted features (.npz). Reuses cache if it exists.")
-@click.option("--min_channels", type=int, default=3, help="Min non-DAPI channels per dataset (filters 2-channel datasets)")
+@click.option(
+    "--split_file",
+    type=str,
+    default=None,
+    help="Path to pre-computed FOV split JSON (required)",
+)
+@click.option(
+    "--features_cache",
+    type=str,
+    default=None,
+    help="Path to cache extracted features (.npz). Reuses cache if it exists.",
+)
 def main(
     model_name: str,
     enable_wandb: bool,
@@ -81,12 +88,12 @@ def main(
     learning_rate: float,
     split_file: str,
     features_cache: str,
-    min_channels: int,
 ):
     """Train XGBoost baseline for cell type classification."""
     # Initialize wandb if enabled
     if enable_wandb:
         import wandb
+
         wandb.login()
         run = wandb.init(
             project="deepcelltypes-temp-train",
@@ -113,7 +120,9 @@ def main(
     keep_datasets = list(keep_datasets) if keep_datasets else None
 
     if split_file is None:
-        raise click.UsageError("--split_file is required. Generate one with: python -m scripts.generate_splits")
+        raise click.UsageError(
+            "--split_file is required. Generate one with: python -m scripts.generate_splits"
+        )
 
     # Extract features directly from zarr (fast path, no DataLoader overhead).
     # ``missing_value=np.nan`` so absent markers route through XGBoost's
@@ -128,7 +137,6 @@ def main(
         skip_datasets=skip_datasets,
         keep_datasets=keep_datasets,
         cache_path=features_cache,
-        min_channels=min_channels,
         missing_value=np.nan,
     )
 
@@ -166,13 +174,17 @@ def main(
     # Test set MUST NOT be used as eval_set — that leaks test signal into tree-count selection.
     train_fov_array = np.asarray(train_fov_names)
     gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=42)
-    inner_train_idx, inner_val_idx = next(gss.split(X_train, y_train_compact, groups=train_fov_array))
+    inner_train_idx, inner_val_idx = next(
+        gss.split(X_train, y_train_compact, groups=train_fov_array)
+    )
     X_inner_train = X_train[inner_train_idx]
     y_inner_train = y_train_compact[inner_train_idx]
     X_inner_val = X_train[inner_val_idx]
     y_inner_val = y_train_compact[inner_val_idx]
-    print(f"Inner-val (FOV-grouped, disjoint from test): {len(inner_val_idx)} samples from "
-          f"{len(np.unique(train_fov_array[inner_val_idx]))} FOVs")
+    print(
+        f"Inner-val (FOV-grouped, disjoint from test): {len(inner_val_idx)} samples from "
+        f"{len(np.unique(train_fov_array[inner_val_idx]))} FOVs"
+    )
 
     # Re-tighten compact labels to be strictly contiguous 0..K-1 over the inner-train
     # label set. Modern xgboost.sklearn.XGBClassifier rejects targets whose unique values
@@ -182,31 +194,43 @@ def main(
     # any inner-val / test rows with labels absent from inner_train (this only fires on
     # tiny smoke-sized subsets — at full scale every train label is in inner_train).
     train_present = np.unique(y_inner_train)
-    if len(train_present) != n_classes_compact or train_present[0] != 0 or \
-            train_present[-1] != len(train_present) - 1:
+    if (
+        len(train_present) != n_classes_compact
+        or train_present[0] != 0
+        or train_present[-1] != len(train_present) - 1
+    ):
         inner_remap = {int(orig): i for i, orig in enumerate(train_present)}
         val_mask = np.isin(y_inner_val, train_present)
         test_mask = np.isin(y_test_compact, train_present)
         n_dropped_val = int((~val_mask).sum())
         n_dropped_test = int((~test_mask).sum())
         if n_dropped_val or n_dropped_test:
-            print(f"  Dropped {n_dropped_val} inner-val + {n_dropped_test} test rows "
-                  f"with labels absent from inner-train (smoke-scale artifact).")
+            print(
+                f"  Dropped {n_dropped_val} inner-val + {n_dropped_test} test rows "
+                f"with labels absent from inner-train (smoke-scale artifact)."
+            )
         X_inner_val = X_inner_val[val_mask]
         y_inner_val = y_inner_val[val_mask]
         X_test = X_test[test_mask]
         y_test = y_test[test_mask]
         y_test_compact = y_test_compact[test_mask]
-        test_dataset_names = [n for n, keep in zip(test_dataset_names, test_mask) if keep]
+        test_dataset_names = [
+            n for n, keep in zip(test_dataset_names, test_mask) if keep
+        ]
         test_fov_names = [n for n, keep in zip(test_fov_names, test_mask) if keep]
         test_cell_indices = [c for c, keep in zip(test_cell_indices, test_mask) if keep]
         remap_fn = np.vectorize(inner_remap.get, otypes=[np.int64])
         y_inner_train = remap_fn(y_inner_train)
         y_inner_val = remap_fn(y_inner_val)
         y_test_compact = remap_fn(y_test_compact)
-        compact_to_label = {i: compact_to_label[int(orig)] for i, orig in enumerate(train_present)}
-        compact_ct2idx = {name: inner_remap[orig] for name, orig in compact_ct2idx.items()
-                          if orig in inner_remap}
+        compact_to_label = {
+            i: compact_to_label[int(orig)] for i, orig in enumerate(train_present)
+        }
+        compact_ct2idx = {
+            name: inner_remap[orig]
+            for name, orig in compact_ct2idx.items()
+            if orig in inner_remap
+        }
         n_classes_compact = len(train_present)
 
     # Train XGBoost model
@@ -232,7 +256,9 @@ def main(
         eval_set=[(X_inner_val, y_inner_val)],
         verbose=True,
     )
-    print(f"  Best iteration: {model.best_iteration}, Best score (mlogloss): {model.best_score:.6f}")
+    print(
+        f"  Best iteration: {model.best_iteration}, Best score (mlogloss): {model.best_score:.6f}"
+    )
 
     # Evaluate on test set
     print("\nEvaluating on test set...")
@@ -243,8 +269,12 @@ def main(
     # Use shared hierarchy collapse (Tcell + Stromal) so XGBoost numbers are
     # directly comparable to the main model's LossesAndMetrics.compute() output.
     metrics = compute_baseline_metrics(
-        y_test_compact, y_pred_compact, y_prob_compact, n_classes_compact,
-        hierarchy=CELL_TYPE_HIERARCHY, ct2idx=compact_ct2idx,
+        y_test_compact,
+        y_pred_compact,
+        y_prob_compact,
+        n_classes_compact,
+        hierarchy=CELL_TYPE_HIERARCHY,
+        ct2idx=compact_ct2idx,
     )
 
     print("\nTest Results:")
@@ -255,12 +285,14 @@ def main(
 
     # Log to wandb if enabled
     if enable_wandb:
-        wandb.log({
-            "test/macro_accuracy": metrics["macro_accuracy"],
-            "test/weighted_accuracy": metrics["weighted_accuracy"],
-            "test/macro_f1": metrics["macro_f1"],
-            "test/weighted_f1": metrics["weighted_f1"],
-        })
+        wandb.log(
+            {
+                "test/macro_accuracy": metrics["macro_accuracy"],
+                "test/weighted_accuracy": metrics["weighted_accuracy"],
+                "test/macro_f1": metrics["macro_f1"],
+                "test/weighted_f1": metrics["weighted_f1"],
+            }
+        )
 
     # Save model
     model_path = Path(f"models/xgb_model_{model_name}.json")

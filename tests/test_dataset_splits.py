@@ -88,7 +88,9 @@ def _make_indices(fovs_by_class):
     for ct_name, fovs in fovs_by_class.items():
         for ds_name, fov_name in fovs:
             tuples.append(
-                CellIndexRecord(0, ct_name, ct_name, "CODEX", cell_idx, fov_name, ds_name, (10, 10))
+                CellIndexRecord(
+                    0, ct_name, ct_name, "CODEX", cell_idx, fov_name, ds_name, (10, 10)
+                )
             )
             cell_idx += 1
     return tuples
@@ -258,7 +260,6 @@ class TestFovSplitRoundTrip:
         assert "train" in data
         assert "val" in data
         assert "metadata" in data
-        assert "min_channels" in data["metadata"]
         assert "max_channels" in data["metadata"]
         assert "num_marker_channels" in data["metadata"]
         assert "num_cell_types" in data["metadata"]
@@ -275,7 +276,6 @@ class TestFovSplitRoundTrip:
         import logging
 
         dataset = self._build_dataset()
-        dataset.min_channels = 3
         dataset.max_channels = 80
         dataset.marker2idx = {"CD3": 0}
         dataset.ct2idx = {"CD4T": 0, "CD8T": 1, "Tumor": 2}
@@ -283,20 +283,19 @@ class TestFovSplitRoundTrip:
         split_file = tmp_path / "splits.json"
         save_fov_splits(dataset, str(split_file), train_ratio=0.7, seed=42)
 
-        dataset.min_channels = 0
+        dataset.max_channels = 99
 
         with caplog.at_level(logging.WARNING, logger="deepcell_types.training.dataset"):
             load_fov_splits(dataset, str(split_file), strict=False)
 
         assert any(
-            "split metadata mismatch: min_channels" in rec.getMessage()
+            "split metadata mismatch: max_channels" in rec.getMessage()
             for rec in caplog.records
         )
 
     def test_load_fails_on_filter_metadata_mismatch(self, tmp_path):
         """Strict split loading rejects stale filter/archive assumptions."""
         dataset = self._build_dataset()
-        dataset.min_channels = 3
         dataset.max_channels = 80
         dataset.marker2idx = {"CD3": 0}
         dataset.ct2idx = {"CD4T": 0, "CD8T": 1, "Tumor": 2}
@@ -304,9 +303,9 @@ class TestFovSplitRoundTrip:
         split_file = tmp_path / "splits.json"
         save_fov_splits(dataset, str(split_file), train_ratio=0.7, seed=42)
 
-        dataset.min_channels = 0
+        dataset.max_channels = 99
 
-        with pytest.raises(ValueError, match="split metadata mismatch: min_channels"):
+        with pytest.raises(ValueError, match="split metadata mismatch: max_channels"):
             load_fov_splits(dataset, str(split_file))
 
     def test_load_allows_zarr_path_metadata_mismatch(self, tmp_path, caplog):
@@ -314,7 +313,6 @@ class TestFovSplitRoundTrip:
         import logging
 
         dataset = self._build_dataset()
-        dataset.min_channels = 3
         dataset.max_channels = 80
         dataset.marker2idx = {"CD3": 0}
         dataset.ct2idx = {"CD4T": 0, "CD8T": 1, "Tumor": 2}
@@ -333,7 +331,6 @@ class TestFovSplitRoundTrip:
     def test_load_fails_when_required_metadata_missing(self, tmp_path):
         """Strict split loading rejects missing provenance fields."""
         dataset = self._build_dataset()
-        dataset.min_channels = 3
         dataset.max_channels = 80
         dataset.marker2idx = {"CD3": 0}
         dataset.ct2idx = {"CD4T": 0, "CD8T": 1, "Tumor": 2}
@@ -342,11 +339,11 @@ class TestFovSplitRoundTrip:
 
         with open(split_file) as f:
             data = json.load(f)
-        del data["metadata"]["min_channels"]
+        del data["metadata"]["max_channels"]
         with open(split_file, "w") as f:
             json.dump(data, f)
 
-        with pytest.raises(ValueError, match="min_channels: file is missing"):
+        with pytest.raises(ValueError, match="max_channels: file is missing"):
             load_fov_splits(dataset, str(split_file))
 
     def test_no_skipped_samples_after_roundtrip(self, tmp_path, caplog):

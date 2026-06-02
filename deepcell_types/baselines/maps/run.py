@@ -236,12 +236,6 @@ def evaluate(
     default=None,
     help="Path to cache extracted features (.npz). Reuses cache if it exists.",
 )
-@click.option(
-    "--min_channels",
-    type=int,
-    default=3,
-    help="Min non-DAPI channels per dataset (filters 2-channel datasets)",
-)
 def main(
     model_name: str,
     device_num: str,
@@ -257,7 +251,6 @@ def main(
     seed: int,
     split_file: str,
     features_cache: str,
-    min_channels: int,
 ):
     """Train MAPS baseline for cell type classification."""
     # Seed everything (canonical mahmoodlab/MAPS trainer.py:81-101)
@@ -317,7 +310,6 @@ def main(
         skip_datasets=skip_datasets,
         keep_datasets=keep_datasets,
         cache_path=features_cache,
-        min_channels=min_channels,
     )
 
     X_train, y_train = data["X_train"], data["y_train"]

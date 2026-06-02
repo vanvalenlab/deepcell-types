@@ -226,7 +226,6 @@ def _split_metadata_for_dataset(dataset):
     zarr_path = getattr(dataset, "_zarr_path", None)
 
     return {
-        "min_channels": getattr(dataset, "min_channels", None),
         "max_channels": getattr(dataset, "max_channels", None),
         "num_marker_channels": len(marker2idx) if marker2idx is not None else None,
         "num_cell_types": len(ct2idx) if ct2idx is not None else None,

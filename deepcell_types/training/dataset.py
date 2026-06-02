@@ -66,7 +66,6 @@ class FullImageDataset(Dataset):
         skip_fovs=None,
         keep_fovs=None,
         skip_distance_transform=False,
-        min_channels=0,
         numpy_cache_max_bytes=None,
         **kwargs,
     ):
@@ -81,13 +80,10 @@ class FullImageDataset(Dataset):
             keep_fovs: Set of FOV names to keep (for FOV splits)
             skip_distance_transform: If True, skip distance transform computation
                 (zeros instead). Saves CPU time for models that don't use it.
-            min_channels: Minimum number of model-visible marker channels required per dataset.
-                Datasets with fewer are excluded. Default 0 (no filtering).
             numpy_cache_max_bytes: Per-worker full-FOV numpy cache budget.
         """
         super().__init__(**kwargs)
         self.skip_distance_transform = skip_distance_transform
-        self.min_channels = min_channels
         self._zarr_path = None  # Set by _load_tissuenet_archive (string, picklable)
         self._zarr_root = None  # Lazily opened per-worker
         self.archive_fingerprint = None
@@ -305,14 +301,6 @@ class FullImageDataset(Dataset):
                     f"MAX_NUM_CHANNELS={self.max_channels}. Increase the model "
                     "cap or define an explicit channel truncation policy."
                 )
-
-            # Filter datasets with too few model-visible marker channels
-            if self.min_channels > 0:
-                num_real = sum(
-                    1 for c in channel_names if self._resolve_channel_index(c)[0] != -1
-                )
-                if num_real < self.min_channels:
-                    continue
 
             domain = domain_mapping.get(dataset_key)
             if domain is None:
@@ -694,7 +682,22 @@ class FullImageDataset(Dataset):
             self.output_size,
             skip_distance_transform=self.skip_distance_transform,
         )
-        # raw_masked: (C, H, W), spatial_context: (3, H, W)
+        # raw_masked: (C, H, W), spatial_context: (3, H, W) = (self_mask,
+        # neighbor_mask, distance_transform)
+
+        # Tripwire: a labeled cell must have a non-empty self-mask. An all-zero
+        # self-mask means `raw_masked` is a blank patch carrying a real cell-type
+        # label — caused by a mask/centroid desync or a non-integer mask defeating
+        # the `== cell_idx` test in extract_patch. The canonical archive has zero
+        # such cells; fail loudly rather than silently train on garbage if a
+        # future archive regresses.
+        if float(spatial_context[0].sum()) == 0:
+            raise ValueError(
+                f"{dataset_name}/{fov_name} cell {cell_idx}: empty self-mask "
+                "(no pixels match cell_idx in the crop) — the patch would be "
+                "all-zero with a valid label. Check the mask dtype and the "
+                "mask-vs-centroid alignment for this FOV."
+            )
 
         n_real_channels = len(ch_names)
         if n_real_channels > self.max_channels:

@@ -23,7 +23,6 @@ XGBOOST_OPTS = {
     "learning_rate",
     "split_file",
     "features_cache",
-    "min_channels",
 }
 NIMBUS_OPTS = {
     "model_name",
@@ -49,7 +48,6 @@ XGBOOST_TUNE_OPTS = {
     "storage",
     "split_mode",
     "split_file",
-    "min_channels",
     "max_tuning_samples",
     "device_num",
 }

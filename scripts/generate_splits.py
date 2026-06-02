@@ -45,12 +45,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 @click.option("--skip_datasets", type=str, multiple=True, default=[])
 @click.option("--keep_datasets", type=str, multiple=True, default=[])
 @click.option(
-    "--min_channels",
-    type=int,
-    default=0,
-    help="Min model-visible marker channels per dataset (default 0 = no filter)",
-)
-@click.option(
     "--stratify_by",
     type=str,
     default="modality,tissue",
@@ -60,7 +54,12 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
     ),
 )
 def main(
-    zarr_dir, output, seed, train_ratio, skip_datasets, keep_datasets, min_channels,
+    zarr_dir,
+    output,
+    seed,
+    train_ratio,
+    skip_datasets,
+    keep_datasets,
     stratify_by,
 ):
     """Generate a canonical FOV split file."""
@@ -75,11 +74,13 @@ def main(
         dct_config=dct_config,
         skip_datasets=skip_datasets,
         keep_datasets=keep_datasets,
-        min_channels=min_channels,
     )
 
     train_indices, val_indices = save_fov_splits(
-        dataset, output, train_ratio=train_ratio, seed=seed,
+        dataset,
+        output,
+        train_ratio=train_ratio,
+        seed=seed,
         stratify_by=stratify_keys,
     )
 

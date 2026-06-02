@@ -17,9 +17,12 @@ MODEL_ORIG_SHA = {
     "maps": "29202958b4326a542732663eb92541681d1d3a10ebc0767bad547416249edc00",
     "cellsighter": "fccb04d5d1eb87159d6afcac473b5b872d5c5aafa54a8c56a65457adbeb2f7f2",
 }
+# Re-pinned after removing the locally-added ``--min_channels`` CLI option
+# (an unused channel-count filter that caused unfair baseline comparisons via
+# mismatched defaults). The import rewrite remains the only delta vs. these.
 RUN_ORIG_SHA = {
-    "maps": "e6810b88a47ad3239ae3670e0dccba964ba96328b4537f98005cd463c85ddf54",
-    "cellsighter": "915b77d7abab1d505a4b638c4ea877a603c875fa290ebe6c95f1d3262624761d",
+    "maps": "9a7d093d13a7250a77859243d42d9d8c24e823841adbc38c3667b340b31fa085",
+    "cellsighter": "84d480710c54b09169c87bd01ce72972febfa69086b39315b2217f6b2e85fea3",
 }
 INIT_ORIG_SHA = {
     "maps": "5a0a765d62d2f11c841da99f34ccd63b226b47285fe85b6a9edbf92636a58f75",

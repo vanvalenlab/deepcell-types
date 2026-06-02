@@ -58,7 +58,9 @@ def _apply_missing_value(out: dict, missing_value: float) -> None:
             logger.warning(
                 "%s block sizes (%d) do not sum to feature row count (%d); "
                 "skipping missing-value substitution",
-                split, int(block_sizes.sum()), len(X),
+                split,
+                int(block_sizes.sum()),
+                len(X),
             )
             continue
         # Ensure we own the array before in-place writes (cached arrays
@@ -69,7 +71,7 @@ def _apply_missing_value(out: dict, missing_value: float) -> None:
         row = 0
         for n_cells, absent_markers in zip(block_sizes.tolist(), block_absent):
             if absent_markers.any():
-                X[row:row + int(n_cells), absent_markers] = missing_value
+                X[row : row + int(n_cells), absent_markers] = missing_value
             row += int(n_cells)
 
 
@@ -198,7 +200,6 @@ def _extract_all_dataset_features(
     zarr_dir: str,
     dct_config,
     dataset_keys: list,
-    min_channels: int = 0,
     global_cache_path: str = None,
 ) -> dict:
     """Extract per-dataset features from zarr, with split-agnostic caching.
@@ -211,7 +212,6 @@ def _extract_all_dataset_features(
         zarr_dir: Path to tissuenet zarr archive
         dct_config: TissueNetConfig instance
         dataset_keys: List of dataset keys to process
-        min_channels: Minimum model-visible marker channels per dataset
         global_cache_path: If provided, cache all per-dataset features here.
             Subsequent calls with the same path skip extraction entirely.
 
@@ -225,7 +225,6 @@ def _extract_all_dataset_features(
     expected_cache_meta = _feature_cache_metadata(
         zarr_dir=zarr_dir,
         dct_config=dct_config,
-        min_channels=min_channels,
         dataset_keys=dataset_keys,
     )
 
@@ -242,15 +241,15 @@ def _extract_all_dataset_features(
             try:
                 st = cache_file.stat()
             except OSError as e:
-                logger.warning(
-                    "global feature cache stat failed (%s); rebuilding", e
-                )
+                logger.warning("global feature cache stat failed (%s); rebuilding", e)
                 st = None
             if st is not None and st.st_uid != os.getuid():
                 logger.warning(
                     "global feature cache at %s not owned by current user "
                     "(uid=%d, expected %d) — rejecting and rebuilding",
-                    cache_file, st.st_uid, os.getuid(),
+                    cache_file,
+                    st.st_uid,
+                    os.getuid(),
                 )
                 st = None  # skip load
             if st is not None and st.st_mode & 0o002:
@@ -291,7 +290,9 @@ def _extract_all_dataset_features(
                     # Filter to requested datasets
                     wanted = set(dataset_keys)
                     result = {k: v for k, v in cached.items() if k in wanted}
-                    logger.info("Loaded features for %d datasets from cache", len(result))
+                    logger.info(
+                        "Loaded features for %d datasets from cache", len(result)
+                    )
                     return result
 
     zf = zarr.open_group(zarr_dir, mode="r")
@@ -314,13 +315,6 @@ def _extract_all_dataset_features(
         channel_names = list(preproc.attrs.get("channel_names", []))
         if not channel_names:
             continue
-
-        if min_channels > 0:
-            num_real = sum(
-                1 for c in channel_names if resolve_marker_idx(c) is not None
-            )
-            if num_real < min_channels:
-                continue
 
         cell_data = _get_cell_data_from_ds(ds, dataset_key, preproc)
         if cell_data is None:
@@ -395,7 +389,8 @@ def _extract_all_dataset_features(
         )
         logger.info(
             "Saved global feature cache (%d datasets) to %s",
-            len(per_dataset), global_cache_path,
+            len(per_dataset),
+            global_cache_path,
         )
 
     return per_dataset
@@ -408,7 +403,6 @@ def extract_features_from_zarr(
     skip_datasets=None,
     keep_datasets=None,
     cache_path: str = None,
-    min_channels: int = 0,
     global_cache_path: str = None,
     strict_split: bool = True,
     missing_value: float = 0.0,
@@ -428,8 +422,6 @@ def extract_features_from_zarr(
             On subsequent calls, loads from cache if it exists.
             NOTE: This cache is split-specific. Use global_cache_path for
             cross-holdout reuse.
-        min_channels: Minimum number of model-visible marker channels required per dataset.
-            Datasets with fewer are excluded. Default 0 (no filtering).
         global_cache_path: If provided, cache ALL per-dataset features to this
             pickle file (split-agnostic). Subsequent calls with any split_file
             skip the expensive zarr I/O and just apply the split to cached data.
@@ -480,7 +472,6 @@ def extract_features_from_zarr(
     expected_cache_meta = _feature_cache_metadata(
         zarr_dir=zarr_dir,
         dct_config=dct_config,
-        min_channels=min_channels,
         dataset_keys=dataset_keys,
         split_file=split_file,
     )
@@ -515,7 +506,8 @@ def extract_features_from_zarr(
                                 out[key] = val
                         logger.info(
                             "Loaded %d train, %d val samples from cache",
-                            len(out["X_train"]), len(out["X_val"]),
+                            len(out["X_train"]),
+                            len(out["X_val"]),
                         )
                         _apply_missing_value(out, missing_value)
                         return out
@@ -634,7 +626,6 @@ def extract_features_from_zarr(
         zarr_dir=zarr_dir,
         dct_config=dct_config,
         dataset_keys=dataset_keys,
-        min_channels=min_channels,
         global_cache_path=global_cache_path,
     )
 
@@ -752,8 +743,10 @@ def extract_features_from_zarr(
     meta = split_data.get("metadata", {})
     logger.info(
         "Loaded FOV splits from %s (created %s): %d train, %d val",
-        split_file, meta.get("created", "unknown"),
-        len(out["X_train"]), len(out["X_val"]),
+        split_file,
+        meta.get("created", "unknown"),
+        len(out["X_train"]),
+        len(out["X_val"]),
     )
 
     # Save split-specific cache if requested (legacy behavior)
