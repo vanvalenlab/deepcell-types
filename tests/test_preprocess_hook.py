@@ -1,6 +1,8 @@
 import numpy as np
+import deepcell_types.dataset as dsmod
 from deepcell_types.preprocessing import patch_generator
 from deepcell_types.config import DCTConfig
+from deepcell_types.preprocessing_ops import make_preprocessor, DEFAULT_CONFIG
 
 
 def _toy():
@@ -37,9 +39,6 @@ def test_patch_generator_invokes_preprocess_with_chw_and_names():
     assert all(np.all(p[0] == 0.0) for p in patches)  # hook output used
 
 
-import deepcell_types.dataset as dsmod
-
-
 def test_patchdataset_forwards_preprocess(monkeypatch):
     raw, mask = _toy()
     cfg = DCTConfig()
@@ -53,18 +52,14 @@ def test_patchdataset_forwards_preprocess(monkeypatch):
         return iter(())
 
     monkeypatch.setattr(dsmod, "patch_generator", fake_patch_generator)
-    hook = lambda arr, names: arr
+
+    def hook(arr, names):
+        return arr
+
     ds = dsmod.PatchDataset(raw, mask, ["CD3", "DAPI"], 0.5, cfg, preprocess=hook)
     list(ds)  # triggers __iter__
     assert captured["preprocess"] is hook
     assert captured["channel_names"] == ds.channel_names_standard
-
-
-from deepcell_types.preprocessing import (
-    _percentile_threshold_nonzero,
-    _normalize_per_channel,
-)
-from deepcell_types.preprocessing_ops import make_preprocessor, DEFAULT_CONFIG
 
 
 def test_default_config_hook_equals_builtin_in_patch_generator():
