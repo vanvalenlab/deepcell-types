@@ -1,6 +1,6 @@
 ---
 name: preproc-adapt
-description: Use to improve deepcell-types cell-type predictions on a single field of view (FOV) whose composition looks biologically implausible, by adapting the per-FOV image preprocessing. Pre-register a rough, panel-aware biological expectation for the tissue; run deepcell_types.predict; roll the predictions up to broad lineages; compare against the frozen expectation; change ONE bounded preprocessing op; repeat until the expectation is met or a small iteration cap is hit. Highest leverage on sparse / low-plex panels and FOVs with a noisy or miscalibrated channel.
+description: Use when a deepcell-types prediction on a single FOV gives a biologically implausible cell-type composition (e.g. neurons in a lymph node, an epithelial organ called mostly immune, one rare type dominating), especially on sparse / low-plex panels or when a channel looks saturated or high-background. Adapts the per-FOV image preprocessing fed to deepcell_types.predict via its preprocess hook; the model weights are never changed.
 ---
 
 # Composition-Guided Preprocessing Adaptation
@@ -8,7 +8,8 @@ description: Use to improve deepcell-types cell-type predictions on a single fie
 A closed loop that tunes the **image preprocessing** fed to `deepcell-types` on a
 single FOV until the predicted cell-type composition is biologically plausible for
 the tissue and the markers the panel can actually detect. The model and its weights
-are never touched — only the per-channel normalization the model sees.
+are never touched — only the per-channel normalization the model sees, via the
+`preprocess` hook on `deepcell_types.predict`.
 
 It works because confident-but-wrong predictions on a hard FOV are often driven by an
 **input artifact** (a saturated/high-background channel, a wrong clip percentile, a
@@ -30,9 +31,11 @@ to expect — see Guardrails.
 pip install "deepcell-types @ git+https://github.com/vanvalenlab/deepcell-types@master"
 ```
 Inputs for one FOV (all you need — no archive required):
-- `raw`: `(C, W, H)` numpy array of native intensities.
-- `mask`: `(W, H)` integer cell-id label image (`0` = background).
-- `channel_names`: length-`C` list of marker names, in `raw`'s channel order.
+- `raw`: `(C, H, W)` numpy array of native intensities.
+- `mask`: `(H, W)` integer cell-id label image (`0` = background).
+- `channel_names`: length-`C` list of marker names, in `raw`'s channel order. They are
+  matched to the model's marker registry; names it doesn't recognize are dropped before
+  preprocessing runs.
 - `mpp`: microns-per-pixel of the image.
 - `tissue`: a string for the tissue (used only by you, to write the expectation).
 
@@ -40,27 +43,46 @@ Baseline prediction (the call the loop wraps):
 ```python
 import deepcell_types as dct
 labels = dct.predict(raw, mask, channel_names, mpp,
-                     model_name="<released-model>", device_num="cuda:0")
+                     model_name="<released-model>", device="cuda:0")
 # labels: per-cell predicted cell type, aligned to mask cell ids.
 ```
 
-## The bounded preprocessing config
-Adaptation is expressed as a short, declarative JSON op-pipeline applied per channel
-to `raw` **in place of** the canonical normalization (`deepcell_types.preprocessing.
-preprocess_fov` does percentile-clip + min-max by default). Keeping it declarative and
-bounded is what makes results comparable and keeps you honest (no hand-written
-transforms that quietly fit the answer).
+## Adapting preprocessing via the `preprocess` hook
+`predict` accepts a `preprocess` hook that **replaces** the built-in per-channel
+normalization. Express the adaptation as a short, declarative op-pipeline and build the
+hook with `make_preprocessor`. Keeping it declarative and bounded is what makes results
+comparable and keeps you honest (no hand-written transforms that quietly fit the answer):
 
-`DEFAULT_CONFIG` reproduces the canonical recipe:
-```json
-[{"op": "clip_percentile", "p": 99.9}, {"op": "min_max_normalize"}]
+```python
+from deepcell_types import predict, make_preprocessor, DEFAULT_CONFIG
+
+config = [{"op": "clip_percentile", "p": 99.9}, {"op": "min_max_normalize"}]  # == built-in default
+labels = predict(raw, mask, channel_names, mpp, model_name="<released-model>",
+                 device="cuda:0", preprocess=make_preprocessor(config))
 ```
+
+**Hook contract.** `predict` resamples to the model's target MPP and drops
+out-of-vocabulary channels *before* calling the hook. The hook then receives the
+resampled, in-vocab `raw` as `(C, H, W)` float32 and the resolved **standard** marker
+names aligned to it, and must return `(C, H, W)` in `[0, 1]`. `preprocess=None`
+(default) runs the built-in p99.9 clip + min-max; `make_preprocessor(DEFAULT_CONFIG)`
+reproduces that bit-for-bit, so the baseline round is a true baseline.
+
+> **Do not wrap `preprocess_fov`.** It is the archive-ingestion path, *not* the
+> inference path — `predict` never calls it, so wrapping it changes nothing and you
+> will misread "no change" as the model being unfixable. Always go through the
+> `preprocess` hook.
+
+`channel_drop` / `channel_weight` reference the model's **standard marker names** (what
+the hook receives), which may differ from your raw input names.
+
 Available ops (apply in listed order; always end with a normalize so the model sees
-`[0,1]`):
+`[0,1]`) — all implemented in `deepcell_types.preprocessing_ops` (`apply_config`,
+`make_preprocessor`, `DEFAULT_CONFIG`):
 
 | op | params | effect |
 |---|---|---|
-| `clip_percentile` | `p` | per-channel clip at the p-th percentile (tames bright outliers) |
+| `clip_percentile` | `p` | per-channel clip at the p-th percentile of nonzero pixels (tames bright outliers) |
 | `arcsinh` | `cofactor` (default 5) | compress dynamic range: `arcsinh(x/cofactor)` |
 | `log1p` | — | `log1p(max(x,0))` |
 | `background_subtract` | `value` | `clip(x - value, 0, None)` — removes a pervasive background floor |
@@ -70,45 +92,6 @@ Available ops (apply in listed order; always end with a normalize so the model s
 | `channel_weight` | `weights:{name:w}` | scale named channels (see no-op note) |
 | `channel_drop` | `names:[...]` | zero named channels (never removes; masking handles the rest) |
 | `min_max_normalize` | — | terminal per-channel min-max to `[0,1]` |
-
-A compact, dependency-light reference implementation:
-```python
-import numpy as np
-
-def _pctl_clip(x, p):                       # x: (C,H,W)
-    hi = np.percentile(x, p, axis=(1, 2), keepdims=True)
-    return np.minimum(x, hi)
-
-def _minmax(x):
-    lo = x.min(axis=(1, 2), keepdims=True); hi = x.max(axis=(1, 2), keepdims=True)
-    rng = np.where(hi > lo, hi - lo, 1.0)
-    return np.clip((x - lo) / rng, 0, 1)
-
-def apply_config(raw, channel_names, config):
-    """raw: (C,H,W) float32 native intensities -> (C,H,W) in [0,1] for the model."""
-    x = raw.astype(np.float32).copy(); idx = {n: i for i, n in enumerate(channel_names)}
-    for step in config:
-        op = step["op"]
-        if op == "clip_percentile":       x = _pctl_clip(x, float(step["p"]))
-        elif op == "arcsinh":             x = np.arcsinh(x / float(step.get("cofactor", 5.0)))
-        elif op == "log1p":               x = np.log1p(np.clip(x, 0, None))
-        elif op == "background_subtract": x = np.clip(x - float(step["value"]), 0, None)
-        elif op == "channel_drop":
-            for n in step["names"]:
-                if n in idx: x[idx[n]] = 0.0
-        elif op == "channel_weight":
-            for n, w in step["weights"].items():
-                if n in idx: x[idx[n]] *= float(w)
-        elif op == "min_max_normalize":   x = _minmax(x)
-        else: raise ValueError(f"unknown op {op!r}")
-    return x
-```
-
-**Integration point.** Apply your config to `raw`, then run inference on the
-normalized array (and disable the default re-normalization so it isn't applied
-twice). The simplest path is to wrap `deepcell_types.preprocessing.preprocess_fov` /
-the normalization step so it returns `apply_config(raw, ...)` instead of the canonical
-percentile-clip + min-max; resampling to the model's target MPP stays unchanged.
 
 **Down-weighting gotcha.** `channel_weight` *before* a terminal `min_max_normalize`
 is a NO-OP (per-channel min-max cancels uniform pre-scaling). To partially suppress a
@@ -137,10 +120,10 @@ This is a **rough plausibility criterion, not target fractions.** It is the cont
 you judge every later round against — never a post-hoc story.
 
 ### 2. Baseline run with `DEFAULT_CONFIG`, then evaluate composition
-Run `predict` with the default config and roll the per-cell labels up to broad
-lineages (group your model's classes into lineages — e.g. Epithelial, Lymphocyte,
-Myeloid, Endothelial, Stromal, Nerve, Tumor, Other). Record lineage fractions,
-abstention rate, and mean confidence.
+Run `predict` with `preprocess=make_preprocessor(DEFAULT_CONFIG)` (identical to passing
+no hook) and roll the per-cell labels up to broad lineages (group your model's classes
+into lineages — e.g. Epithelial, Lymphocyte, Myeloid, Endothelial, Stromal, Nerve,
+Tumor, Other). Record lineage fractions, abstention rate, and mean confidence.
 
 ### 3. Compare to the FROZEN expectation
 **Success** when ALL hold: every `expected_present` lineage appears (dominant ones in
@@ -180,8 +163,9 @@ the before/after composition.
   type predicted above a small fraction whose defining marker is absent from the panel; it
   is almost always spurious. (Often driven by hot pixels mimicking granular cells —
   `hot_pixel_removal` cuts it without the dynamic-range distortion `arcsinh` causes.)
-- **Bounded ops only.** If a needed op doesn't exist, add it to the library (with a
-  test) rather than hand-writing a one-off transform.
+- **Bounded ops only.** If a needed op doesn't exist, add it to
+  `deepcell_types.preprocessing_ops` (with a test) rather than hand-writing a one-off
+  transform.
 - **Some failures are not preprocessing-fixable.** If the panel lacks the markers to
   detect the expected biology, or the model is out-of-distribution for the
   modality/panel (predictions don't move under drastic input changes), STOP and report
@@ -203,10 +187,3 @@ the before/after composition.
 - **Out-of-distribution modality = hard prior.** A modality barely present in training
   saturated to one lineage regardless of input edits (dropping even the relevant
   markers didn't move it). Preprocessing can't fix a coverage gap — flag for retraining.
-
-## Free-form variant (optional)
-If the bounded op set is too restrictive, write an arbitrary-numpy function per FOV —
-`preprocess(raw, channel_names, tissue) -> array in [0,1]` — and use it in place of
-`apply_config`. The same loop, pre-registration, and guardrails apply; you just rewrite
-the function each round instead of editing JSON. Keep the resampling/scale handling
-upstream so results stay comparable to the bounded path.
