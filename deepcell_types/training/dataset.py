@@ -66,7 +66,6 @@ class FullImageDataset(Dataset):
         skip_fovs=None,
         keep_fovs=None,
         skip_distance_transform=False,
-        min_channels=0,
         numpy_cache_max_bytes=None,
         **kwargs,
     ):
@@ -81,13 +80,10 @@ class FullImageDataset(Dataset):
             keep_fovs: Set of FOV names to keep (for FOV splits)
             skip_distance_transform: If True, skip distance transform computation
                 (zeros instead). Saves CPU time for models that don't use it.
-            min_channels: Minimum number of model-visible marker channels required per dataset.
-                Datasets with fewer are excluded. Default 0 (no filtering).
             numpy_cache_max_bytes: Per-worker full-FOV numpy cache budget.
         """
         super().__init__(**kwargs)
         self.skip_distance_transform = skip_distance_transform
-        self.min_channels = min_channels
         self._zarr_path = None  # Set by _load_tissuenet_archive (string, picklable)
         self._zarr_root = None  # Lazily opened per-worker
         self.archive_fingerprint = None
@@ -305,14 +301,6 @@ class FullImageDataset(Dataset):
                     f"MAX_NUM_CHANNELS={self.max_channels}. Increase the model "
                     "cap or define an explicit channel truncation policy."
                 )
-
-            # Filter datasets with too few model-visible marker channels
-            if self.min_channels > 0:
-                num_real = sum(
-                    1 for c in channel_names if self._resolve_channel_index(c)[0] != -1
-                )
-                if num_real < self.min_channels:
-                    continue
 
             domain = domain_mapping.get(dataset_key)
             if domain is None:

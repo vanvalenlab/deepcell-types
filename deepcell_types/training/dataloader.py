@@ -55,7 +55,6 @@ def create_dataloader(
     max_val_samples=None,
     multiprocessing_context=None,
     pin_memory=False,
-    min_channels=0,
     numpy_cache_max_bytes=None,
     fov_grouped_train: bool = False,
 ):
@@ -124,7 +123,6 @@ def create_dataloader(
         transform=None,
         keep_fovs=keep_fovs,
         skip_distance_transform=skip_distance_transform,
-        min_channels=min_channels,
         numpy_cache_max_bytes=numpy_cache_max_bytes,
     )
 
@@ -321,7 +319,6 @@ class DataLoaderConfig:
     max_val_samples: Optional[int] = None
     multiprocessing_context: Optional[Any] = None
     pin_memory: bool = False
-    min_channels: int = 0
     numpy_cache_max_bytes: Optional[int] = None
 
 

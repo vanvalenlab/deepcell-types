@@ -30,7 +30,11 @@ from torchinfo import summary
 from deepcell_types.training.config import TissueNetConfig
 from deepcell_types.training.dataset import create_dataloader
 from deepcell_types.model import create_model, MaskedMarkerHead, mask_marker_channels
-from deepcell_types.training.utils import BatchData, seed_everything, load_matching_state_dict
+from deepcell_types.training.utils import (
+    BatchData,
+    seed_everything,
+    load_matching_state_dict,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,12 +86,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
     help="Enable Automatic Mixed Precision (AMP) training (~2x speedup on CUDA, disabled automatically on CPU)",
 )
 @click.option(
-    "--min_channels",
-    type=int,
-    default=0,
-    help="Min model-visible marker channels per dataset (default 0 = no filter)",
-)
-@click.option(
     "--max_samples_per_epoch",
     type=int,
     default=500000,
@@ -119,7 +117,6 @@ def main(
     split_mode,
     split_file,
     enable_amp,
-    min_channels,
     max_samples_per_epoch,
     resume_path,
 ):
@@ -179,7 +176,6 @@ def main(
         persistent_workers=num_workers > 0,
         multiprocessing_context="spawn" if num_workers > 0 else None,
         pin_memory=use_cuda,
-        min_channels=min_channels,
         max_samples_per_epoch=max_samples_per_epoch,
     )
 
@@ -258,9 +254,15 @@ def main(
                 "loading model backbone only (optimizer/scheduler/scaler/epoch NOT restored).",
                 resume_path,
             )
-            legacy_state = resume_ckpt["model"] if isinstance(resume_ckpt, dict) and "model" in resume_ckpt else resume_ckpt
+            legacy_state = (
+                resume_ckpt["model"]
+                if isinstance(resume_ckpt, dict) and "model" in resume_ckpt
+                else resume_ckpt
+            )
             loaded = load_matching_state_dict(model, legacy_state)
-            logger.info("Loaded %d/%d params (backbone-only).", loaded, len(model.state_dict()))
+            logger.info(
+                "Loaded %d/%d params (backbone-only).", loaded, len(model.state_dict())
+            )
         else:
             ckpt_config = resume_ckpt.get("config", {})
             for key in ("resnet_channels", "d_model"):

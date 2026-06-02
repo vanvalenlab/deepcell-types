@@ -29,7 +29,6 @@ _REQUIRES = {
     "test_hierarchical_eval.py": ("pandas",),
     "test_hierarchy_one_way.py": ("pandas",),
     "test_losses.py": ("pandas",),
-    "test_min_channels.py": ("zarr",),
     "test_predlogger_dataframe.py": ("pandas",),
     "test_samplers.py": ("zarr",),
     "test_stratified_splits.py": ("zarr",),

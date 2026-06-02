@@ -24,7 +24,10 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
 from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
 from deepcell_types.training.dataset import create_dataloader
 from deepcell_types.training.utils import BatchData
-from deepcell_types.training.baseline_features import compute_baseline_metrics, save_baseline_predictions
+from deepcell_types.training.baseline_features import (
+    compute_baseline_metrics,
+    save_baseline_predictions,
+)
 from deepcell_types.training.metrics import build_label_remap
 
 from .model import CellSighterModel, convert_batch_for_cellsighter
@@ -67,7 +70,9 @@ def train_one_epoch(
     for batch in tqdm(dataloader, desc="Training"):
         batch_data = BatchData(*batch)
         batch_data.sample = batch_data.sample.to(device, non_blocking=True)
-        batch_data.spatial_context = batch_data.spatial_context.to(device, non_blocking=True)
+        batch_data.spatial_context = batch_data.spatial_context.to(
+            device, non_blocking=True
+        )
         batch_data.mask = batch_data.mask.to(device, non_blocking=True)
         batch_data.ch_idx = batch_data.ch_idx.to(device, non_blocking=True)
         ct_idx = batch_data.ct_idx.to(device, non_blocking=True)
@@ -140,7 +145,9 @@ def evaluate(
     for batch in tqdm(dataloader, desc="Evaluating"):
         batch_data = BatchData(*batch)
         batch_data.sample = batch_data.sample.to(device, non_blocking=True)
-        batch_data.spatial_context = batch_data.spatial_context.to(device, non_blocking=True)
+        batch_data.spatial_context = batch_data.spatial_context.to(
+            device, non_blocking=True
+        )
         batch_data.mask = batch_data.mask.to(device, non_blocking=True)
         batch_data.ch_idx = batch_data.ch_idx.to(device, non_blocking=True)
 
@@ -221,19 +228,42 @@ def evaluate(
     default=False,
     help="Use ImageNet pretrained weights (default False to match original CellSighter)",
 )
-@click.option("--model_size", type=click.Choice(["resnet18", "resnet50"]), default="resnet50",
-              help="ResNet variant: 'resnet50' (default, matches paper) or 'resnet18' (faster)")
-@click.option("--split_mode", type=click.Choice(["fov", "patch"]), default="fov",
-              help="Split strategy: 'fov' (default, no spatial leakage) or 'patch' (cell-level random)")
-@click.option("--split_file", type=str, default=None,
-              help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)")
-@click.option("--val_every_n_epochs", type=int, default=10,
-              help="Validate every N epochs (default 10, matching original CellSighter paper)")
-@click.option("--no_amp", is_flag=True, default=False,
-              help="Disable automatic mixed precision (AMP is enabled by default on CUDA)")
-@click.option("--no_compile", is_flag=True, default=False,
-              help="Disable torch.compile optimization")
-@click.option("--min_channels", type=int, default=3, help="Min non-DAPI channels per dataset (filters 2-channel datasets)")
+@click.option(
+    "--model_size",
+    type=click.Choice(["resnet18", "resnet50"]),
+    default="resnet50",
+    help="ResNet variant: 'resnet50' (default, matches paper) or 'resnet18' (faster)",
+)
+@click.option(
+    "--split_mode",
+    type=click.Choice(["fov", "patch"]),
+    default="fov",
+    help="Split strategy: 'fov' (default, no spatial leakage) or 'patch' (cell-level random)",
+)
+@click.option(
+    "--split_file",
+    type=str,
+    default=None,
+    help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)",
+)
+@click.option(
+    "--val_every_n_epochs",
+    type=int,
+    default=10,
+    help="Validate every N epochs (default 10, matching original CellSighter paper)",
+)
+@click.option(
+    "--no_amp",
+    is_flag=True,
+    default=False,
+    help="Disable automatic mixed precision (AMP is enabled by default on CUDA)",
+)
+@click.option(
+    "--no_compile",
+    is_flag=True,
+    default=False,
+    help="Disable torch.compile optimization",
+)
 def main(
     model_name: str,
     device_num: str,
@@ -251,7 +281,6 @@ def main(
     val_every_n_epochs: int,
     no_amp: bool,
     no_compile: bool,
-    min_channels: int,
 ):
     """Train CellSighter baseline for cell type classification."""
     # Set device
@@ -261,6 +290,7 @@ def main(
     # Initialize wandb if enabled
     if enable_wandb:
         import wandb
+
         wandb.login()
         run = wandb.init(
             project="deepcelltypes-temp-train",
@@ -295,11 +325,15 @@ def main(
     sorted_ct_values = sorted(dct_config.ct2idx.values())
     compact_to_orig = {i: v for i, v in enumerate(sorted_ct_values)}
     label_remap = build_label_remap(dct_config.ct2idx)
-    compact_ct2idx = {name: label_remap[idx].item() for name, idx in dct_config.ct2idx.items()}
+    compact_ct2idx = {
+        name: label_remap[idx].item() for name, idx in dct_config.ct2idx.items()
+    }
 
     print(f"Loading data from {zarr_dir}")
     print(f"Number of cell types: {num_classes}")
-    print(f"Input channels: {input_channels} ({num_markers} markers + cell mask + neighbor mask)")
+    print(
+        f"Input channels: {input_channels} ({num_markers} markers + cell mask + neighbor mask)"
+    )
     print(f"Model: {model_size}, AMP: {not no_amp}, torch.compile: {not no_compile}")
 
     # Convert to lists (click returns tuples)
@@ -325,7 +359,6 @@ def main(
         max_samples_per_epoch=500_000,  # Cap iterations (~2K batches/epoch at bs=256)
         multiprocessing_context="spawn",  # zarr v3 is not fork-safe
         pin_memory=use_cuda,  # Faster CPU→GPU transfers
-        min_channels=min_channels,
     )
 
     print(f"Active datasets: {metadata['active_datasets']}")
@@ -371,8 +404,15 @@ def main(
 
         # Train
         train_loss = train_one_epoch(
-            model, train_loader, criterion, optimizer, device, label_remap,
-            num_markers, scaler=scaler, amp_dtype=amp_dtype,
+            model,
+            train_loader,
+            criterion,
+            optimizer,
+            device,
+            label_remap,
+            num_markers,
+            scaler=scaler,
+            amp_dtype=amp_dtype,
         )
         print(f"  Train Loss: {train_loss:.4f}")
 
@@ -381,13 +421,21 @@ def main(
         if is_val_epoch:
             # Evaluate (returns compact 0-indexed labels)
             y_true, y_pred, y_prob, _, _, _ = evaluate(
-                model, test_loader, device, label_remap, num_markers,
+                model,
+                test_loader,
+                device,
+                label_remap,
+                num_markers,
                 amp_dtype=amp_dtype,
             )
             # Shared hierarchy collapse (Tcell + Stromal) — matches main model
             metrics = compute_baseline_metrics(
-                y_true, y_pred, y_prob, num_classes,
-                hierarchy=CELL_TYPE_HIERARCHY, ct2idx=compact_ct2idx,
+                y_true,
+                y_pred,
+                y_prob,
+                num_classes,
+                hierarchy=CELL_TYPE_HIERARCHY,
+                ct2idx=compact_ct2idx,
             )
 
             print(f"  Test Macro Accuracy: {metrics['macro_accuracy']:.4f}")
@@ -397,53 +445,80 @@ def main(
 
             # Log to wandb
             if enable_wandb:
-                wandb.log({
-                    "epoch": epoch + 1,
-                    "train/loss": train_loss,
-                    "test/macro_accuracy": metrics["macro_accuracy"],
-                    "test/weighted_accuracy": metrics["weighted_accuracy"],
-                    "test/macro_f1": metrics["macro_f1"],
-                    "test/weighted_f1": metrics["weighted_f1"],
-                })
+                wandb.log(
+                    {
+                        "epoch": epoch + 1,
+                        "train/loss": train_loss,
+                        "test/macro_accuracy": metrics["macro_accuracy"],
+                        "test/weighted_accuracy": metrics["weighted_accuracy"],
+                        "test/macro_f1": metrics["macro_f1"],
+                        "test/weighted_f1": metrics["weighted_f1"],
+                    }
+                )
 
             # Save best model
             if metrics["macro_accuracy"] > best_macro_acc:
                 best_macro_acc = metrics["macro_accuracy"]
                 model_path.parent.mkdir(parents=True, exist_ok=True)
                 # Strip _orig_mod. prefix from torch.compile'd models
-                state_dict = {k.removeprefix("_orig_mod."): v for k, v in model.state_dict().items()}
-                torch.save({
-                    "epoch": epoch + 1,
-                    "model_state_dict": state_dict,
-                    "optimizer_state_dict": optimizer.state_dict(),
-                    "macro_accuracy": best_macro_acc,
-                }, model_path)
+                state_dict = {
+                    k.removeprefix("_orig_mod."): v
+                    for k, v in model.state_dict().items()
+                }
+                torch.save(
+                    {
+                        "epoch": epoch + 1,
+                        "model_state_dict": state_dict,
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "macro_accuracy": best_macro_acc,
+                    },
+                    model_path,
+                )
                 print(f"  Saved best model to {model_path}")
         else:
             # Log training metrics only
             if enable_wandb:
-                wandb.log({
-                    "epoch": epoch + 1,
-                    "train/loss": train_loss,
-                })
+                wandb.log(
+                    {
+                        "epoch": epoch + 1,
+                        "train/loss": train_loss,
+                    }
+                )
 
     # Load best model before final evaluation
     best_checkpoint = torch.load(model_path, map_location=device, weights_only=False)
     # Load into unwrapped model if torch.compile was used (keys saved without _orig_mod. prefix)
     load_target = getattr(model, "_orig_mod", model)
     load_target.load_state_dict(best_checkpoint["model_state_dict"])
-    print(f"Loaded best model from {model_path} (epoch {best_checkpoint['epoch']}, macro_acc={best_checkpoint['macro_accuracy']:.4f})")
+    print(
+        f"Loaded best model from {model_path} (epoch {best_checkpoint['epoch']}, macro_acc={best_checkpoint['macro_accuracy']:.4f})"
+    )
 
     # Final evaluation (returns compact 0-indexed labels and probabilities)
     print("\nFinal evaluation on test set...")
-    y_true_compact, y_pred_compact, y_prob_compact, test_dataset_names, test_fov_names, test_cell_indices = evaluate(
-        model, test_loader, device, label_remap, num_markers=num_markers,
+    (
+        y_true_compact,
+        y_pred_compact,
+        y_prob_compact,
+        test_dataset_names,
+        test_fov_names,
+        test_cell_indices,
+    ) = evaluate(
+        model,
+        test_loader,
+        device,
+        label_remap,
+        num_markers=num_markers,
         amp_dtype=amp_dtype,
     )
     # Shared hierarchy collapse (Tcell + Stromal) — matches main model
     metrics = compute_baseline_metrics(
-        y_true_compact, y_pred_compact, y_prob_compact, num_classes,
-        hierarchy=CELL_TYPE_HIERARCHY, ct2idx=compact_ct2idx,
+        y_true_compact,
+        y_pred_compact,
+        y_prob_compact,
+        num_classes,
+        hierarchy=CELL_TYPE_HIERARCHY,
+        ct2idx=compact_ct2idx,
     )
 
     print(f"\nFinal Test Results:")
@@ -455,13 +530,15 @@ def main(
 
     # Log final metrics to wandb
     if enable_wandb:
-        wandb.log({
-            "final/macro_accuracy": metrics["macro_accuracy"],
-            "final/weighted_accuracy": metrics["weighted_accuracy"],
-            "final/macro_f1": metrics["macro_f1"],
-            "final/weighted_f1": metrics["weighted_f1"],
-            "final/best_macro_accuracy": best_macro_acc,
-        })
+        wandb.log(
+            {
+                "final/macro_accuracy": metrics["macro_accuracy"],
+                "final/weighted_accuracy": metrics["weighted_accuracy"],
+                "final/macro_f1": metrics["macro_f1"],
+                "final/weighted_f1": metrics["weighted_f1"],
+                "final/best_macro_accuracy": best_macro_acc,
+            }
+        )
 
     # Map compact labels back to original ct2idx values for saving
     y_true_orig = np.array([compact_to_orig[int(y)] for y in y_true_compact])
