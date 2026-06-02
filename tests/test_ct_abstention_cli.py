@@ -1,6 +1,6 @@
 """Tests for the post-hoc CT abstention wired into scripts/predict.py.
 
-Exercises the lower-level building blocks in `deepcell_types.training.abstention` —
+Exercises the lower-level building blocks in `deepcell_types.abstention` —
 `compute_iqr_fence` and `apply_abstention` — that the CLI wires up. Five
 scenarios are covered, mirroring the deliverables checklist:
 
@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from deepcell_types.training.abstention import (
+from deepcell_types.abstention import (
     ABSTENTION_LABEL,
     apply_abstention,
     compute_iqr_fence,

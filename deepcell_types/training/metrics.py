@@ -8,7 +8,7 @@ the bottom for backward compatibility with external callers.
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 import torch
@@ -118,9 +118,7 @@ def summarize_mp_per_marker(per_marker_counts: dict) -> dict:
     denom_prec = total_tp + total_fp
     denom_rec = total_tp + total_fn
     macro_f1 = (
-        float(np.nanmean(f1s))
-        if len(f1s) > 0 and not np.all(np.isnan(f1s))
-        else 0.0
+        float(np.nanmean(f1s)) if len(f1s) > 0 and not np.all(np.isnan(f1s)) else 0.0
     )
 
     return {
@@ -421,6 +419,42 @@ class LossesAndMetrics:
         }
 
 
+def hierarchical_macro_f1(
+    true_labels: np.ndarray,
+    pred_labels: np.ndarray,
+    classes: Sequence[str],
+    hierarchy: dict,
+) -> float:
+    """Macro-F1 with parent->child credit (DCT eval / abstention macro-F1).
+
+    Builds a confusion matrix over ``classes``, applies the same hierarchy
+    forgiveness as the main model (a child prediction when the true label is
+    its declared parent is moved onto the diagonal via
+    :func:`adjust_conf_mat_hierarchy`), then reduces it with the canonical
+    :func:`deepcell_types.training.baseline_features._conf_mat_summary` so the
+    number is directly comparable to ``ct_macro_f1`` from
+    ``LossesAndMetrics.compute()`` and the baseline reports.
+
+    Labels outside ``classes`` (e.g. the abstention ``"Unknown"`` sentinel) are
+    dropped by ``sklearn.metrics.confusion_matrix(labels=classes)``; callers
+    that want abstained cells excluded should pass only the kept rows.
+    """
+    from sklearn.metrics import confusion_matrix
+
+    # Lazy import to avoid a cycle: baseline_features imports
+    # adjust_conf_mat_hierarchy from this module.
+    from .baseline_features import _conf_mat_summary
+
+    classes = list(classes)
+    if len(true_labels) == 0:
+        return 0.0
+    ct2idx = {c: i for i, c in enumerate(classes)}
+    conf_mat = confusion_matrix(true_labels, pred_labels, labels=classes)
+    if hierarchy:
+        conf_mat = adjust_conf_mat_hierarchy(conf_mat, hierarchy, ct2idx)
+    return _conf_mat_summary(conf_mat)["macro_f1"]
+
+
 def build_label_remap(ct2idx):
     """Build lookup tensor to remap ct2idx values to contiguous 0-indexed labels.
 
@@ -440,5 +474,3 @@ def build_label_remap(ct2idx):
     for compact, orig in enumerate(sorted_ct_values):
         label_remap[orig] = compact
     return label_remap
-
-

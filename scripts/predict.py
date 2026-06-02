@@ -446,10 +446,8 @@ def main(
     # frame is written as-is (probability + metadata columns only, no
     # predicted_ct) — matching the historical disabled-path output.
     if ct_abstention_k is not None and ct_abstention_k > 0:
-        from deepcell_types.training.abstention import (
-            apply_abstention,
-            hierarchical_macro_f1,
-        )
+        from deepcell_types.abstention import apply_abstention
+        from deepcell_types.training.metrics import hierarchical_macro_f1
 
         class_cols = sorted(dct_config.ct2idx, key=dct_config.ct2idx.get)
         probs_arr = df[class_cols].to_numpy(dtype=np.float32)
