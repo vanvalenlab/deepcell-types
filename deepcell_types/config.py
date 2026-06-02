@@ -29,13 +29,41 @@ def _archive_candidate_paths(explicit_path):
 
 
 def _resolve_archive_path(explicit_path):
+    """Resolve a TissueNet zarr archive, or return None to use the packaged vocab.
+
+    An explicitly-passed ``zarr_path`` that does not contain an archive is an
+    error (raises). When no archive is given/found and no explicit path was
+    requested, returns ``None`` so the caller can fall back to the packaged
+    vocabulary snapshot (archive-free inference).
+    """
     for candidate in _archive_candidate_paths(explicit_path):
         if (candidate / "zarr.json").exists():
             return candidate
-    raise FileNotFoundError(
-        "DCTConfig reads metadata from a TissueNet zarr archive. "
-        f"Pass zarr_path=... or set {DCTConfig.ARCHIVE_ENV_VAR}."
-    )
+    if explicit_path is not None:
+        raise FileNotFoundError(
+            f"No TissueNet zarr archive found at {explicit_path} "
+            "(expected a 'zarr.json' there)."
+        )
+    return None
+
+
+def _load_packaged_vocab():
+    """Load the marker / cell-type vocabulary snapshot shipped with the package.
+
+    This lets ``predict()`` run without the (large) TissueNet zarr archive: the
+    inference path only needs the marker and cell-type registries, which are a
+    few KB. The snapshot must match the released checkpoint's frozen channel
+    map; the checkpoint's own ``canonical_channels``/``ct2idx`` (when present)
+    are asserted against it at load time.
+    """
+    vocab_path = Path(__file__).parent / "vocab.json"
+    if not vocab_path.exists():
+        raise FileNotFoundError(
+            "No TissueNet zarr archive found and the packaged vocabulary "
+            f"snapshot is missing ({vocab_path}). Pass zarr_path=... or set "
+            f"{DCTConfig.ARCHIVE_ENV_VAR}."
+        )
+    return _read_json(vocab_path)
 
 
 @lru_cache(maxsize=None)
@@ -136,18 +164,22 @@ class DCTConfig:
     """Inference-time configuration for ``deepcell_types.predict``.
 
     A ``DCTConfig`` snapshots the marker / cell-type registry and a small
-    set of preprocessing constants. The registry is loaded from a
-    TissueNet zarr v3 archive on disk; pass ``zarr_path`` explicitly or
-    rely on the ``DEEPCELL_TYPES_ZARR_PATH`` environment variable.
+    set of preprocessing constants. The registry is loaded from a TissueNet
+    zarr v3 archive when one is available; otherwise it falls back to the
+    vocabulary snapshot (``vocab.json``) shipped with the package, so
+    ``predict()`` works without the (large) archive.
 
     Parameters
     ----------
     zarr_path : str or Path, optional
-        Path to a TissueNet zarr v3 archive. If ``None``, falls back to
-        the ``DEEPCELL_TYPES_ZARR_PATH`` environment variable, then to
+        Path to a TissueNet zarr v3 archive. If ``None``, looks for the
+        ``DEEPCELL_TYPES_ZARR_PATH`` environment variable, then
         ``$DATA_DIR/<candidate>`` for candidates in
-        ``DCTConfig.ARCHIVE_CANDIDATE_NAMES``. Raises ``FileNotFoundError``
-        when no candidate has a ``zarr.json`` root.
+        ``DCTConfig.ARCHIVE_CANDIDATE_NAMES``, and finally falls back to the
+        packaged ``vocab.json``. An explicitly-passed ``zarr_path`` that does
+        not contain an archive raises ``FileNotFoundError``. (The tissue->
+        cell-type mapping from :meth:`get_tct_mapping` is only available in
+        archive mode.)
 
     Attributes
     ----------
@@ -197,25 +229,34 @@ class DCTConfig:
 
         self._tct_mapping = None
 
+        # Source the marker / cell-type vocabulary from a TissueNet zarr archive
+        # when one is available, else from the packaged vocab.json snapshot
+        # (archive-free inference). Training always passes an archive via
+        # TissueNetConfig; only the inference DCTConfig uses the fallback.
         self.zarr_path = _resolve_archive_path(zarr_path)
-        root_attrs = _archive_root_attrs(str(self.zarr_path))
-
-        cell_type_mapping = root_attrs.get("cell_type_mapping")
-        if not cell_type_mapping:
-            raise ValueError(
-                f"{self.zarr_path} is missing root attrs.cell_type_mapping."
-            )
-        all_channels = root_attrs.get("all_standardized_channels")
-        if not all_channels:
-            raise ValueError(
-                f"{self.zarr_path} is missing root attrs.all_standardized_channels."
-            )
+        if self.zarr_path is not None:
+            root_attrs = _archive_root_attrs(str(self.zarr_path))
+            cell_type_mapping = root_attrs.get("cell_type_mapping")
+            if not cell_type_mapping:
+                raise ValueError(
+                    f"{self.zarr_path} is missing root attrs.cell_type_mapping."
+                )
+            all_channels = root_attrs.get("all_standardized_channels")
+            if not all_channels:
+                raise ValueError(
+                    f"{self.zarr_path} is missing root attrs.all_standardized_channels."
+                )
+            domains = list(_archive_domains(str(self.zarr_path)))
+        else:
+            vocab = _load_packaged_vocab()
+            cell_type_mapping = vocab["cell_type_mapping"]
+            all_channels = vocab["all_standardized_channels"]
+            domains = list(vocab.get("domains", []))
 
         self._ct2idx = {str(ct): int(idx) for ct, idx in cell_type_mapping.items()}
         self._master_channels = [str(ch) for ch in all_channels]
         self._marker2idx = {ch: idx for idx, ch in enumerate(self.master_channels)}
 
-        domains = _archive_domains(str(self.zarr_path))
         self._domain2idx = {domain: idx for idx, domain in enumerate(domains)}
         self.NUM_DOMAINS = len(self._domain2idx)
         self.NUM_CELLTYPES = len(self.ct2idx)
@@ -285,6 +326,12 @@ class DCTConfig:
         return self._master_channels
 
     def get_tct_mapping(self):
+        if self.zarr_path is None:
+            raise RuntimeError(
+                "The tissue->cell-type mapping requires a TissueNet zarr "
+                "archive; construct DCTConfig(zarr_path=...). It is not part "
+                "of the packaged vocabulary snapshot."
+            )
         if self._tct_mapping is None:
             root_attrs = _archive_root_attrs(str(self.zarr_path))
             root_mapping = root_attrs.get("tissue_celltype_mapping")

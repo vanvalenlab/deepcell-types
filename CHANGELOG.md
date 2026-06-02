@@ -11,6 +11,13 @@ single repository and switches the inference path to canonical-only
 checkpoints. **Breaking changes** are noted below.
 
 ### Added
+- **Archive-free inference.** `predict()` no longer requires the (multi-GB)
+  TissueNet zarr archive: the marker / cell-type registry now ships as a small
+  `vocab.json` snapshot, and `DCTConfig` falls back to it when no archive is
+  found. `pip install deepcell-types` + `download_model()` is enough to run
+  `predict()`. Pass `zarr_path=` / set `DEEPCELL_TYPES_ZARR_PATH` only if you
+  need the archive (e.g. the tissue→cell-type mapping). Verified identical
+  predictions with vs. without the archive on the paper checkpoint.
 - Training pipeline (`deepcell_types.training`) is now shipped from this
   repository, gated behind the `[train]` install extra:
   ```bash

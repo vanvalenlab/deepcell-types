@@ -97,6 +97,10 @@ include-package-data = true
 [tool.setuptools.package-data]
 deepcell_types = [
     "channel_mapping.yaml",
+    # Marker / cell-type vocabulary snapshot. Lets predict() run without the
+    # (large) TissueNet zarr archive; DCTConfig falls back to it when no
+    # archive is found.
+    "vocab.json",
     # Training-side YAMLs (e.g. combined_celltypes.yaml used by
     # TissueNetConfig.combined_celltype_mapping) — must ship with
     # the wheel since training/config.py resolves them relative to

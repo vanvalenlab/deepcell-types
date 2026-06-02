@@ -377,11 +377,30 @@ def test_config_resolves_archive_from_env_var(tmp_path, monkeypatch):
     assert config.ct2idx == {"Bcell": 0, "Tumor": 1}
 
 
-def test_config_raises_when_no_archive(tmp_path, monkeypatch):
+def test_config_raises_when_explicit_archive_missing(tmp_path, monkeypatch):
+    # An explicitly-passed zarr_path that doesn't exist is an error (not a
+    # silent fall-through to the packaged vocab).
     monkeypatch.delenv("DEEPCELL_TYPES_ZARR_PATH", raising=False)
     monkeypatch.delenv("DATA_DIR", raising=False)
     with pytest.raises(FileNotFoundError, match="zarr archive"):
         DCTConfig(zarr_path=tmp_path / "does-not-exist.zarr")
+
+
+def test_config_falls_back_to_packaged_vocab(monkeypatch):
+    # No archive anywhere -> DCTConfig loads the packaged vocab.json snapshot,
+    # so predict() works without the (large) TissueNet archive.
+    monkeypatch.delenv("DEEPCELL_TYPES_ZARR_PATH", raising=False)
+    monkeypatch.delenv("DATA_DIR", raising=False)
+    config = DCTConfig()  # no zarr_path, no env -> packaged vocab
+    assert config.zarr_path is None
+    assert len(config.ct2idx) == 51
+    assert len(config.marker2idx) == 278
+    first = config.master_channels[0]
+    assert config.resolve_channel_name(first) == first
+    assert config.resolve_channel_name(first.lower()) == first
+    # the tissue->celltype mapping is archive-only
+    with pytest.raises(RuntimeError, match="zarr archive"):
+        config.get_tct_mapping()
 
 
 def _four_cell_mask():
