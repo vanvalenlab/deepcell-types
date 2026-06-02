@@ -1,11 +1,15 @@
 """User interface to authentication layer for data/models."""
 
 import os
+import tarfile
+import zipfile
 import requests
 from pathlib import Path
 from hashlib import md5
 from tqdm import tqdm
 import logging
+
+logger = logging.getLogger(__name__)
 
 
 _api_endpoint = "https://users.deepcell.org/api/getData/"
@@ -34,13 +38,11 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
         `~/.deepcell` where downloaded data will be cached. The default is
         `None`, which means cache the data in `~/.deepcell`.
 
-        :param file_hash: `str` represented the md5 checksum of datafile. The
+        :param file_hash: `str` representing the md5 checksum of datafile. The
         checksum is used to perform data caching. If no checksum is provided or
         the checksum differs from that found in the data cache, the data will
         be (re)-downloaded.
     """
-    logging.basicConfig(level=logging.INFO)
-
     download_location = _asset_location
     if cache_subdir is not None:
         download_location /= cache_subdir
@@ -52,18 +54,16 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
 
     # Check for cached data
     if file_hash is not None:
-        logging.info('Checking for cached data')
+        logger.info("Checking for cached data")
         try:
             with open(fpath, "rb") as fh:
                 hasher = md5(fh.read())
-            logging.info(f"Checking {fname} against provided file_hash...")
+            logger.info(f"Checking {fname} against provided file_hash...")
             md5sum = hasher.hexdigest()
             if md5sum == file_hash:
-                logging.info(
-                    f"{fname} with hash {file_hash} already available."
-                )
+                logger.info(f"{fname} with hash {file_hash} already available.")
                 return fpath
-            logging.info(
+            logger.info(
                 f"{fname} with hash {file_hash} not found in {download_location}"
             )
         except FileNotFoundError:
@@ -84,18 +84,26 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
 
     # Request download URL
     headers = {"X-Api-Key": access_token}
-    logging.info("Making request to server")
-    resp = requests.post(
-        _api_endpoint, headers=headers, data={"s3_key": asset_key}
-    )
+    logger.info("Making request to server")
+    resp = requests.post(_api_endpoint, headers=headers, data={"s3_key": asset_key})
+
+    def _safe_json(r):
+        # Gateways/proxies often return HTML or empty error bodies; don't let a
+        # JSONDecodeError mask the real HTTP status.
+        try:
+            return r.json()
+        except ValueError:
+            return {}
+
     # Raise informative exception for the specific case when the asset_key is
     # not found in the bucket
-    if resp.status_code == 404 and resp.json().get("error") == "Key not found":
+    if resp.status_code == 404 and _safe_json(resp).get("error") == "Key not found":
         raise ValueError(f"Object {asset_key} not found.")
     # Raise informative exception for the specific case when an invalid
     # API token is provided.
     if resp.status_code == 403 and (
-       resp.json().get("detail") == "Authentication credentials were not provided."
+        _safe_json(resp).get("detail")
+        == "Authentication credentials were not provided."
     ):
         raise ValueError(
             "\n\nThe provided DEEPCELL_ACCESS_TOKEN is not valid.\n"
@@ -106,18 +114,26 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
     resp.raise_for_status()
 
     # Parse response
-    response_data = resp.json()
+    response_data = _safe_json(resp)
+    if "url" not in response_data:
+        raise ValueError(
+            f"Unexpected response from {_api_endpoint} (status {resp.status_code}): "
+            f"missing download URL. Body starts: {resp.text[:200]!r}"
+        )
     download_url = response_data["url"]
-    file_size = response_data["size"]
+    file_size = response_data.get("size")
     # The server-side ``size`` field comes back as a string like "12.3 MB"; parse
-    # it into bytes so the progress bar shows a real total.
-    val, suff = file_size.split(" ")
+    # it into bytes for the progress bar, but fall back to an unknown total
+    # (``None``) rather than aborting an otherwise-valid download if the format
+    # is unexpected.
     suffix_mapping = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
-    file_size_numerical = int(float(val) * suffix_mapping[suff])
+    try:
+        val, suff = str(file_size).split(" ")
+        file_size_numerical = int(float(val) * suffix_mapping[suff.upper()])
+    except (ValueError, KeyError, AttributeError):
+        file_size_numerical = None
 
-    logging.info(
-        f"Downloading {asset_key} with size {file_size} to {download_location}"
-    )
+    logger.info(f"Downloading {asset_key} with size {file_size} to {download_location}")
     data_req = requests.get(
         download_url, headers={"user-agent": "Wget/1.20 (linux-gnu)"}, stream=True
     )
@@ -155,6 +171,60 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
                 "The downloaded file has been removed; please retry."
             )
 
-    logging.info(f"Successfully downloaded {fname} to {fpath}")
+    logger.info(f"Successfully downloaded {fname} to {fpath}")
 
     return fpath
+
+
+def extract_archive(archive_path, dest=None):
+    """Safely extract a ``.zip`` or ``.tar[.gz]`` archive.
+
+    Rejects members whose resolved path would escape ``dest`` (zip-slip /
+    tar path-traversal) and rejects tar symlink/hardlink members, so it is
+    safe to call on archives downloaded from a remote source.
+
+    Parameters
+    ----------
+    archive_path : str or pathlib.Path
+        Path to a ``.zip`` or ``.tar``/``.tar.gz`` archive.
+    dest : str or pathlib.Path, optional
+        Destination directory. Defaults to the archive's parent directory.
+
+    Returns
+    -------
+    pathlib.Path
+        The destination directory the archive was extracted into.
+    """
+    archive_path = Path(archive_path)
+    dest = Path(dest) if dest is not None else archive_path.parent
+    dest.mkdir(parents=True, exist_ok=True)
+    dest_resolved = dest.resolve()
+
+    def _within(name):
+        try:
+            (dest / name).resolve().relative_to(dest_resolved)
+            return True
+        except ValueError:
+            return False
+
+    if zipfile.is_zipfile(archive_path):
+        with zipfile.ZipFile(archive_path) as zf:
+            for member in zf.namelist():
+                if not _within(member):
+                    raise ValueError(
+                        f"Refusing to extract {member!r}: path escapes {dest}."
+                    )
+            zf.extractall(dest)
+    elif tarfile.is_tarfile(archive_path):
+        with tarfile.open(archive_path) as tf:
+            for member in tf.getmembers():
+                if member.islnk() or member.issym() or not _within(member.name):
+                    raise ValueError(
+                        f"Refusing to extract unsafe tar member {member.name!r}."
+                    )
+            tf.extractall(dest)
+    else:
+        raise ValueError(f"{archive_path} is not a recognized .zip or .tar archive.")
+
+    logger.info(f"Extracted {archive_path} to {dest}")
+    return dest

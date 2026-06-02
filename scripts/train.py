@@ -512,7 +512,9 @@ def main(
             pretrained_state = pretrained_state["model"]
         # Load only matching keys (skip MaskedMarkerHead / optimizer / scheduler keys)
         loaded = load_matching_state_dict(model, pretrained_state)
-        print(f"  Loaded {loaded}/{len(model.state_dict())} parameters from pre-trained model")
+        print(
+            f"  Loaded {loaded}/{len(model.state_dict())} parameters from pre-trained model"
+        )
 
     model.to(device)
 
@@ -578,6 +580,13 @@ def main(
         "d_model": d_model,
         "resnet_channels": resnet_channels,
         "use_conditioned_mp_head": True,  # create_model default; toggled only at inference
+        # These mirror the create_model(...) call above and are NOT recoverable
+        # from tensor shapes at load time, so inference must read them here:
+        #   - n_heads: MultiheadAttention params are head-count-independent.
+        #   - compat_marker0_zero: pure-Python numerics-parity flag; flip to
+        #     False when retraining v0.2.0+ to recover the marker-0 signal.
+        "n_heads": 8,
+        "compat_marker0_zero": True,
         "n_celltypes": dct_config.NUM_CELLTYPES,
         "format_version": "1.1",
         "seed": seed,
@@ -631,6 +640,10 @@ def main(
             # Bundle the canonical-channel registry so inference can size
             # marker2idx without consulting a vendored YAML or the archive.
             "canonical_channels": list(dct_config.marker2idx.keys()),
+            # Bundle the cell-type vocabulary AND ordering so inference can assert
+            # the archive's ct2idx matches — a permuted mapping passes the count
+            # check but would silently mislabel every prediction.
+            "ct2idx": dict(dct_config.ct2idx),
         }
 
     # Loss and metrics
@@ -703,7 +716,9 @@ def main(
                 else resume_ckpt
             )
             loaded = load_matching_state_dict(model, legacy_state)
-            logger.info("Loaded %d/%d params (backbone-only).", loaded, len(model.state_dict()))
+            logger.info(
+                "Loaded %d/%d params (backbone-only).", loaded, len(model.state_dict())
+            )
         else:
             # Full checkpoint: validate config
             ckpt_config = resume_ckpt.get("config", {})

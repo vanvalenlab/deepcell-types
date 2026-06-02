@@ -71,6 +71,16 @@ class _InferenceResultBuffer:
         first three elements stay as before for back-compat with callers.
         """
         idx2ct = {v: k for k, v in self.dct_config.ct2idx.items()}
+        n_celltypes = len(self.dct_config.ct2idx)
+        if not self.probs:
+            # No cells (e.g. an all-background mask): return empty, well-typed
+            # arrays rather than letting np.concatenate([]) raise.
+            return (
+                [],
+                np.empty((0,), dtype=np.float32),
+                np.empty((0,), dtype=np.int64),
+                np.empty((0, n_celltypes), dtype=np.float32),
+            )
         probs = np.concatenate(self.probs)
         cell_index = np.concatenate(self.cell_index)
         order = np.argsort(cell_index, kind="stable")
@@ -97,6 +107,11 @@ def _torch_load_weights(path, device):
     try:
         return torch.load(path, map_location=device, weights_only=True)
     except TypeError as e:
+        # Only fall back for the specific "kwarg unsupported" TypeError; a
+        # TypeError raised while unpickling a malformed checkpoint must not be
+        # silently retried with the safety check disabled.
+        if "weights_only" not in str(e):
+            raise
         warnings.warn(
             f"torch.load(weights_only=True) unsupported in this torch "
             f"version ({torch.__version__}); falling back to unsafe pickle "
@@ -151,10 +166,20 @@ def _infer_n_domains(state_dict):
 
 def _build_model(checkpoint, dct_config, device):
     state_dict = _state_dict(checkpoint)
-    marker_weight = state_dict["marker_embedder.embed_layer.weight"]
-    n_markers = marker_weight.shape[0] - 1
-    embedding_dim = marker_weight.shape[1]
-    n_celltypes = state_dict["ct_head.6.weight"].shape[0]
+    config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
+
+    try:
+        marker_weight = state_dict["marker_embedder.embed_layer.weight"]
+        n_markers = marker_weight.shape[0] - 1
+        embedding_dim = marker_weight.shape[1]
+        n_celltypes = state_dict["ct_head.6.weight"].shape[0]
+        d_model = state_dict["cls_token"].shape[-1]
+        resnet_base_channels = state_dict["channel_encoder.stem.0.weight"].shape[0]
+    except KeyError as e:
+        raise ValueError(
+            f"Checkpoint is missing the expected key {e}; this does not look like "
+            "a deepcell-types CellTypeAnnotator checkpoint."
+        ) from e
 
     if n_markers != len(dct_config.marker2idx):
         raise ValueError(
@@ -167,18 +192,50 @@ def _build_model(checkpoint, dct_config, device):
             f"config has {len(dct_config.ct2idx)}."
         )
 
+    # When the checkpoint records its own vocabulary, require the inference
+    # archive to agree on ORDERING, not just counts. A permuted ct2idx (or marker
+    # list) passes the count checks above but would silently mislabel every
+    # prediction. These keys are absent on pre-self-describing checkpoints, in
+    # which case we fall back to trusting the archive (legacy behaviour).
+    ckpt_ct2idx = checkpoint.get("ct2idx") if isinstance(checkpoint, dict) else None
+    if ckpt_ct2idx is not None and dict(ckpt_ct2idx) != dict(dct_config.ct2idx):
+        raise ValueError(
+            "Checkpoint ct2idx ordering does not match the inference archive's. "
+            "The model would mislabel cell types; use the archive the checkpoint "
+            "was trained against."
+        )
+    ckpt_channels = (
+        checkpoint.get("canonical_channels") if isinstance(checkpoint, dict) else None
+    )
+    if ckpt_channels is not None and list(ckpt_channels) != list(
+        dct_config.marker2idx.keys()
+    ):
+        raise ValueError(
+            "Checkpoint marker ordering (canonical_channels) does not match the "
+            "inference archive's marker2idx ordering."
+        )
+
     marker_embeddings = np.zeros((n_markers, embedding_dim), dtype=np.float32)
     use_conditioned_mp_head = "marker_pos_head.film_scale.weight" in state_dict
+
+    # n_heads and compat_marker0_zero are NOT recoverable from tensor shapes
+    # (MultiheadAttention params are head-count-independent; compat_marker0_zero
+    # is a pure-Python numerics flag). Read them from the checkpoint's saved
+    # config when present, else fall back to the v0.1.0 canonical defaults.
+    n_heads = int(config.get("n_heads", 8))
+    compat_marker0_zero = bool(config.get("compat_marker0_zero", True))
 
     model = create_model(
         dct_config,
         marker_embeddings,
-        d_model=state_dict["cls_token"].shape[-1],
+        d_model=d_model,
+        n_heads=n_heads,
         n_layers=_count_transformer_layers(state_dict),
         n_domains=_infer_n_domains(state_dict),
-        resnet_base_channels=state_dict["channel_encoder.stem.0.weight"].shape[0],
+        resnet_base_channels=resnet_base_channels,
         spatial_pool_size=_infer_spatial_pool_size(state_dict),
         use_conditioned_mp_head=use_conditioned_mp_head,
+        compat_marker0_zero=compat_marker0_zero,
     )
     model.load_state_dict(state_dict)
     return model.to(device)
@@ -189,8 +246,10 @@ def predict(
     mask,
     channel_names,
     mpp,
+    *,
     model_name,
-    device_num,
+    device=None,
+    device_num=None,
     batch_size=256,
     num_workers=0,
     zarr_path=None,
@@ -205,11 +264,11 @@ def predict(
 
     Parameters
     ----------
-    raw : A spatial proteomic image as an `numpy.ndarray` with shape ``(C, W, H)``.
+    raw : A spatial proteomic image as an `numpy.ndarray` with shape ``(C, H, W)``.
         A 2D multiplexed image in channel-first format. The image will be converted
         internally to ``dtype=np.float32``.
     mask : 2D label image
-        Segmentation mask of `raw` as a 2D label image with shape ``(W, H)``.
+        Segmentation mask of `raw` as a 2D label image with shape ``(H, W)``.
     channel_names : list of str
         A list of channel markers. Must have the same length as the number of channels
         in `raw` and be given in the same order as the channels in `raw`.
@@ -220,10 +279,13 @@ def predict(
         Name of the pre-trained model to use for inference. Models are searched for
         at ``Path.home() / ".deepcell/models"``. A filesystem path to a ``.pt`` file
         is also accepted.
-    device_num : `torch.device` or `str`
-        Which device to run inference on. For example, ``"cpu"`` or ``"cuda"``.
-        To specify a specific GPU on multi-GPU systems, try ``"cuda:<device_num>``,
-        e.g. ``"cuda:0"``.
+    device : `torch.device` or `str`
+        Which device to run inference on, e.g. ``"cpu"``, ``"cuda"``, or
+        ``"cuda:0"`` to select a specific GPU. All arguments after `mpp` are
+        keyword-only.
+    device_num : `torch.device` or `str`, optional
+        Deprecated alias for `device`, retained for backward compatibility. If
+        both are given, `device` takes precedence.
     batch_size : int, default=256
         Batch size to be used for inference. Larger `batch_size` will increase
         performance by increasing VRAM usage. Default value of 256 is conservative
@@ -264,8 +326,22 @@ def predict(
         cell indices, predicted names, and an ``abstained`` boolean
         mask. See :class:`PredictionResult`.
     """
-    device = torch.device(device_num)
-    checkpoint = _torch_load_weights(_model_path(model_name), device)
+    if device is None:
+        device = device_num
+    if device is None:
+        raise TypeError(
+            "predict() requires a device, e.g. device='cpu' or device='cuda:0'."
+        )
+    device = torch.device(device)
+
+    model_file = _model_path(model_name)
+    if not model_file.exists():
+        raise FileNotFoundError(
+            f"Model {model_name!r} not found at {model_file}. Download it with "
+            "deepcell_types.utils.download_model(version=...), or pass a filesystem "
+            "path to a .pt file as model_name."
+        )
+    checkpoint = _torch_load_weights(model_file, device)
 
     dct_config = DCTConfig(zarr_path=zarr_path)
     model = _build_model(checkpoint, dct_config, device)
