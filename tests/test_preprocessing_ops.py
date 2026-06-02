@@ -58,7 +58,6 @@ def test_all_table_ops_are_implemented():
     raw, names = _fov()
     for op in [
         {"op": "clip_percentile", "p": 99.0},
-        {"op": "arcsinh", "cofactor": 5.0},
         {"op": "log1p"},
         {"op": "background_subtract", "value": 10.0},
         {"op": "gamma", "g": 0.5},

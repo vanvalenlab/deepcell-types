@@ -70,8 +70,6 @@ def apply_config(raw, channel_names, config):
         op = step["op"]
         if op == "clip_percentile":
             x = _clip_percentile_nonzero(x, float(step["p"]))
-        elif op == "arcsinh":
-            x = np.arcsinh(x / float(step.get("cofactor", 5.0)))
         elif op == "log1p":
             x = np.log1p(np.clip(x, 0, None))
         elif op == "background_subtract":
