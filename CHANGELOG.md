@@ -40,6 +40,12 @@ checkpoints. **Breaking changes** are noted below.
 - **Breaking:** all `predict()` arguments after `mpp` are now keyword-only,
   preventing accidental transposition of the adjacent string arguments
   `model_name` / `device`.
+- The inference bright-spot clip percentile (`DCTConfig.PERCENTILE_THRESHOLD`)
+  is now `99.9`, matching the recipe the training archive's `preprocessed/raw`
+  was built with (was `99.0`, a carryover from the original library packaging).
+  This shifts ~5% of predicted labels; on a held-out test-split sample it
+  reproduced the canonical predictions slightly better (92.5% vs 91.9% argmax
+  agreement).
 - `predict(device=...)` is the preferred spelling for the inference device;
   `device_num=...` remains accepted as a deprecated alias.
 - `predict()` now raises a clear `FileNotFoundError` (pointing at
