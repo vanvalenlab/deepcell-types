@@ -22,6 +22,9 @@ from .predict import predict as predict
 from .predict import PredictionResult as PredictionResult
 from .preprocessing import preprocess_fov as preprocess_fov
 from .preprocessing import PreprocessedFov as PreprocessedFov
+from .preprocessing_ops import apply_config as apply_config
+from .preprocessing_ops import make_preprocessor as make_preprocessor
+from .preprocessing_ops import DEFAULT_CONFIG as DEFAULT_CONFIG
 from .utils import download_model as download_model
 
 try:
@@ -35,6 +38,9 @@ __all__ = [
     "DCTConfig",
     "preprocess_fov",
     "PreprocessedFov",
+    "apply_config",
+    "make_preprocessor",
+    "DEFAULT_CONFIG",
     "download_model",
     "__version__",
 ]

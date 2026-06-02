@@ -80,3 +80,11 @@ def test_make_preprocessor_returns_hook():
     np.testing.assert_allclose(
         hook(raw, names), apply_config(raw, names, DEFAULT_CONFIG)
     )
+
+
+def test_public_exports():
+    import deepcell_types as dct
+
+    assert callable(dct.make_preprocessor)
+    assert callable(dct.apply_config)
+    assert isinstance(dct.DEFAULT_CONFIG, list)
