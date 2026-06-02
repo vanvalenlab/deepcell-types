@@ -108,15 +108,15 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
     type=float,
     default=0.2,
     help=(
-        "Per-(tissue, modality) IQR-fence abstention on max-softmax confidence. "
+        "Per-FOV IQR-fence abstention on max-softmax confidence. "
         "Default k=0.2 — the published headline setting, chosen to maximise "
         "macro_F1 separation against the strongest baseline (XGBoost-tuned) "
         "while keeping a sizeable cohort of confident cells. "
         "Cells whose max-softmax falls below Q1 - k*IQR within their "
-        "(tissue, modality) group are flagged as abstained (predicted_ct = -1, "
-        "original kept in predicted_ct_raw). Set k <= 0 or pass 'none' to "
-        "disable. k=1.5 is the canonical Tukey fence (~no-op). See "
-        "docs/reports/ct_iqr_abstention_test.md."
+        "(dataset_name, fov_name) group are flagged as abstained "
+        "(predicted_ct = 'Unknown', original kept in predicted_ct_raw). "
+        "Set k <= 0 or pass 'none' to disable. k=1.5 is the canonical Tukey "
+        "fence (~no-op). See docs/reports/ct_iqr_abstention_test.md."
     ),
 )
 def main(
@@ -442,57 +442,29 @@ def main(
 
     output_path = Path(f"output/{model_name}_prediction.csv")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    predlogger.save(output_path)
 
-    print(f"Predictions saved to {output_path}")
+    # Assemble predictions in memory so abstention is baked into a single write
+    # (no write-raw -> read-back -> overwrite). When abstention is enabled the
+    # IQR fence is computed per (dataset_name, fov_name) group, matching the
+    # Python API's per-FOV semantics (deepcell_types.predict).
+    df = predlogger.to_dataframe()
 
-    # ---------------- CT abstention (post-hoc) ----------------
-    # On by default with k=0.2 (published headline operating point);
-    # set --ct_abstention_k 0 or a negative value to disable. Reads back the
-    # saved CSV, derives per-cell predicted_ct + max_softmax from the per-class
-    # probability columns, joins (tissue, modality) from the zarr archive,
-    # applies an IQR-fence abstention per (tissue, modality) group, and
-    # prints the kept-cell trade summary.
+    # ---------------- CT abstention (immediate, per-FOV) ----------------
+    # On by default with k=0.2 (published headline operating point); set
+    # --ct_abstention_k 0 or a negative value to disable. When disabled, the
+    # frame is written as-is (probability + metadata columns only, no
+    # predicted_ct) — matching the historical disabled-path output.
     if ct_abstention_k is not None and ct_abstention_k > 0:
-        import pandas as pd
-        import zarr as _zarr
         from deepcell_types.training.abstention import (
             apply_abstention,
             hierarchical_macro_f1,
         )
 
-        df = pd.read_csv(output_path)
         class_cols = sorted(dct_config.ct2idx, key=dct_config.ct2idx.get)
-        # Per-class probability columns are written by PredLogger in this same order.
         probs_arr = df[class_cols].to_numpy(dtype=np.float32)
         pred_idx = probs_arr.argmax(axis=1)
-        max_p = probs_arr[np.arange(probs_arr.shape[0]), pred_idx]
         df["predicted_ct"] = [class_cols[i] for i in pred_idx]
-        df["_max_softmax"] = max_p
-
-        # Tissue/modality come from the zarr archive's per-dataset attrs.
-        # NB: use _discover_fov_keys, not root.group_keys() — the latter
-        # returns immediate children, which on v8 nested archives are the
-        # modality directories rather than dataset leaves. That bug used to
-        # collapse the per-(tissue, modality) IQR fence to a single global
-        # "unknown" fence.
-        from deepcell_types.training.archive import _discover_fov_keys
-
-        root = _zarr.open(zarr_dir, mode="r")
-        meta_rows = []
-        for ds_key in _discover_fov_keys(root):
-            a = dict(root[ds_key].attrs)
-            meta_rows.append(
-                {
-                    "dataset_name": ds_key,
-                    "tissue": a.get("tissue") or a.get("organ") or "unknown",
-                    "modality": a.get("modality") or "unknown",
-                }
-            )
-        meta_df = pd.DataFrame(meta_rows)
-        df = df.merge(meta_df, on="dataset_name", how="left")
-        df["tissue"] = df["tissue"].fillna("unknown")
-        df["modality"] = df["modality"].fillna("unknown")
+        df["_max_softmax"] = probs_arr[np.arange(probs_arr.shape[0]), pred_idx]
 
         # Baseline (pre-abstention) hierarchical macro-F1 on the full frame.
         true_labels = df["cell_type_actual"].to_numpy()
@@ -501,20 +473,20 @@ def main(
             true_labels, pred_labels_pre, class_cols, CELL_TYPE_HIERARCHY
         )
 
-        # Apply abstention. Use "Unknown" as the sentinel to match the Python
-        # API contract (deepcell_types.predict.ABSTENTION_LABEL). The column
-        # dtype stays object since non-abstained rows hold class-name strings.
+        # Apply abstention per (dataset_name, fov_name). Sentinel "Unknown"
+        # matches the Python API contract (predict.ABSTENTION_LABEL). Adds
+        # `abstained` and `predicted_ct_raw`; sentinels predicted_ct in place.
         df = apply_abstention(
             df,
             k=float(ct_abstention_k),
-            group_cols=("tissue", "modality"),
+            group_cols=("dataset_name", "fov_name"),
             max_softmax_col="_max_softmax",
             pred_col="predicted_ct",
             sentinel="Unknown",
         )
 
-        # Kept-cell hierarchical macro-F1 (skip rows where we abstained). Kept
-        # cells retain their original prediction, so reuse pred_labels_pre.
+        # Kept-cell hierarchical macro-F1 (kept cells retain their original
+        # prediction, so reuse pred_labels_pre).
         kept = ~df["abstained"].to_numpy()
         n_total = int(len(df))
         n_kept = int(kept.sum())
@@ -530,14 +502,20 @@ def main(
         else:
             macro_f1_post = 0.0
 
-        # Remove the internal helper column before persisting; predicted_ct is
-        # already sentinel=-1 for abstained rows, original kept in predicted_ct_raw.
+        # Drop the internal helper column before persisting.
         df = df.drop(columns=["_max_softmax"])
-        df.to_csv(output_path, index=False)
 
+    # Single atomic write — when abstention is on, the file already contains
+    # the "Unknown" labels (predicted_ct) and the predicted_ct_raw/abstained
+    # columns.
+    PredLogger.write_csv_atomic(df, output_path)
+    print(f"Predictions saved to {output_path}")
+
+    if ct_abstention_k is not None and ct_abstention_k > 0:
         print(f"\nCT abstention enabled (k={ct_abstention_k:.1f})")
         print(
-            f"Coverage: {coverage * 100:.2f}% ({n_abstained:,} abstained / {n_total:,} total)"
+            f"Coverage: {coverage * 100:.2f}% "
+            f"({n_abstained:,} abstained / {n_total:,} total)"
         )
         delta_pp = (macro_f1_post - macro_f1_pre) * 100
         print(

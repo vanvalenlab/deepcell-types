@@ -200,7 +200,13 @@ class PredLogger:
         self.dataset_name.append(dataset_name)
         self.fov_name.append(fov_name)
 
-    def save(self, path_name):
+    def to_dataframe(self):
+        """Assemble the accumulated predictions into a DataFrame.
+
+        Columns: one per cell-type class (softmax probability, ordered by
+        ``ct2idx`` value), then ``cell_type_actual``, ``cell_index``,
+        ``dataset_name``, ``fov_name``.
+        """
         columns = sorted(self.ct2idx, key=self.ct2idx.get)
         idx2ct = {v: k for k, v in self.ct2idx.items()}
         labels = np.concatenate(self.labels)
@@ -213,9 +219,16 @@ class PredLogger:
         df["cell_index"] = cell_index
         df["dataset_name"] = dataset_name
         df["fov_name"] = fov_name
-        # Atomic write: a disk-full or SIGTERM mid-write would otherwise leave a
-        # truncated CSV that pandas reads silently, producing wrong abstention
-        # numbers in downstream analysis.
+        return df
+
+    @staticmethod
+    def write_csv_atomic(df, path_name):
+        """Atomically write ``df`` to ``path_name`` as CSV.
+
+        A disk-full or SIGTERM mid-write would otherwise leave a truncated CSV
+        that pandas reads silently, producing wrong abstention numbers in
+        downstream analysis. Write to a sibling tempfile, fsync, then replace.
+        """
         final_path = Path(path_name)
         tmp_path: Optional[Path] = None
         with tempfile.NamedTemporaryFile(
@@ -234,6 +247,9 @@ class PredLogger:
         finally:
             if tmp_path is not None and tmp_path.exists():
                 tmp_path.unlink()
+
+    def save(self, path_name):
+        self.write_csv_atomic(self.to_dataframe(), path_name)
 
 
 def log_epoch_metrics(epoch_metrics, prefix, wandb_run=None):
