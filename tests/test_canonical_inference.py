@@ -315,3 +315,170 @@ def test_dct_and_tissuenet_config_agree_on_shared_constants(tmp_path):
     assert dct.STANDARD_MPP_RESOLUTION == tnc.STANDARD_MPP_RESOLUTION
     assert dct.marker2idx == tnc.marker2idx
     assert dct.ct2idx == tnc.ct2idx
+
+
+# ---------------------------------------------------------------------------
+# Gap coverage: multi-chunk zarr decode, archive resolution, abstention
+# wiring, and the empty-mask contract.
+# ---------------------------------------------------------------------------
+
+
+def _write_v3_1d_array_chunked(array_dir, values, chunk_len):
+    """Like _write_v3_1d_array but with an arbitrary chunk length (the helper
+    above hard-codes chunk_shape=[1]); exercises the multi-element-per-chunk
+    decode path of ``_read_v3_1d_array``, including a short final chunk."""
+    array_dir.mkdir(parents=True, exist_ok=True)
+    values = np.asarray(values).astype(np.int64)
+    n = int(values.shape[0])
+    meta = {
+        "shape": [n],
+        "data_type": "int64",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {"chunk_shape": [chunk_len]},
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {"separator": "/"},
+        },
+        "fill_value": 0,
+        "codecs": [
+            {"name": "bytes", "configuration": {"endian": "little"}},
+            {"name": "zstd", "configuration": {"level": 0, "checksum": False}},
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": [],
+    }
+    _write_json(array_dir / "zarr.json", meta)
+    zstd = Zstd(level=0)
+    chunk_root = array_dir / "c"
+    chunk_root.mkdir(parents=True, exist_ok=True)
+    for ci, start in enumerate(range(0, n, chunk_len)):
+        chunk = values[start : start + chunk_len]  # final chunk may be short
+        (chunk_root / str(ci)).write_bytes(zstd.encode(chunk.tobytes()))
+
+
+@pytest.mark.parametrize("chunk_len", [1, 2, 4, 16])
+def test_read_v3_1d_array_multichunk_roundtrip(tmp_path, chunk_len):
+    from deepcell_types.config import _read_v3_1d_array
+
+    values = list(range(10))  # 10 % 4 != 0 -> exercises a short final chunk
+    array_dir = tmp_path / "arr"
+    _write_v3_1d_array_chunked(array_dir, values, chunk_len)
+    assert _read_v3_1d_array(array_dir).tolist() == values
+
+
+def test_config_resolves_archive_from_env_var(tmp_path, monkeypatch):
+    archive_path = _make_archive(tmp_path)
+    monkeypatch.setenv("DEEPCELL_TYPES_ZARR_PATH", str(archive_path))
+    config = DCTConfig()  # no explicit zarr_path -> must resolve via env var
+    assert config.ct2idx == {"Bcell": 0, "Tumor": 1}
+
+
+def test_config_raises_when_no_archive(tmp_path, monkeypatch):
+    monkeypatch.delenv("DEEPCELL_TYPES_ZARR_PATH", raising=False)
+    monkeypatch.delenv("DATA_DIR", raising=False)
+    with pytest.raises(FileNotFoundError, match="zarr archive"):
+        DCTConfig(zarr_path=tmp_path / "does-not-exist.zarr")
+
+
+def _four_cell_mask():
+    mask = np.zeros((80, 80), dtype=np.int32)
+    mask[6:18, 6:18] = 1
+    mask[6:18, 40:52] = 2
+    mask[40:52, 6:18] = 3
+    mask[40:52, 40:52] = 4
+    return mask
+
+
+def test_predict_abstention_wiring(tmp_path):
+    from deepcell_types.abstention import ABSTENTION_LABEL
+
+    torch.manual_seed(0)
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+    raw = np.ones((1, 80, 80), dtype=np.float32)
+
+    res = predict(
+        raw,
+        _four_cell_mask(),
+        ["CD45"],
+        0.5,
+        model_name=str(ckpt_path),
+        device="cpu",
+        zarr_path=archive_path,
+        ct_abstention_k=0.2,
+        return_probabilities=True,
+        num_workers=0,
+    )
+
+    n = len(res.cell_types)
+    assert n == 4
+    assert res.abstained.shape == (n,)
+    # A cell carries the "Unknown" sentinel iff it was flagged abstained.
+    for i in range(n):
+        assert (res.cell_types[i] == ABSTENTION_LABEL) == bool(res.abstained[i])
+    # The pre-abstention labels are never the sentinel (no ct is named "Unknown").
+    assert ABSTENTION_LABEL not in res.cell_types_raw
+
+
+def test_predict_abstention_disabled_with_k_zero(tmp_path):
+    from deepcell_types.abstention import ABSTENTION_LABEL
+
+    torch.manual_seed(0)
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+    raw = np.ones((1, 80, 80), dtype=np.float32)
+
+    res = predict(
+        raw,
+        _four_cell_mask(),
+        ["CD45"],
+        0.5,
+        model_name=str(ckpt_path),
+        device="cpu",
+        zarr_path=archive_path,
+        ct_abstention_k=0,
+        return_probabilities=True,
+        num_workers=0,
+    )
+    assert not res.abstained.any()
+    assert res.cell_types == res.cell_types_raw
+    assert ABSTENTION_LABEL not in res.cell_types
+
+
+def test_predict_empty_mask_returns_empty(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+    raw = np.ones((1, 40, 40), dtype=np.float32)
+    mask = np.zeros((40, 40), dtype=np.int32)  # all background -> no cells
+
+    out = predict(
+        raw,
+        mask,
+        ["CD45"],
+        0.5,
+        model_name=str(ckpt_path),
+        device="cpu",
+        zarr_path=archive_path,
+        num_workers=0,
+    )
+    assert out == []
+    res = predict(
+        raw,
+        mask,
+        ["CD45"],
+        0.5,
+        model_name=str(ckpt_path),
+        device="cpu",
+        zarr_path=archive_path,
+        num_workers=0,
+        return_probabilities=True,
+    )
+    assert len(res.cell_types) == 0
+    assert res.probabilities.shape == (0, len(config.ct2idx))

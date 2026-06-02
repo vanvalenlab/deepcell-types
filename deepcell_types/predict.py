@@ -71,6 +71,16 @@ class _InferenceResultBuffer:
         first three elements stay as before for back-compat with callers.
         """
         idx2ct = {v: k for k, v in self.dct_config.ct2idx.items()}
+        n_celltypes = len(self.dct_config.ct2idx)
+        if not self.probs:
+            # No cells (e.g. an all-background mask): return empty, well-typed
+            # arrays rather than letting np.concatenate([]) raise.
+            return (
+                [],
+                np.empty((0,), dtype=np.float32),
+                np.empty((0,), dtype=np.int64),
+                np.empty((0, n_celltypes), dtype=np.float32),
+            )
         probs = np.concatenate(self.probs)
         cell_index = np.concatenate(self.cell_index)
         order = np.argsort(cell_index, kind="stable")
