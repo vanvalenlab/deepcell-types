@@ -86,6 +86,25 @@ def _shape(zarr_json: Path) -> list[int] | None:
     return list(shape) if shape is not None else None
 
 
+_INTEGER_DTYPES = {
+    "int8",
+    "int16",
+    "int32",
+    "int64",
+    "uint8",
+    "uint16",
+    "uint32",
+    "uint64",
+}
+
+
+def _dtype(zarr_json: Path):
+    """The zarr v3 ``data_type`` (a str like 'uint32', or a dict for strings)."""
+    if not zarr_json.exists():
+        return None
+    return _read_json(zarr_json).get("data_type")
+
+
 def _is_control_channel(channel: str) -> bool:
     upper = channel.strip().upper()
     return upper in CONTROL_CHANNELS or upper.startswith(CONTROL_CHANNEL_PREFIXES)
@@ -184,6 +203,13 @@ def validate_archive(
             report.errors.append(f"{fov_key}: raw shape is not CYX: {raw_shape}")
         if len(mask_shape) != 2:
             report.errors.append(f"{fov_key}: mask shape is not YX: {mask_shape}")
+        mask_dtype = _dtype(preprocessed / "mask" / "zarr.json")
+        if mask_dtype is not None and mask_dtype not in _INTEGER_DTYPES:
+            report.errors.append(
+                f"{fov_key}: preprocessed/mask dtype {mask_dtype!r} is not an "
+                "integer type; cell-label matching (`mask == cell_idx`) requires "
+                "an integer mask."
+            )
         if len(raw_shape) == 3 and len(mask_shape) == 2 and raw_shape[1:] != mask_shape:
             report.errors.append(
                 f"{fov_key}: raw spatial shape {raw_shape[1:]} != mask shape {mask_shape}"

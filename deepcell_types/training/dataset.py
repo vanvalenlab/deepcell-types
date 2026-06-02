@@ -682,7 +682,22 @@ class FullImageDataset(Dataset):
             self.output_size,
             skip_distance_transform=self.skip_distance_transform,
         )
-        # raw_masked: (C, H, W), spatial_context: (3, H, W)
+        # raw_masked: (C, H, W), spatial_context: (3, H, W) = (self_mask,
+        # neighbor_mask, distance_transform)
+
+        # Tripwire: a labeled cell must have a non-empty self-mask. An all-zero
+        # self-mask means `raw_masked` is a blank patch carrying a real cell-type
+        # label — caused by a mask/centroid desync or a non-integer mask defeating
+        # the `== cell_idx` test in extract_patch. The canonical archive has zero
+        # such cells; fail loudly rather than silently train on garbage if a
+        # future archive regresses.
+        if float(spatial_context[0].sum()) == 0:
+            raise ValueError(
+                f"{dataset_name}/{fov_name} cell {cell_idx}: empty self-mask "
+                "(no pixels match cell_idx in the crop) — the patch would be "
+                "all-zero with a valid label. Check the mask dtype and the "
+                "mask-vs-centroid alignment for this FOV."
+            )
 
         n_real_channels = len(ch_names)
         if n_real_channels > self.max_channels:
