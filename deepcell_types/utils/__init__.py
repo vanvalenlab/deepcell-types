@@ -112,8 +112,7 @@ def download_baseline_checkpoint(name):
 
     if name not in _baseline_registry:
         raise ValueError(
-            f"Unknown baseline {name!r}. "
-            f"Known baselines: {sorted(_baseline_registry)}."
+            f"Unknown baseline {name!r}. Known baselines: {sorted(_baseline_registry)}."
         )
     return [
         fetch_data(f"models/{filename}", cache_subdir="models", file_hash=md5)
@@ -124,18 +123,34 @@ def download_baseline_checkpoint(name):
 _training_data_asset_key = "data/deepcell-types/public_data_v1.1.zip"
 
 
-def download_training_data():
+def download_training_data(*, extract=False):
     """Download the public training-data corpus for deepcell-types (v1.1).
 
     The compressed archive is downloaded to ``$HOME/.deepcell/data``. The
     asset is pinned to a single released version; older versions are not
     available through this helper.
 
+    Note that the downloaded asset is a ``.zip`` and must be extracted
+    before the contained ``tissuenet-*.zarr`` archive can be used as
+    ``predict(zarr_path=...)`` / ``DEEPCELL_TYPES_ZARR_PATH``. Pass
+    ``extract=True`` to unpack it (via :func:`extract_archive`, which
+    rejects path-traversal members) and receive the extraction directory.
+
+    Parameters
+    ----------
+    extract : bool, default=False
+        If ``True``, extract the downloaded ``.zip`` next to itself and
+        return the extraction directory instead of the ``.zip`` path.
+
     Returns
     -------
     pathlib.Path
-        Local path to the downloaded ``.zip``.
+        Local path to the downloaded ``.zip`` (or, when ``extract=True``,
+        the directory it was extracted into).
     """
-    from ._auth import fetch_data
+    from ._auth import extract_archive, fetch_data
 
-    return fetch_data(_training_data_asset_key, cache_subdir="data")
+    zip_path = fetch_data(_training_data_asset_key, cache_subdir="data")
+    if extract:
+        return extract_archive(zip_path)
+    return zip_path

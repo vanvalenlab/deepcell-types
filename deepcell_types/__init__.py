@@ -15,12 +15,19 @@
 # to endorse or promote products derived from this software without specific
 # prior written permission.
 
+from importlib.metadata import PackageNotFoundError, version
+
 from .config import DCTConfig as DCTConfig
 from .predict import predict as predict
 from .predict import PredictionResult as PredictionResult
 from .preprocessing import preprocess_fov as preprocess_fov
 from .preprocessing import PreprocessedFov as PreprocessedFov
 from .utils import download_model as download_model
+
+try:
+    __version__ = version("deepcell-types")
+except PackageNotFoundError:  # not installed (e.g. running from a source tree)
+    __version__ = "0.0.0+unknown"
 
 __all__ = [
     "predict",
@@ -29,4 +36,5 @@ __all__ = [
     "preprocess_fov",
     "PreprocessedFov",
     "download_model",
+    "__version__",
 ]

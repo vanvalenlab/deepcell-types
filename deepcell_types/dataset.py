@@ -33,6 +33,11 @@ class PatchDataset(IterableDataset):
                 f"raw has {raw.shape[0]} channels, but {len(channel_names)} "
                 "channel names were provided."
             )
+        if not (np.isfinite(mpp) and mpp > 0):
+            raise ValueError(
+                f"mpp must be a positive, finite resolution in microns/pixel; "
+                f"got {mpp!r}."
+            )
 
         self.n_cells = int(np.count_nonzero(np.unique(mask.astype(np.int64))))
 
@@ -49,6 +54,7 @@ class PatchDataset(IterableDataset):
 
         channel_names_standard = []
         channel_masking = []
+        seen_markers = set()
         for ch_name in channel_names:
             ch_name_standard = self.dct_config.resolve_channel_name(ch_name)
             if ch_name_standard is None or ch_name_standard not in self.marker2idx:
@@ -57,7 +63,18 @@ class PatchDataset(IterableDataset):
                     f"Channel {ch_name} is not in the channel mapping. "
                     "This channel will be masked out."
                 )
+            elif ch_name_standard in seen_markers:
+                # Two input channels resolving to the same canonical marker would
+                # share a marker2idx index; downstream the per-marker scatter is
+                # last-write-wins, so the duplicate must be dropped, not stacked.
+                channel_masking.append(True)
+                warnings.warn(
+                    f"Channel {ch_name} resolves to marker {ch_name_standard!r}, "
+                    "already provided by an earlier channel; the duplicate will "
+                    "be masked out."
+                )
             else:
+                seen_markers.add(ch_name_standard)
                 channel_masking.append(False)
                 channel_names_standard.append(ch_name_standard)
 

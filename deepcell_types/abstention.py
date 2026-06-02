@@ -51,6 +51,10 @@ def compute_iqr_fence(max_softmax: np.ndarray, k: float) -> Optional[float]:
     ``len(vals) < 4`` guard).
     """
     arr = np.asarray(max_softmax, dtype=np.float64)
+    # Drop non-finite values: a single NaN would otherwise propagate through
+    # np.quantile and yield fence=NaN, which silently disables abstention
+    # (``x < NaN`` is always False) for the whole group.
+    arr = arr[np.isfinite(arr)]
     if arr.size < 4:
         return None
     q1, q3 = np.quantile(arr, [0.25, 0.75])

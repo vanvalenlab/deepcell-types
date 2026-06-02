@@ -37,11 +37,20 @@ checkpoints. **Breaking changes** are noted below.
   Canonical checkpoints now read marker / cell-type metadata from a
   TissueNet zarr v3 archive at inference time; the active model class
   is `CellTypeAnnotator` in `deepcell_types/model.py`.
-- **Breaking:** `predict(tissue_exclude=...)` is renamed to
-  `predict(tissue_filter=...)`. The old name was semantically inverted
-  (it reads as "exclude this tissue" but actually "filter TO this
-  tissue"). `tissue_exclude` is still accepted (keyword-only) for one
-  release and emits a `DeprecationWarning`.
+- **Breaking:** all `predict()` arguments after `mpp` are now keyword-only,
+  preventing accidental transposition of the adjacent string arguments
+  `model_name` / `device`.
+- `predict(device=...)` is the preferred spelling for the inference device;
+  `device_num=...` remains accepted as a deprecated alias.
+- `predict()` now raises a clear `FileNotFoundError` (pointing at
+  `download_model()`) when the requested checkpoint is absent, instead of a
+  bare error from `torch.load`.
+- Checkpoints are now self-describing: `scripts/train.py` bundles `ct2idx`,
+  `n_heads`, and `compat_marker0_zero`, and inference asserts the archive's
+  cell-type / marker ordering matches the checkpoint (a permuted vocabulary
+  previously passed the count-only check and silently mislabeled cells).
+- Duplicate input channels that resolve to the same canonical marker are now
+  de-duplicated (the per-marker scatter is last-write-wins).
 - **Breaking:** `predict(num_workers=...)` default is now `0` (was
   `24`). The `IterableDataset` patch generator held the whole FOV in
   memory; 24 workers reliably OOM'd machines with <64 GB RAM.

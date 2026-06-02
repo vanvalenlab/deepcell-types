@@ -209,7 +209,7 @@ mask = cellsam_pipeline(
 ```
 
 ```{code-cell} ipython3
-# Sanity check: the segmentation mask should have the same W, H dimensions as
+# Sanity check: the segmentation mask should have the same H, W dimensions as
 # the input image
 mask.shape == img.shape[1:]
 ```
@@ -308,7 +308,7 @@ cell_types = deepcell_types.predict(
     chnames,
     mpp,
     model_name=model,
-    device_num=device,
+    device=device,
     num_workers=num_data_loader_threads,
     zarr_path=zarr_path,
 )
@@ -330,7 +330,7 @@ cell (the historical behaviour), disable abstention with
 
     cell_types = deepcell_types.predict(
         img, mask, chnames, mpp,
-        model_name=model, device_num=device, zarr_path=zarr_path,
+        model_name=model, device=device, zarr_path=zarr_path,
         ct_abstention_k=0,
     )
 

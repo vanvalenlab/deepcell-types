@@ -39,15 +39,19 @@ download_model()  # No argument == latest released version
 In addition to the checkpoint, the canonical inference path reads its
 marker / cell-type / domain registry from a **TissueNet zarr v3 archive** at
 runtime (earlier releases bundled this registry as YAML inside the package).
-This is the same `tissuenet-v*.zarr` archive used for training, obtained via:
+This is the same `tissuenet-v*.zarr` archive used for training. It is
+distributed as a `.zip` that must be extracted before use:
 
 ```python
 from deepcell_types.utils import download_training_data
 
-download_training_data()  # NOTE: large download — see API-key page
+# Downloads the .zip and extracts it; returns the extraction directory
+# containing the tissuenet-v*.zarr archive. (Large download — see API-key page.)
+archive_dir = download_training_data(extract=True)
 ```
 
-Point `predict` at the archive with the `zarr_path=` argument, or set it once
+Point `predict` at the extracted `tissuenet-v*.zarr` archive with the
+`zarr_path=` argument, or set it once
 for the session:
 
 ```bash
