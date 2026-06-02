@@ -1,8 +1,8 @@
 """Direct coverage for the inference-side IQR abstention module.
 
 ``deepcell_types.abstention`` is the numpy-only kernel that ``predict()`` uses.
-``deepcell_types.training.abstention`` re-exports ``compute_iqr_fence`` from
-here, so the CLI tests exercise it indirectly; these tests pin the inference
+``deepcell_types.abstention`` is also where the batched ``apply_abstention``
+lives, so the CLI tests exercise the same kernel; these tests pin the inference
 module directly (including the non-finite-input guard) and run in the
 inference-only CI job (no ``[train]`` dependency).
 """

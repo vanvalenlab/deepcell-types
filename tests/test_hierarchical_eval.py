@@ -1,6 +1,7 @@
 """Test hierarchical accuracy computation."""
+
 import numpy as np
-from deepcell_types.training.abstention import hierarchical_macro_f1
+from deepcell_types.training.metrics import hierarchical_macro_f1
 from deepcell_types.training.utils import adjust_conf_mat_hierarchy
 
 
@@ -9,10 +10,10 @@ def test_child_predictions_moved_to_diagonal():
     ct2idx = {"CD4T": 0, "CD8T": 1, "Tcell": 2, "Tumor": 3}
 
     conf_mat = np.zeros((4, 4), dtype=int)
-    conf_mat[2, 0] = 6   # Tcell -> CD4T (should become correct)
-    conf_mat[2, 1] = 3   # Tcell -> CD8T (should become correct)
-    conf_mat[2, 3] = 1   # Tcell -> Tumor (stays wrong)
-    conf_mat[0, 0] = 5   # CD4T -> CD4T (unchanged)
+    conf_mat[2, 0] = 6  # Tcell -> CD4T (should become correct)
+    conf_mat[2, 1] = 3  # Tcell -> CD8T (should become correct)
+    conf_mat[2, 3] = 1  # Tcell -> Tumor (stays wrong)
+    conf_mat[0, 0] = 5  # CD4T -> CD4T (unchanged)
 
     adjusted = adjust_conf_mat_hierarchy(conf_mat, hierarchy, ct2idx)
 
@@ -76,6 +77,7 @@ def test_accumulates_with_existing_diagonal():
 # hierarchical_macro_f1 (abstention-eval / CLI macro-F1 helper)
 # =============================================================================
 
+
 def test_hierarchical_macro_f1_forgives_child_of_parent():
     """Predicting a child cell type when the truth is its declared parent is
     forgiven, so an otherwise-perfect frame scores macro-F1 == 1.0."""
@@ -89,6 +91,7 @@ def test_hierarchical_macro_f1_forgives_child_of_parent():
 def test_hierarchical_macro_f1_no_hierarchy_matches_sklearn():
     """With an empty hierarchy it reduces to plain macro-F1 over present classes."""
     from sklearn.metrics import f1_score
+
     classes = ["A", "B", "C"]
     true = np.array(["A", "A", "B", "C", "C"])
     pred = np.array(["A", "B", "B", "C", "A"])
