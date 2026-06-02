@@ -53,6 +53,22 @@ token flow. Place the resulting `.zarr` directory anywhere, then:
 export DEEPCELL_TYPES_ZARR_PATH=/absolute/path/to/tissuenet.zarr
 ```
 
+### Validating an archive before publishing
+
+The archive's `all_standardized_channels` attribute *is* the model's
+marker→index map, so it must match the order the released checkpoint and
+`embeddings/svd_512.npz` were built with — reordering or resizing it silently
+breaks inference. Before publishing an archive (or a checkpoint), run the
+release gate against the real archive and the released embeddings:
+
+```bash
+scripts/check_release_archive.sh /path/to/tissuenet.zarr /path/to/svd_512.npz
+```
+
+It exits non-zero on any marker-order/size drift. (The check's logic is
+unit-tested in CI via `tests/test_archive_contract_validator.py`; this script
+runs it against the actual archive, which CI cannot access.)
+
 ## Running
 
 The `deepcell-types` cell-type inference functionality is provided via
