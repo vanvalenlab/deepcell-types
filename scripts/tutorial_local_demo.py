@@ -74,7 +74,7 @@ def load_fov(zarr_path, fov_name):
         else:  # group with parallel cell_index / cell_type arrays
             idx = cti["cell_index"][:]
             lab = cti["cell_type"][:]
-            ground_truth = {int(i): str(l) for i, l in zip(idx, lab)}
+            ground_truth = {int(i): str(name) for i, name in zip(idx, lab)}
 
     return img, mask, channel_names, mpp, ground_truth
 
