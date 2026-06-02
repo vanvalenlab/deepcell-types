@@ -25,17 +25,20 @@ from deepcell_types.training.abstention import (
 )
 
 
-def _synthetic_frame(n: int, seed: int = 0, tissue: str = "intestine",
-                     modality: str = "CODEX") -> pd.DataFrame:
+def _synthetic_frame(
+    n: int, seed: int = 0, tissue: str = "intestine", modality: str = "CODEX"
+) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     # Beta-distributed max-softmax in (0, 1); skewed high (typical of softmax).
     max_softmax = rng.beta(8.0, 2.0, size=n).astype(np.float32)
-    return pd.DataFrame({
-        "predicted_ct": np.array(["CD4T"] * n, dtype=object),
-        "_max_softmax": max_softmax,
-        "tissue": [tissue] * n,
-        "modality": [modality] * n,
-    })
+    return pd.DataFrame(
+        {
+            "predicted_ct": np.array(["CD4T"] * n, dtype=object),
+            "_max_softmax": max_softmax,
+            "tissue": [tissue] * n,
+            "modality": [modality] * n,
+        }
+    )
 
 
 def test_default_k_0_2_abstention_is_on():
@@ -50,7 +53,7 @@ def test_default_k_0_2_abstention_is_on():
     assert "abstained" in out.columns
     frac = out["abstained"].mean()
     assert 0.03 <= frac <= 0.30, (
-        f"k=0.2 (the default) should abstain ~18% of cells; got {frac*100:.2f}%"
+        f"k=0.2 (the default) should abstain ~18% of cells; got {frac * 100:.2f}%"
     )
 
 
@@ -62,11 +65,13 @@ def test_disable_abstention_with_nonpositive_k():
     """
     df = _synthetic_frame(100)
     assert "abstained" not in df.columns
+
     # The guard in scripts/predict.py is `if ct_abstention_k > 0`; passing 0 or
     # a negative value must skip apply_abstention entirely. We assert the
     # guard's logic here (apply_abstention itself doesn't accept k<=0).
     def skip(k):
         return not (k is not None and k > 0)
+
     assert skip(0)
     assert skip(-1)
     assert skip(None)
@@ -95,7 +100,7 @@ def test_k_0_5_aggressive_on_1000_cells():
     out = apply_abstention(df.copy(), k=0.5)
     frac = out["abstained"].mean()
     assert 0.03 <= frac <= 0.30, (
-        f"k=0.5 should abstain ~10% of cells; got {frac*100:.2f}%"
+        f"k=0.5 should abstain ~10% of cells; got {frac * 100:.2f}%"
     )
     # Sentinel applied
     assert (out.loc[out["abstained"], "predicted_ct"] == ABSTENTION_LABEL).all()
@@ -116,12 +121,14 @@ def test_per_group_grouping_honored():
     n_per = 50
     a_vals = rng.uniform(0.90, 0.99, n_per).astype(np.float32)
     b_vals = rng.uniform(0.10, 0.30, n_per).astype(np.float32)
-    df = pd.DataFrame({
-        "predicted_ct": np.array(["X"] * (2 * n_per), dtype=object),
-        "_max_softmax": np.concatenate([a_vals, b_vals]),
-        "tissue": ["lung"] * n_per + ["skin"] * n_per,
-        "modality": ["CODEX"] * (2 * n_per),
-    })
+    df = pd.DataFrame(
+        {
+            "predicted_ct": np.array(["X"] * (2 * n_per), dtype=object),
+            "_max_softmax": np.concatenate([a_vals, b_vals]),
+            "tissue": ["lung"] * n_per + ["skin"] * n_per,
+            "modality": ["CODEX"] * (2 * n_per),
+        }
+    )
     out = apply_abstention(df.copy(), k=1.5, group_cols=("tissue", "modality"))
 
     # Most B-cells are in [0.10, 0.30] — they should NOT all be abstained,
@@ -143,12 +150,14 @@ def test_degenerate_distribution_no_abstention():
     Verifies the analysis-script invariant carried over to the production
     wire-up.
     """
-    df = pd.DataFrame({
-        "predicted_ct": ["Y"] * 50,
-        "_max_softmax": np.full(50, 0.42, dtype=np.float32),
-        "tissue": ["liver"] * 50,
-        "modality": ["MIBI"] * 50,
-    })
+    df = pd.DataFrame(
+        {
+            "predicted_ct": ["Y"] * 50,
+            "_max_softmax": np.full(50, 0.42, dtype=np.float32),
+            "tissue": ["liver"] * 50,
+            "modality": ["MIBI"] * 50,
+        }
+    )
     out = apply_abstention(df.copy(), k=1.5)
     assert out["abstained"].sum() == 0
 
@@ -169,3 +178,33 @@ def test_already_abstained_frame_rejected():
     out = apply_abstention(df.copy(), k=1.5)
     with pytest.raises(ValueError, match="already exists"):
         apply_abstention(out, k=1.5)
+
+
+def test_per_fov_grouping_honored():
+    """The CLI groups by (dataset_name, fov_name); fences are per-FOV.
+
+    Two FOVs in the same dataset with far-apart max-softmax distributions
+    must be abstained on their own local fences, not a global one. A low FOV
+    (all in [0.10, 0.30]) should not be wholesale abstained just because its
+    values are low relative to the high FOV.
+    """
+    rng = np.random.default_rng(123)
+    n = 50
+    hi = rng.uniform(0.90, 0.99, n).astype(np.float32)
+    lo = rng.uniform(0.10, 0.30, n).astype(np.float32)
+    df = pd.DataFrame(
+        {
+            "predicted_ct": np.array(["X"] * (2 * n), dtype=object),
+            "_max_softmax": np.concatenate([hi, lo]),
+            "dataset_name": ["ds_a"] * (2 * n),
+            "fov_name": ["fov_hi"] * n + ["fov_lo"] * n,
+        }
+    )
+    out = apply_abstention(df.copy(), k=1.5, group_cols=("dataset_name", "fov_name"))
+    lo_mask = out["fov_name"].to_numpy() == "fov_lo"
+    assert out.loc[lo_mask, "abstained"].mean() <= 0.05, (
+        "Per-FOV grouping not honored: low-FOV cells abstained on the global "
+        "distribution rather than their own."
+    )
+    hi_mask = out["fov_name"].to_numpy() == "fov_hi"
+    assert out.loc[hi_mask, "abstained"].mean() <= 0.05
