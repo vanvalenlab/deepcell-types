@@ -147,25 +147,23 @@ you'll likely act on it in step 4.
 If it already passes → **STOP, make no edit.** Most FOVs need none; fabricating edits is
 the main failure mode.
 
-### 4. Diagnose → change ONE op (match the artifact signature)
-Pick the single op that targets the dominant mismatch. The op depends on the *signature*
-of the artifact, not the symptom — this table is the distilled result of a multi-modality
-study:
+### 4. Diagnose → change ONE op (match the op's MECHANISM to the cause)
+From the panel scan (step 2) and the failing ratios (step 3), infer the most likely *cause*,
+then pick the op whose mechanism targets it:
 
-| Signature (from step 2/3) | Op | Why / evidence |
-|---|---|---|
-| One marker positive in most pixels drives one type everywhere | **`channel_drop`** that channel | a TF (FoxP3) at 87%-positive drove 52% spurious Treg in kidney; dropping it → Epithelial-dominant (correct). Cleaner than `background_subtract`. |
-| Canonical marker for an **absent** lineage fires that lineage | **`channel_drop`** (or **`channel_weight ×0.2` *after* `min_max_normalize`** if a full drop over-corrects) | a neuronal marker drove spurious Nerve across a sparse panel; dropping it fixed tissues with *opposite* expected compositions at once |
-| A spurious **granular** cell type (e.g. Mast) with no marker on the panel | **`hot_pixel_removal` (gentle, z≈20)** | hot pixels mimic granular cells in training; gentle removal cut Mast 2–3× while keeping a diverse mix |
-| Pervasive low background floor across channels | **`background_subtract ≈ measured floor`** | removes the floor without distorting bright signal |
-| Bright outliers swamping a faint real signal | **lower `clip_percentile` p** (e.g. 99→99.9) | tames outliers without global distortion |
+| Likely cause | Op family (mechanism) |
+|---|---|
+| A channel positive in most pixels / non-specific high background | suppress it: `channel_drop`, or `background_subtract` at the floor |
+| The canonical marker of a lineage the panel shouldn't show, driving that lineage | down-weight or drop that marker (`channel_weight` must come *after* `min_max_normalize` to have any effect; `channel_drop` for full removal) |
+| A spurious type with a punctate / granular appearance | spatial denoise: `hot_pixel_removal` or `denoise` |
+| Bright outliers dominating after normalization | compress dynamic range: lower `clip_percentile` p, `arcsinh`, or `log1p` |
+| A pervasive low background floor across channels | `background_subtract` at ~the floor |
 
-Apply ONE op, re-run steps 2–3, accept only if it moves *multiple* lineages toward biology
-(see guardrails). **Avoid `arcsinh` as a fix** — it compresses toward the brightest channel
-and tends to replace one spurious majority with another (e.g. liver → ~60% Macrophage). And
-**do not escalate aggressiveness**: gentler usually wins — over-aggressive `hot_pixel_removal`
-(z20→z10) *raised* the spurious fraction, and a channel drop beat a heavier background
-subtract. Reach for the gentlest op that addresses the signature.
+Apply ONE op and re-run steps 2–3. **Any op can over-correct** — it may trade one spurious
+majority for another — so accept it only if *multiple* lineages move toward biology (next
+section), and prefer the gentlest setting that achieves it. If an op doesn't help or
+over-corrects, **reconsider the diagnosis and try a different mechanism** rather than turning
+up the same op's strength.
 
 ### 5. Stop
 Stop on success, after **≤3 rounds**, or when you hit a floor — whichever comes first:
@@ -191,13 +189,10 @@ Record the final config + before/after composition.
   *correct* lineage — e.g. a panel with no mast marker still gets ~a third of cells called
   Mast, which rolls into Myeloid, so a lineage-only check passes silently. Flag any cell
   type predicted above a small fraction whose defining marker is absent from the panel; it
-  is almost always spurious. (Often driven by hot pixels mimicking granular cells —
-  `hot_pixel_removal` cuts it without the dynamic-range distortion `arcsinh` causes.)
-- **Gentlest op that works; never escalate blindly.** More aggressive is usually worse:
-  over-aggressive `hot_pixel_removal` *raised* the spurious fraction, and a single
-  `channel_drop` beat a heavier `background_subtract`. If an edit doesn't help, switch
-  *signature/op*, don't just turn up its strength. Avoid `arcsinh` as a fix — it trades one
-  spurious majority for another.
+  is almost always spurious.
+- **Prefer the gentlest effective op; re-diagnose instead of escalating.** If an edit
+  doesn't help or over-corrects, switch to a different mechanism rather than just turning up
+  the same op's strength — a stronger version of the wrong op usually makes things worse.
 - **Bounded ops only.** If a needed op doesn't exist, add it to
   `deepcell_types.preprocessing_ops` (with a test) rather than hand-writing a one-off
   transform.
