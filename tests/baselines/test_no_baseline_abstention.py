@@ -14,6 +14,7 @@ from __future__ import annotations
 import pathlib
 
 import numpy as np
+import pandas as pd
 
 import deepcell_types.baselines as baselines_pkg
 from deepcell_types.abstention import ABSTENTION_LABEL
@@ -38,8 +39,6 @@ def test_save_baseline_predictions_is_full_coverage(tmp_path):
         output_path=out,
     )
 
-    import pandas as pd
-
     df = pd.read_csv(out)
     assert "abstained" not in df.columns
     assert "predicted_ct_raw" not in df.columns
@@ -60,7 +59,7 @@ def test_no_baseline_module_references_abstention():
     for py in pkg_dir.rglob("*.py"):
         text = py.read_text(encoding="utf-8")
         if "absten" in text.lower():
-            offenders.append(str(py.relative_to(pkg_dir.parent)))
+            offenders.append(str(py.relative_to(pkg_dir.parent.parent)))
     assert offenders == [], (
         "Baselines must never reference abstention (DCT-only capability); "
         f"found references in: {offenders}"
