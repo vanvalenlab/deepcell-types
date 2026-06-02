@@ -150,6 +150,82 @@ def _validate_splits(
             )
 
 
+def check_marker_index_order(
+    archive_channels: list[str], expected_order: list[str]
+) -> list[str]:
+    """Verify the archive's marker→index map matches the released model's frozen order.
+
+    ``all_standardized_channels`` IS the released model's marker index map:
+    ``config.DCTConfig`` builds ``marker2idx = {ch: i for i, ch in
+    enumerate(all_standardized_channels)}``, and the released checkpoint +
+    ``svd_512.npz`` marker embeddings are built for that exact order. Reordering
+    or resizing it silently misaligns the checkpoint's per-marker weights, or
+    trips the ``n_markers`` guard in ``predict._build_model`` so the released
+    checkpoint fails to load. This caught a real incident (2026-06-01) where the
+    registry was re-accumulated to a 327-channel union and re-sorted.
+
+    Returns a list of human-readable error strings (empty == contract holds).
+    """
+    archive_channels = list(archive_channels)
+    expected_order = list(expected_order)
+    if archive_channels == expected_order:
+        return []
+
+    errors: list[str] = []
+    if len(archive_channels) != len(expected_order):
+        errors.append(
+            f"all_standardized_channels has {len(archive_channels)} markers but the "
+            f"released model expects {len(expected_order)} (marker index-map size "
+            f"mismatch — the released checkpoint will fail to load)"
+        )
+    archive_set, expected_set = set(archive_channels), set(expected_order)
+    missing = sorted(expected_set - archive_set)
+    extra = sorted(archive_set - expected_set)
+    if missing:
+        shown = ", ".join(missing[:10]) + (" …" if len(missing) > 10 else "")
+        errors.append(
+            f"{len(missing)} markers expected by the released model are absent from "
+            f"the archive: {shown}"
+        )
+    if extra:
+        shown = ", ".join(extra[:10]) + (" …" if len(extra) > 10 else "")
+        errors.append(
+            f"{len(extra)} markers in the archive are unknown to the released model: "
+            f"{shown}"
+        )
+    if not missing and not extra:
+        # Same set, different order — the dangerous silent case.
+        for idx, (got, want) in enumerate(zip(archive_channels, expected_order)):
+            if got != want:
+                errors.append(
+                    f"marker order diverges from the released model at index {idx}: "
+                    f"archive has {got!r}, expected {want!r} (same markers, reordered "
+                    f"— silently misaligns the checkpoint's per-marker weights)"
+                )
+                break
+    return errors
+
+
+def _load_expected_marker_order(path: Path) -> list[str]:
+    """Load the released model's frozen marker order (source of truth).
+
+    Accepts the released embeddings ``.npz`` (whose ``marker2idx`` object holds
+    the ``{marker: index}`` map) or a JSON file containing either a
+    ``{marker: index}`` dict or an ordered list of marker names.
+    """
+    path = Path(path)
+    if path.suffix == ".npz":
+        import numpy as np
+
+        data = np.load(path, allow_pickle=True)
+        marker2idx = data["marker2idx"].item()
+        return [m for m, _ in sorted(marker2idx.items(), key=lambda kv: kv[1])]
+    obj = _read_json(path)
+    if isinstance(obj, dict):
+        return [m for m, _ in sorted(obj.items(), key=lambda kv: kv[1])]
+    return list(obj)
+
+
 def validate_archive(
     root: Path,
     *,
@@ -157,6 +233,7 @@ def validate_archive(
     allow_two_channel: bool = False,
     fail_on_unknown_channel: bool = False,
     required_markers: dict[str, set[str]] | None = None,
+    expected_marker_order: list[str] | None = None,
 ) -> ArchiveReport:
     report = ArchiveReport()
     root = root.expanduser()
@@ -164,7 +241,14 @@ def validate_archive(
         report.errors.append(f"archive root is missing zarr.json: {root}")
         return report
 
-    root_channels = set(_attrs(root / "zarr.json").get("all_standardized_channels", []))
+    root_channels_ordered = list(
+        _attrs(root / "zarr.json").get("all_standardized_channels", [])
+    )
+    root_channels = set(root_channels_ordered)
+    if expected_marker_order is not None:
+        report.errors.extend(
+            check_marker_index_order(root_channels_ordered, expected_marker_order)
+        )
     preprocessed_paths = _discover_preprocessed(root)
     fov_keys = {_fov_key(root, path) for path in preprocessed_paths}
     unknown_channels: dict[str, int] = {}
@@ -265,11 +349,28 @@ def main(argv: list[str] | None = None) -> int:
         default=[],
         help="Additional required marker sentinel as FOV_KEY:MARKER",
     )
+    parser.add_argument(
+        "--marker-order-from",
+        type=Path,
+        default=None,
+        help=(
+            "Path to the released model's embeddings .npz (with a marker2idx "
+            "object) or a JSON marker2idx/ordered-list. When set, assert that the "
+            "archive's all_standardized_channels matches that frozen marker→index "
+            "order exactly. Guards against the checkpoint-breaking reorder/resize."
+        ),
+    )
     args = parser.parse_args(argv)
 
     required_markers = {key: set(value) for key, value in KNOWN_REPAIR_MARKERS.items()}
     for fov_key, marker in args.require_marker:
         required_markers.setdefault(fov_key, set()).add(marker)
+
+    expected_marker_order = (
+        _load_expected_marker_order(args.marker_order_from)
+        if args.marker_order_from is not None
+        else None
+    )
 
     report = validate_archive(
         args.zarr,
@@ -277,6 +378,7 @@ def main(argv: list[str] | None = None) -> int:
         allow_two_channel=args.allow_two_channel,
         fail_on_unknown_channel=args.fail_on_unknown_channel,
         required_markers=required_markers,
+        expected_marker_order=expected_marker_order,
     )
 
     print(f"Archive: {args.zarr}")
