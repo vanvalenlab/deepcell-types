@@ -1,8 +1,10 @@
 """IQR-fence post-hoc abstention (inference-side public utilities).
 
-This module is intentionally **numpy-only** so that
+This module's **import-time dependencies are numpy-only** so that
 ``deepcell_types.predict`` can import it without pulling in any
-``[train]``-extra dependency (pandas, scikit-learn, etc.).
+``[train]``-extra dependency (pandas, scikit-learn, etc.). The batched
+``apply_abstention`` below imports pandas lazily, inside the function,
+preserving that contract.
 
 Algorithm (mirrors ``analysis/ct_abstention_iqr.py``):
 

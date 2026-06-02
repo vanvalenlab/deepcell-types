@@ -8,7 +8,7 @@ the bottom for backward compatibility with external callers.
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 import torch
@@ -422,7 +422,7 @@ class LossesAndMetrics:
 def hierarchical_macro_f1(
     true_labels: np.ndarray,
     pred_labels: np.ndarray,
-    classes,
+    classes: Sequence[str],
     hierarchy: dict,
 ) -> float:
     """Macro-F1 with parent->child credit (DCT eval / abstention macro-F1).
