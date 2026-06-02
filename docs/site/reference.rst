@@ -14,6 +14,8 @@ Inference
    DCTConfig
    preprocess_fov
    PreprocessedFov
+   make_preprocessor
+   apply_config
 
 Abstention
 ----------

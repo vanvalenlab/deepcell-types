@@ -11,6 +11,12 @@ single repository and switches the inference path to canonical-only
 checkpoints. **Breaking changes** are noted below.
 
 ### Added
+- **Custom preprocessing hook.** `predict(..., preprocess=...)` overrides the
+  per-FOV normalization on a single FOV without retraining. Ships a bounded op
+  library — `apply_config`, `make_preprocessor`, `DEFAULT_CONFIG` (top-level
+  exports) — and the `preproc-adapt` skill (`skills/preproc-adapt/`) for the
+  composition-guided adaptation loop. `preprocess=None` is the unchanged
+  default; `make_preprocessor(DEFAULT_CONFIG)` reproduces it bit-for-bit.
 - **Archive-free inference.** `predict()` no longer requires the (multi-GB)
   TissueNet zarr archive: the marker / cell-type registry now ships as a small
   `vocab.json` snapshot, and `DCTConfig` falls back to it when no archive is

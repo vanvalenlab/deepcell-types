@@ -77,6 +77,32 @@ a simple functional interface, `deepcell_types.predict`.
 For a complete example of the cell-type inference pipeline, check out
 the [tutorial](https://vanvalenlab.github.io/deepcell-types/site/tutorial.html).
 
+### Custom preprocessing (advanced)
+
+`predict` accepts an optional `preprocess` hook to override the built-in
+per-channel normalization on a single FOV — useful when one channel is
+saturated or has heavy background and is steering the calls. Build one
+declaratively from a bounded set of ops:
+
+```python
+from deepcell_types import predict, make_preprocessor
+
+config = [
+    {"op": "clip_percentile", "p": 99.9},
+    {"op": "channel_drop", "names": ["NeuN"]},  # drop a confounding marker
+    {"op": "min_max_normalize"},                # model sees [0, 1]
+]
+labels = predict(raw, mask, channel_names, mpp, model_name=...,
+                 device="cuda:0", preprocess=make_preprocessor(config))
+```
+
+The hook receives the resampled, in-vocabulary raw `(C, H, W)` array and the
+resolved marker names, and must return a `(C, H, W)` array in `[0, 1]`. With
+`preprocess=None` (default) the built-in p99.9 clip + min-max is used;
+`make_preprocessor(DEFAULT_CONFIG)` reproduces that default exactly. See the
+`preproc-adapt` skill under `skills/preproc-adapt/` for the full
+composition-guided adaptation loop.
+
 ## Training
 
 To retrain or fine-tune, install the `[train]` extra (pulls in `wandb`,
