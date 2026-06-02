@@ -119,32 +119,62 @@ Write `expectations.json` and commit it *before* running anything:
 This is a **rough plausibility criterion, not target fractions.** It is the contract
 you judge every later round against — never a post-hoc story.
 
-### 2. Baseline run with `DEFAULT_CONFIG`, then evaluate composition
+### 2. Baseline run + channel-quality scan
 Run `predict` with `preprocess=make_preprocessor(DEFAULT_CONFIG)` (identical to passing
 no hook) and roll the per-cell labels up to broad lineages (group your model's classes
 into lineages — e.g. Epithelial, Lymphocyte, Myeloid, Endothelial, Stromal, Nerve,
 Tumor, Other). Record lineage fractions, abstention rate, and mean confidence.
 
-### 3. Compare to the FROZEN expectation
-**Success** when ALL hold: every `expected_present` lineage appears (dominant ones in
-non-trivial fraction); no `implausible_majority` lineage is the plurality; no
-`must_be_absent` lineage appears above noise.
+**At the same time, scan per-channel stats** (fraction of positive pixels, median, p99).
+This is what lets a later edit be *principled instead of target-steering*: a marker
+positive in a large fraction of pixels is a near-certain artifact — e.g. a transcription
+factor (FoxP3) positive in 87% of pixels cannot be real signal. Note any such channel now;
+you'll likely act on it in step 4.
 
-### 4. Diagnose → change ONE op
-Pick the single op that addresses the dominant mismatch, reasoning from biology and
-the marker image:
-- epithelium missing despite a bright epithelial marker → lower `clip_percentile` p,
-  or `arcsinh` to compress outliers.
-- a pervasive high-background channel driving one type everywhere →
-  `background_subtract` at ~the channel's background floor.
-- a noisy channel → `denoise` / `hot_pixel_removal`.
-- a clearly uninformative/saturated/confounding channel → `channel_drop` (or
-  down-weight if a full drop over-corrects).
-Re-run steps 2–3.
+### 3. Verify at BOTH the lineage AND cell-type level
+**Success** when ALL hold:
+- every `expected_present` lineage appears (dominant ones in non-trivial fraction);
+- no `implausible_majority` lineage is the plurality;
+- no `must_be_absent` lineage appears above noise;
+- **no marker-absent cell type appears at non-trivial fraction.** Check the cell-type
+  ratios, not just the lineage rollup — a spurious type can hide inside a *correct*
+  lineage (a panel with no mast marker had a third of cells called Mast, which rolls into
+  Myeloid, so a lineage-only check passed silently). Flag any type predicted above a small
+  fraction (~10%) whose defining marker is absent from the panel; it is almost always
+  spurious. **This cell-type-ratio check is the single most useful part of the loop** — it
+  distinguishes a fixable input artifact from an unfixable model prior.
+
+If it already passes → **STOP, make no edit.** Most FOVs need none; fabricating edits is
+the main failure mode.
+
+### 4. Diagnose → change ONE op (match the artifact signature)
+Pick the single op that targets the dominant mismatch. The op depends on the *signature*
+of the artifact, not the symptom — this table is the distilled result of a multi-modality
+study:
+
+| Signature (from step 2/3) | Op | Why / evidence |
+|---|---|---|
+| One marker positive in most pixels drives one type everywhere | **`channel_drop`** that channel | a TF (FoxP3) at 87%-positive drove 52% spurious Treg in kidney; dropping it → Epithelial-dominant (correct). Cleaner than `background_subtract`. |
+| Canonical marker for an **absent** lineage fires that lineage | **`channel_drop`** (or **`channel_weight ×0.2` *after* `min_max_normalize`** if a full drop over-corrects) | a neuronal marker drove spurious Nerve across a sparse panel; dropping it fixed tissues with *opposite* expected compositions at once |
+| A spurious **granular** cell type (e.g. Mast) with no marker on the panel | **`hot_pixel_removal` (gentle, z≈20)** | hot pixels mimic granular cells in training; gentle removal cut Mast 2–3× while keeping a diverse mix |
+| Pervasive low background floor across channels | **`background_subtract ≈ measured floor`** | removes the floor without distorting bright signal |
+| Bright outliers swamping a faint real signal | **lower `clip_percentile` p** (e.g. 99→99.9) | tames outliers without global distortion |
+
+Apply ONE op, re-run steps 2–3, accept only if it moves *multiple* lineages toward biology
+(see guardrails). **Avoid `arcsinh` as a fix** — it compresses toward the brightest channel
+and tends to replace one spurious majority with another (e.g. liver → ~60% Macrophage). And
+**do not escalate aggressiveness**: gentler usually wins — over-aggressive `hot_pixel_removal`
+(z20→z10) *raised* the spurious fraction, and a channel drop beat a heavier background
+subtract. Reach for the gentlest op that addresses the signature.
 
 ### 5. Stop
-On success, or after **6 rounds**, whichever comes first. Record the final config and
-the before/after composition.
+Stop on success, after **≤3 rounds**, or when you hit a floor — whichever comes first:
+- **Model-prior floor:** a residual that doesn't move under principled edits (e.g. a kidney's
+  last ~6% spurious Tumor, or a liver's last ~10% Mast). Don't chase it — flag it and stop;
+  it needs retraining, not preprocessing.
+- **Coverage gap:** predictions don't move under drastic input changes (an out-of-distribution
+  modality saturates to one lineage regardless). Flag for retraining.
+Record the final config + before/after composition.
 
 ## Guardrails (load-bearing)
 - **Pre-registration first.** If you didn't freeze `expectations.json` before step 2,
@@ -163,6 +193,11 @@ the before/after composition.
   type predicted above a small fraction whose defining marker is absent from the panel; it
   is almost always spurious. (Often driven by hot pixels mimicking granular cells —
   `hot_pixel_removal` cuts it without the dynamic-range distortion `arcsinh` causes.)
+- **Gentlest op that works; never escalate blindly.** More aggressive is usually worse:
+  over-aggressive `hot_pixel_removal` *raised* the spurious fraction, and a single
+  `channel_drop` beat a heavier `background_subtract`. If an edit doesn't help, switch
+  *signature/op*, don't just turn up its strength. Avoid `arcsinh` as a fix — it trades one
+  spurious majority for another.
 - **Bounded ops only.** If a needed op doesn't exist, add it to
   `deepcell_types.preprocessing_ops` (with a test) rather than hand-writing a one-off
   transform.
@@ -177,10 +212,17 @@ the before/after composition.
   dropping it fixed tissues with opposite expected compositions at once — the
   opposite-direction test confirmed a genuine artifact, not steering.
 - **High-background channel → one type everywhere.** A kidney CODEX FOV called ~52% of
-  cells one rare T-cell subtype because its transcription-factor channel was positive
-  in 87% of pixels (impossible for a TF). A background subtraction at the measured
-  floor halved it and let epithelium/endothelium re-emerge — and notably a second
-  independent model made the same error, confirming the artifact was in the image.
+  cells one rare T-cell subtype because its transcription-factor channel (FoxP3) was
+  positive in 87% of pixels (impossible for a TF). **Dropping that one channel** flipped it
+  to correct Epithelial-dominant kidney (52%→0 Treg, Epithelial 22%→47%); a milder
+  background-subtract only got halfway. A second independent model made the same error,
+  confirming the artifact was in the image. Lesson: drop the proven-artifact channel
+  outright, and pick the op by signature rather than reaching for a global transform.
+- **Reduce the artifact, but expect a model-prior floor.** Fixes are often partial: after
+  the kidney drop, ~6% spurious Tumor remained and would not move under further principled
+  edits; a liver Mast confound fell 2–3× but left a ~10% residual. The loop's job is to
+  remove the *artifact-driven* portion and flag the rest — not to force the number to zero
+  (which only invites target-steering).
 - **Panel can't see the dominant cell.** An immune-focused liver panel had no
   hepatocyte marker, so an "Epithelial-dominant" expectation was naive; the model's
   immune-dominant calls were correct. Always write the expectation panel-aware.
