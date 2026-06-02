@@ -83,7 +83,6 @@ Available ops (apply in listed order; always end with a normalize so the model s
 | op | params | effect |
 |---|---|---|
 | `clip_percentile` | `p` | per-channel clip at the p-th percentile of nonzero pixels (tames bright outliers) |
-| `arcsinh` | `cofactor` (default 5) | compress dynamic range: `arcsinh(x/cofactor)` |
 | `log1p` | — | `log1p(max(x,0))` |
 | `background_subtract` | `value` | `clip(x - value, 0, None)` — removes a pervasive background floor |
 | `gamma` | `g` | per-channel gamma on `[0,max]` |
@@ -102,9 +101,16 @@ Use this when a full `channel_drop` over-corrects.
 ## The per-FOV loop (do these IN ORDER)
 
 ### 1. Pre-register the expectation — FROZEN, before any prediction
-**First inspect the panel** (`channel_names`). Base the expectation on tissue biology
-**as constrained by what the panel can detect**: a lineage with no marker in the panel
-is undetectable and must NOT be in `expected_present`/`expected_dominant_any_of`.
+**First inspect two things — the panel AND the model's class vocabulary.**
+- **Panel** (`channel_names`): a lineage with no marker in the panel is undetectable and
+  must NOT be in `expected_present`/`expected_dominant_any_of`.
+- **Model classes**: the model can only output the cell types in its head. List its output
+  class vocabulary (the labels `predict` can return) and the lineage each maps to; do not
+  expect a type/lineage the model has no class for (preprocessing can't conjure a missing
+  class), and judge the cell-type ratios at the granularity the model actually supports
+  (it may carry one generic class for a lineage rather than fine subtypes).
+
+Base the expectation on tissue biology constrained by BOTH (panel ∩ model classes).
 Write `expectations.json` and commit it *before* running anything:
 ```json
 {
@@ -156,7 +162,7 @@ then pick the op whose mechanism targets it:
 | A channel positive in most pixels / non-specific high background | suppress it: `channel_drop`, or `background_subtract` at the floor |
 | The canonical marker of a lineage the panel shouldn't show, driving that lineage | down-weight or drop that marker (`channel_weight` must come *after* `min_max_normalize` to have any effect; `channel_drop` for full removal) |
 | A spurious type with a punctate / granular appearance | spatial denoise: `hot_pixel_removal` or `denoise` |
-| Bright outliers dominating after normalization | compress dynamic range: lower `clip_percentile` p, `arcsinh`, or `log1p` |
+| Bright outliers dominating after normalization | compress dynamic range: lower `clip_percentile` p, or `log1p` |
 | A pervasive low background floor across channels | `background_subtract` at ~the floor |
 
 Apply ONE op and re-run steps 2–3. **Any op can over-correct** — it may trade one spurious
