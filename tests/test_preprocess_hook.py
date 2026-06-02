@@ -35,3 +35,26 @@ def test_patch_generator_invokes_preprocess_with_chw_and_names():
     assert len(seen["shape"]) == 3 and seen["shape"][0] == 2  # (C,H,W)
     assert seen["names"] == ["CD3", "DAPI"]
     assert all(np.all(p[0] == 0.0) for p in patches)  # hook output used
+
+
+import deepcell_types.dataset as dsmod
+
+
+def test_patchdataset_forwards_preprocess(monkeypatch):
+    raw, mask = _toy()
+    cfg = DCTConfig()
+    captured = {}
+
+    def fake_patch_generator(
+        raw_, mask_, mpp_, dct_config, preprocess=None, channel_names=None
+    ):
+        captured["preprocess"] = preprocess
+        captured["channel_names"] = channel_names
+        return iter(())
+
+    monkeypatch.setattr(dsmod, "patch_generator", fake_patch_generator)
+    hook = lambda arr, names: arr
+    ds = dsmod.PatchDataset(raw, mask, ["CD3", "DAPI"], 0.5, cfg, preprocess=hook)
+    list(ds)  # triggers __iter__
+    assert captured["preprocess"] is hook
+    assert captured["channel_names"] == ds.channel_names_standard

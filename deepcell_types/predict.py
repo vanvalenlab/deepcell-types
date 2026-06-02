@@ -255,6 +255,7 @@ def predict(
     zarr_path=None,
     return_probabilities=False,
     ct_abstention_k=0.2,
+    preprocess=None,
 ):
     """Run the cell-type prediction pipeline.
 
@@ -315,6 +316,16 @@ def predict(
         ``k=None`` to disable abstention and get the raw argmax label for
         every cell. Has no effect on FOVs with fewer than 4 cells (the
         IQR is undefined).
+    preprocess : callable, optional, default=None
+        Custom per-FOV preprocessing hook. Called as
+        ``preprocess(raw, channel_names) -> raw`` where ``raw`` is a
+        ``(C, H, W)`` float32 array already resampled to the model's target
+        MPP and restricted to in-vocabulary channels, and ``channel_names``
+        are the resolved standard marker names aligned to ``raw``. Must return
+        a ``(C, H, W)`` array in ``[0, 1]``. When ``None`` (default), the
+        built-in per-channel p99 clip + min-max normalization is used. Build
+        one declaratively with
+        :func:`deepcell_types.make_preprocessor`.
 
     Returns
     -------
@@ -348,7 +359,9 @@ def predict(
     model = _build_model(checkpoint, dct_config, device)
 
     pred_logger = _InferenceResultBuffer(dct_config)
-    dataset = PatchDataset(raw, mask, channel_names, mpp, dct_config)
+    dataset = PatchDataset(
+        raw, mask, channel_names, mpp, dct_config, preprocess=preprocess
+    )
     data_loader = DataLoader(
         dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )

@@ -20,9 +20,12 @@ class PatchDataset(IterableDataset):
         channel_names,
         mpp,
         dct_config,
+        preprocess=None,
         **kwargs,
     ):
         super(PatchDataset, self).__init__(**kwargs)
+
+        self.preprocess = preprocess
 
         if raw.ndim != 3:
             raise ValueError("raw must have shape (C, H, W).")
@@ -136,7 +139,14 @@ class PatchDataset(IterableDataset):
         """
         worker_info = get_worker_info()
         for patch_idx, (raw_patch, mask_patch, cell_index, _) in enumerate(
-            patch_generator(self.raw, self.mask, self.mpp, dct_config=self.dct_config)
+            patch_generator(
+                self.raw,
+                self.mask,
+                self.mpp,
+                dct_config=self.dct_config,
+                preprocess=self.preprocess,
+                channel_names=self.channel_names_standard,
+            )
         ):
             if (
                 worker_info is not None
