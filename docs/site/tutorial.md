@@ -234,7 +234,7 @@ visualization.
 
 ```{code-cell} ipython3
 import napari
-nim = napari.Viewer(show=False)  # show=True for interactive local runs
+nim = napari.Viewer(show=True)  # show=False for headless runs (screenshots may be blank)
 
 # Compute contrast limits
 cl = [(np.min(ch), np.max(ch)) for ch in img]
