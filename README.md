@@ -79,10 +79,19 @@ the [tutorial](https://vanvalenlab.github.io/deepcell-types/site/tutorial.html).
 
 ### Custom preprocessing (advanced)
 
-`predict` accepts an optional `preprocess` hook to override the built-in
-per-channel normalization on a single FOV — useful when one channel is
-saturated or has heavy background and is steering the calls. Build one
-declaratively from a bounded set of ops:
+When a single FOV's predictions look biologically implausible — usually because
+one channel is saturated or has heavy background and is steering the calls — the
+fix is to adapt the per-channel normalization for that FOV.
+
+**Start with the `preproc-adapt` skill** (`skills/preproc-adapt/`). It is the
+recommended, first-and-foremost way to do this: an agent-driven loop that
+inspects the panel, predicts, checks the cell-type composition against tissue
+biology, diagnoses *which* channel/op is the problem, and iterates the config for
+you — so you don't have to guess the ops by hand. Use it before hand-tuning.
+
+Under the hood the skill drives `predict`'s optional `preprocess` hook, which you
+can also call directly if you already know the fix. Build one declaratively from a
+bounded set of ops:
 
 ```python
 from deepcell_types import predict, make_preprocessor
@@ -99,9 +108,7 @@ labels = predict(raw, mask, channel_names, mpp, model_name=...,
 The hook receives the resampled, in-vocabulary raw `(C, H, W)` array and the
 resolved marker names, and must return a `(C, H, W)` array in `[0, 1]`. With
 `preprocess=None` (default) the built-in p99.9 clip + min-max is used;
-`make_preprocessor(DEFAULT_CONFIG)` reproduces that default exactly. See the
-`preproc-adapt` skill under `skills/preproc-adapt/` for the full
-composition-guided adaptation loop.
+`make_preprocessor(DEFAULT_CONFIG)` reproduces that default exactly.
 
 ## Training
 
