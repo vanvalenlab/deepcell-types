@@ -75,8 +75,8 @@ class PreprocessedFov:
     ``extract_patch_from_zarr`` does that during patch extraction).
     """
 
-    raw: np.ndarray            # (C, H', W') float32 in [0, 1]
-    mask: np.ndarray           # (H', W') uint32
+    raw: np.ndarray  # (C, H', W') float32 in [0, 1]
+    mask: np.ndarray  # (H', W') uint32
     centroids: Dict[str, List[float]]  # str(cell_id) -> [row, col]
     channel_names: List[str]
     target_mpp: float = TARGET_MPP
@@ -100,9 +100,9 @@ def _resample(
     """
     raw_hwc = np.transpose(raw, (1, 2, 0)).astype(np.float32, copy=False)
     if abs(scale - 1.0) > 0.01:
-        raw_hwc = rescale(
-            raw_hwc, scale, preserve_range=True, channel_axis=-1
-        ).astype(np.float32)
+        raw_hwc = rescale(raw_hwc, scale, preserve_range=True, channel_axis=-1).astype(
+            np.float32
+        )
         mask = rescale(
             mask, scale, order=0, preserve_range=True, anti_aliasing=False
         ).astype(np.uint32)
@@ -202,9 +202,7 @@ def preprocess_fov(
     if mask.ndim != 2:
         raise ValueError(f"mask must be (H, W), got {mask.shape}")
     if raw.shape[1:] != mask.shape:
-        raise ValueError(
-            f"raw spatial {raw.shape[1:]} != mask spatial {mask.shape}"
-        )
+        raise ValueError(f"raw spatial {raw.shape[1:]} != mask spatial {mask.shape}")
     if len(channel_names) != raw.shape[0]:
         raise ValueError(
             f"len(channel_names)={len(channel_names)} != raw.shape[0]={raw.shape[0]}"
@@ -308,7 +306,7 @@ def _get_neighbor_masks(mask, cbox, cell_idx):
     return binmask_cell, binmask_neighbors
 
 
-def patch_generator(raw, mask, mpp, dct_config):
+def patch_generator(raw, mask, mpp, dct_config, preprocess=None, channel_names=None):
     """Yield (raw_patch, mask_patch, cell_idx, orig_ct) for each cell.
 
     Output dtypes:
@@ -332,10 +330,21 @@ def patch_generator(raw, mask, mpp, dct_config):
         anti_aliasing=False,
     ).astype(np.int32)
 
-    raw = _percentile_threshold_nonzero(
-        raw, percentile=dct_config.PERCENTILE_THRESHOLD
-    )
-    raw = _normalize_per_channel(raw)
+    if preprocess is None:
+        raw = _percentile_threshold_nonzero(
+            raw, percentile=dct_config.PERCENTILE_THRESHOLD
+        )
+        raw = _normalize_per_channel(raw)
+    else:
+        # raw is (H, W, C) here; the hook contract is (C, H, W) in [0, 1].
+        raw_chw = preprocess(np.transpose(raw, (2, 0, 1)), channel_names)
+        raw_chw = np.asarray(raw_chw, dtype=np.float32)
+        if raw_chw.shape != (raw.shape[2], raw.shape[0], raw.shape[1]):
+            raise ValueError(
+                "preprocess must return a (C, H, W) array matching its input; "
+                f"got {raw_chw.shape} for input {(raw.shape[2], raw.shape[0], raw.shape[1])}."
+            )
+        raw = np.transpose(raw_chw, (1, 2, 0))
     raw, mask = _pad_cell(raw, mask, dct_config.CROP_SIZE)
 
     props = regionprops(mask, cache=False)
