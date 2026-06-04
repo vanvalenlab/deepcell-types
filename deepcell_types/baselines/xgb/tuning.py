@@ -20,7 +20,7 @@ import xgboost as xgb
 
 
 # Default data directory from environment
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
 from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
 from deepcell_types.training.baseline_features import (
@@ -432,7 +432,7 @@ def main(
 
         wandb.login()
         run = wandb.init(
-            project="deepcelltypes-temp-train",
+            project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
             dir="wandb_tmp",
             job_type="tuning",
             name=study_name or f"xgb_tuning_{datetime.now().strftime('%Y%m%d_%H%M%S')}",

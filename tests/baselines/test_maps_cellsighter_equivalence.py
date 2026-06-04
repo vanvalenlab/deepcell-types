@@ -19,10 +19,15 @@ MODEL_ORIG_SHA = {
 }
 # Re-pinned after removing the locally-added ``--min_channels`` CLI option
 # (an unused channel-count filter that caused unfair baseline comparisons via
-# mismatched defaults). The import rewrite remains the only delta vs. these.
+# mismatched defaults).
+# Re-pinned again for the public release: two non-logic strings were scrubbed
+# in both files — the wandb project default (``deepcelltypes-temp-train`` ->
+# ``os.environ.get("WANDB_PROJECT", "deepcell-types")``) and the lab-internal
+# ``DATA_DIR`` fallback (``/data2`` -> ``""``). No model, data, or evaluation
+# logic changed. The import rewrite remains the only structural delta vs. these.
 RUN_ORIG_SHA = {
-    "maps": "9a7d093d13a7250a77859243d42d9d8c24e823841adbc38c3667b340b31fa085",
-    "cellsighter": "84d480710c54b09169c87bd01ce72972febfa69086b39315b2217f6b2e85fea3",
+    "maps": "dfff207acaa086c2e77eb888114860a239497995603cfb662d0414683b172fca",
+    "cellsighter": "9903cc3e6861140e65d512da7cf2e0cdbd1b680741e25a444c206437b7b170bf",
 }
 INIT_ORIG_SHA = {
     "maps": "5a0a765d62d2f11c841da99f34ccd63b226b47285fe85b6a9edbf92636a58f75",

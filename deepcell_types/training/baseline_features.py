@@ -237,7 +237,7 @@ def _extract_all_dataset_features(
             # filesystem another user could replace it with a crafted pickle that
             # would execute arbitrary code at load time. Owner check +
             # world-writable rejection blocks that vector. Mirrors the cell-data
-            # cache fix introduced in PR #55.
+            # cache-poisoning guard.
             try:
                 st = cache_file.stat()
             except OSError as e:

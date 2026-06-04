@@ -1,4 +1,4 @@
-"""Regression test for adjust_conf_mat_hierarchy one-way direction (issue #14, gap 1).
+"""Regression test for adjust_conf_mat_hierarchy one-way direction.
 
 A future refactor that accidentally applies both directions (parent->child AND
 child->parent) would silently inflate headline accuracy by ~1-2pp with no test

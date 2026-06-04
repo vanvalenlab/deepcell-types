@@ -213,7 +213,7 @@ def main(
     # ---------- Checkpoint helpers (R4 H1: full training-state checkpoints) ----------
     CKPT_CONFIG = {
         "d_model": d_model,
-        "resnet_channels": 32,  # pretrain uses create_model defaults
+        "resnet_channels": 48,  # matches create_model(resnet_base_channels=48) default
         "use_conditioned_mp_head": True,
         "n_celltypes": dct_config.NUM_CELLTYPES,
         "format_version": "1.0",

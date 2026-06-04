@@ -2,7 +2,7 @@
 
 The training-time path uses a direct ``marker2idx`` lookup with no alias
 resolution and no case-insensitive fallback. Source-data variants must
-be canonicalized at ingestion (``hubmap-to-zarr/apply_canonicalization.py``).
+be canonicalized at ingestion (the archive ingestion pipeline).
 """
 
 from pathlib import Path

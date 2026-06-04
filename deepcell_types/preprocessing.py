@@ -11,7 +11,7 @@ training pipeline consumes from ``preprocessed/raw`` + ``preprocessed/mask``:
 4. Cast mask to ``uint32``; compute centroids in resampled coordinates.
 
 This recipe was recovered from
-``hubmap-to-zarr@origin/deepcell-types:preprocess_for_training.py`` —
+the archive ingestion pipeline —
 the script that originally produced the production archive's
 ``preprocessed/raw`` arrays. A snapshot test
 (``tests/test_preprocessing.py::test_snapshot_against_production``)

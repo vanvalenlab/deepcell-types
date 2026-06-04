@@ -83,3 +83,29 @@ jobs:
         run: pip install ruff
       - name: ruff check
         run: ruff check deepcell_types scripts tests
+
+  wheel:
+    # Builds the wheel and installs it into a clean env, then imports the
+    # public API and touches package data (vocab.json, channel_mapping.yaml).
+    # An editable install (-e .) hides missing package-data globs; this job
+    # catches a wheel that ships without the YAML/JSON the runtime needs.
+    name: wheel build + install smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+      - name: Install wheel into a clean venv and import
+        run: |
+          python -m venv /tmp/wheelenv
+          /tmp/wheelenv/bin/pip install --upgrade pip
+          /tmp/wheelenv/bin/pip install dist/*.whl
+          /tmp/wheelenv/bin/python -c "import deepcell_types; from deepcell_types import predict, make_preprocessor, DCTConfig; from deepcell_types.utils import download_model, list_model_versions; DCTConfig().marker2idx; print('wheel OK', deepcell_types.__version__)"

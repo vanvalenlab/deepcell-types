@@ -1,30 +1,30 @@
 """Split an existing val set into a model-selection val_subset and frozen test set.
 
-Why this exists:
-    Issue #11 (publication readiness) requires a held-out test set that was never
-    used for model selection. Rather than re-splitting the whole archive (Option B
-    in #11), this script implements Option A: take an existing val set and
-    carve them into val_subset (70%) and test_subset (30%), stratified per dataset
-    so every dataset still contributes to both subsets.
+This is **stage 2** of the two-stage canonical split (stage 1 is
+``scripts/generate_splits.py``). A held-out test set that is never used for
+model selection is required for an unbiased final number. Rather than
+re-splitting the whole archive, this script takes an existing val set and
+carves it into val_subset (70%) and test_subset (30%), stratified per dataset
+so every dataset still contributes to both subsets.
 
 Output:
     Two new split files that share the same `train` dict as the input (so existing
     models remain comparable for training), but have `val` containing only the
     subset relevant to each use:
 
-      splits/fov_split_v9_valsubset.json  -- train unchanged, val = val_subset (70%)
-      splits/fov_split_v9_test.json        -- train unchanged, val = test_subset (30%)
+      splits/fov_split_v10_valsubset.json  -- train unchanged, val = val_subset (70%)
+      splits/fov_split_v10_test.json        -- train unchanged, val = test_subset (30%)
 
     Each output declares the omitted validation FOVs in `heldout` so strict
     split loading can distinguish intentional exclusions from stale split files.
 
-    Use valsubset during training (`--split_file splits/fov_split_v9_valsubset.json`).
-    Use test for the final released number (`--split_file splits/fov_split_v9_test.json`).
+    Use valsubset during training (`--split_file splits/fov_split_v10_valsubset.json`).
+    Use test for the final released number (`--split_file splits/fov_split_v10_test.json`).
 
 Usage:
     python -m scripts.split_val_for_test \\
-        --input splits/fov_split_v9.json \\
-        --output_prefix splits/fov_split_v9 \\
+        --input splits/fov_split_v10.json \\
+        --output_prefix splits/fov_split_v10 \\
         --test_ratio 0.3 --seed 42
 """
 

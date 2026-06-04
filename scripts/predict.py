@@ -103,14 +103,12 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
     default=0.2,
     help=(
         "Per-FOV IQR-fence abstention on max-softmax confidence. "
-        "Default k=0.2 — the published headline setting, chosen to maximise "
-        "macro_F1 separation against the strongest baseline (XGBoost-tuned) "
-        "while keeping a sizeable cohort of confident cells. "
+        "Default k=0.2 is the published headline operating point. "
         "Cells whose max-softmax falls below Q1 - k*IQR within their "
         "(dataset_name, fov_name) group are flagged as abstained "
         "(predicted_ct = 'Unknown', original kept in predicted_ct_raw). "
         "Set k <= 0 or pass 'none' to disable. k=1.5 is the canonical Tukey "
-        "fence (~no-op). See docs/reports/ct_iqr_abstention_test.md."
+        "fence (~no-op)."
     ),
 )
 def main(
@@ -163,7 +161,7 @@ def main(
     # the one-pass scan over the training split preserves per-worker zarr
     # cache locality. `shuffle=True` over a multi-thousand-FOV archive forces
     # each worker to cold-load ~1 GB of zarr per cell, which under spawn
-    # workers manifests as the historical deadlock (issue #79).
+    # workers manifests as the historical deadlock.
     if split_file is not None:
         train_loader, test_loader, metadata = create_dataloader(
             zarr_dir=zarr_dir,

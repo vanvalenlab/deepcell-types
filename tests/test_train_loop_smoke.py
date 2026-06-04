@@ -1,4 +1,4 @@
-"""Regression test for AMP + OneCycleLR scheduler gating (issue #14, gap 7).
+"""Regression test for AMP + OneCycleLR scheduler gating.
 
 scripts/train.py (inner loop, lines ~557-571) guards `scheduler.step()` with a
 check that the AMP scale did not drop:

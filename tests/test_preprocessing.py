@@ -5,7 +5,7 @@ The production-snapshot test reads a known FOV from the production archive,
 runs it through ``preprocess_fov``, and asserts the output matches
 ``preprocessed/raw`` within sub-pixel resampling noise. The recipe is the
 canonical one recovered from
-``hubmap-to-zarr@origin/deepcell-types:preprocess_for_training.py``, so the
+the archive ingestion pipeline, so the
 match should be tight (max per-channel mean drift ~0.05).
 """
 

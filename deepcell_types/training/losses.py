@@ -128,7 +128,7 @@ class HierarchicalLoss(torch.nn.Module):
         coarse2idx = {name: i for i, name in enumerate(coarse_names)}
         self.n_coarse = len(coarse_names)
 
-        # ct2idx values are 0-indexed after archive migration.
+        # ct2idx values are 0-indexed.
         n_fine = len(ct2idx)
         fine_to_coarse_idx = torch.zeros(n_fine, dtype=torch.long)
         for fine_name, fine_idx in ct2idx.items():

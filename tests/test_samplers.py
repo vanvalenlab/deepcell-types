@@ -139,7 +139,7 @@ class TestFOVGroupedSampler:
 
 
 # =============================================================================
-# SequentialFOVGroupedSampler — issue #79 fix: cache-locality-preserving
+# SequentialFOVGroupedSampler: cache-locality-preserving
 # one-pass scan for --learn_mp_thresholds. Same grouping invariant as
 # FOVGroupedSampler but with uniform coverage instead of weighted draws.
 # =============================================================================
@@ -153,7 +153,7 @@ class TestSequentialFOVGroupedSampler:
     def test_yields_positions_within_train_indices(self):
         """Sampler must yield ``Subset``-positions (i.e. values in
         ``[0, len(train_indices))``), not raw indices into ``dataset.indices``.
-        Regression for issue #79: a sampler that yields raw dataset indices
+        Regression: a sampler that yields raw dataset indices
         crashes ``Subset.__getitem__`` with ``IndexError: list index out of
         range`` as soon as ``train_indices`` is a strict subset.
         """

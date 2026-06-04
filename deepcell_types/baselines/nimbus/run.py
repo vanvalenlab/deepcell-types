@@ -22,7 +22,7 @@ from tqdm import tqdm
 from typing import Dict, List, Tuple, Optional, Any
 
 # Default data directory from environment
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
 from deepcell_types.training.config import TissueNetConfig
 
@@ -341,7 +341,7 @@ def main(
 
         wandb.login()
         run = wandb.init(
-            project="deepcelltypes-temp-train",
+            project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
             dir="wandb_tmp",
             job_type="inference",
             name=f"{model_name}_nimbus",

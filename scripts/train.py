@@ -100,7 +100,7 @@ def forward_one_batch(
     Args:
         loss_weights: dict with keys 'ct', 'domain', 'marker_pos'
         label_remap: Lookup tensor to remap ct2idx values to compact 0-indexed labels.
-            Identity for 0-indexed ct2idx (post-migration), kept for compatibility.
+            Identity for 0-indexed ct2idx, kept for compatibility.
         enable_amp: Whether to use Automatic Mixed Precision (autocast)
     """
     if loss_weights is None:

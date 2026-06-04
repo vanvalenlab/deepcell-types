@@ -524,7 +524,7 @@ class FullImageDataset(Dataset):
         """Direct marker2idx lookup. Strict canonical contract — no
         runtime alias resolution and no case-insensitive fallback.
         Source-data variants must be canonicalized at ingestion (by
-        hubmap-to-zarr/apply_canonicalization.py)."""
+        the archive ingestion pipeline)."""
         return self.marker2idx.get(ch_name, -1), ch_name
 
     def _calculate_marker_positivity(self, dataset_name, ct_label, ch_names):

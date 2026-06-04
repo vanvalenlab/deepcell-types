@@ -86,6 +86,18 @@ def download_model(*, version=None):
     return fetch_data(f"models/{filename}", cache_subdir="models", file_hash=md5)
 
 
+def list_model_versions():
+    """Return the available pre-trained model versions, newest first.
+
+    Returns
+    -------
+    list of str
+        Version identifiers accepted by :func:`download_model`. The first
+        element is the default (latest) version.
+    """
+    return sorted(_model_registry, reverse=True)
+
+
 def download_baseline_checkpoint(name):
     """Download a baseline-model checkpoint (and any companion files).
 

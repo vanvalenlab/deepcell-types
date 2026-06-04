@@ -19,7 +19,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 # Default data directory from environment
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
 from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
 from deepcell_types.training.dataset import create_dataloader
@@ -293,7 +293,7 @@ def main(
 
         wandb.login()
         run = wandb.init(
-            project="deepcelltypes-temp-train",
+            project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
             dir="wandb_tmp",
             job_type="train",
             name=f"{model_name}_cellsighter",

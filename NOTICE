@@ -29,3 +29,10 @@ deepcell-toolbox (Modified Apache License, Version 2.0)
   - Used in:   deepcell_types/preprocessing.py  (_percentile_threshold,
                _percentile_threshold_nonzero)
   - License:   Modified Apache 2.0 (same template as this project's LICENSE).
+
+--------------------------------------------------------------------------------
+Baseline models (XGBoost, MAPS, CellSighter, Nimbus)
+  - The re-implemented baselines under deepcell_types/baselines/ carry their
+    own third-party attributions and upstream license terms. See
+    deepcell_types/baselines/NOTICE for the full per-baseline acknowledgments
+    (this file is shipped as package data and installed with the wheel).

@@ -1,17 +1,29 @@
 """Generate and save a canonical FOV split file for reproducible experiments.
 
-Usage:
-    # Stratified (default — recommended for new experiments):
+This is **stage 1** of the two-stage canonical split. It stratifies all
+labeled FOVs by (modality, tissue) and holds out FOVs proportionally within
+each bucket at ``train_ratio`` (default 0.8), producing a ``train`` / ``val``
+manifest. Stage 2 (``scripts/split_val_for_test.py``) then carves the held-out
+``val`` FOVs into a model-selection validation subset and a frozen test set.
+
+The canonical manifests used in the paper are committed under ``splits/`` and
+do not need to be regenerated:
+
+    splits/fov_split_v10.json            -- stage 1 output (1722 train / 431 val)
+    splits/fov_split_v10_valsubset.json  -- stage 2: val=302 (model selection)
+    splits/fov_split_v10_test.json       -- stage 2: val=129 (frozen test set)
+
+Usage (to reproduce stage 1 from a local archive):
+    # Stratified (default — the canonical recipe):
     python -m scripts.generate_splits --output splits/fov_split.json \\
         --stratify_by modality,tissue
+    # then run stage 2:
+    python -m scripts.split_val_for_test \\
+        --input splits/fov_split.json --output_prefix splits/fov_split
 
     # Unstratified global random shuffle (kept for benchmark continuity):
     python -m scripts.generate_splits --output splits/fov_split_unstratified.json \\
         --stratify_by ""
-
-    # Custom seed / ratio:
-    python -m scripts.generate_splits --output splits/custom.json \\
-        --seed 42 --train_ratio 0.8
 
 The default stratifies by (modality, tissue). Single-FOV strata are
 forced to train (cannot evaluate held-out FOVs from a one-FOV bucket).

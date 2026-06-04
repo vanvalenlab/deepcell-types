@@ -308,9 +308,7 @@ def predict(
         softmax probability matrix and the cell indices.
     ct_abstention_k : float or None, default=0.2
         IQR-fence post-hoc abstention multiplier. The default ``k=0.2`` is
-        the paper headline operating point — chosen to maximise macro_F1
-        separation against the strongest baseline while keeping a sizeable
-        cohort of confident cells. For each FOV, the fence is
+        the paper headline operating point. For each FOV, the fence is
         ``Q1 - k*IQR`` on the cell-wise max-softmax distribution; cells
         below it are relabelled to ``"Unknown"``. Pass ``k=0`` or
         ``k=None`` to disable abstention and get the raw argmax label for
@@ -323,7 +321,7 @@ def predict(
         MPP and restricted to in-vocabulary channels, and ``channel_names``
         are the resolved standard marker names aligned to ``raw``. Must return
         a ``(C, H, W)`` array in ``[0, 1]``. When ``None`` (default), the
-        built-in per-channel p99 clip + min-max normalization is used. Build
+        built-in per-channel p99.9 clip + min-max normalization is used. Build
         one declaratively with
         :func:`deepcell_types.make_preprocessor`.
 
