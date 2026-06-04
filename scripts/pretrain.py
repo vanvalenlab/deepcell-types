@@ -44,7 +44,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 @click.command()
 @click.option("--model_name", type=str, default="pretrain")
 @click.option("--device_num", type=str, default="cuda:0")
-@click.option("--enable_wandb", type=bool, default=False)
 @click.option("--zarr_dir", type=str, default=str(DATA_DIR))
 @click.option("--skip_datasets", type=str, multiple=True, default=[])
 @click.option("--keep_datasets", type=str, multiple=True, default=[])
@@ -100,7 +99,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 def main(
     model_name,
     device_num,
-    enable_wandb,
     zarr_dir,
     skip_datasets,
     keep_datasets,
@@ -121,29 +119,6 @@ def main(
     resume_path,
 ):
     seed_everything(seed)
-
-    import wandb
-
-    if enable_wandb:
-        wandb.login()
-    run = wandb.init(
-        project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
-        dir="wandb_tmp",
-        job_type="pretrain",
-        mode="online" if enable_wandb else "disabled",
-        name=model_name,
-        config={
-            "model_name": model_name,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "lr": lr,
-            "mask_ratio": mask_ratio,
-            "recon_weight": recon_weight,
-            "marker_pos_weight": marker_pos_weight,
-            "architecture": "CellTypeAnnotator_pretrain",
-            "split_mode": split_mode,
-        },
-    )
 
     device = torch.device(device_num)
     # AMP is only supported on CUDA; disable automatically on CPU
@@ -213,7 +188,7 @@ def main(
     # ---------- Checkpoint helpers (R4 H1: full training-state checkpoints) ----------
     CKPT_CONFIG = {
         "d_model": d_model,
-        "resnet_channels": 32,  # pretrain uses create_model defaults
+        "resnet_channels": 48,  # matches create_model(resnet_base_channels=48) default
         "use_conditioned_mp_head": True,
         "n_celltypes": dct_config.NUM_CELLTYPES,
         "format_version": "1.0",
@@ -383,8 +358,7 @@ def main(
 
         train_summary = {k: np.mean(v) for k, v in train_losses.items()}
         print(f"Epoch {epoch} train: {train_summary}")
-        wandb.log({f"pretrain/train/{k}": v for k, v in train_summary.items()})
-        wandb.log({"pretrain/lr": scheduler.get_last_lr()[0], "epoch": epoch})
+        print(f"Epoch {epoch} lr: {scheduler.get_last_lr()[0]:.3e}")
 
         # ===================== VALIDATION =====================
         model.eval()
@@ -442,7 +416,6 @@ def main(
 
         val_summary = {k: np.mean(v) for k, v in val_losses.items()}
         print(f"Epoch {epoch} val: {val_summary}")
-        wandb.log({f"pretrain/val/{k}": v for k, v in val_summary.items()})
 
         # R5 L1: warn if MP-loss mask was empty for the entire epoch (train or val);
         # otherwise the reported mp_loss average is effectively zero with no signal.
@@ -486,8 +459,6 @@ def main(
     print(
         f"  python train.py --model_name finetuned --pretrained_path {best_model_path}"
     )
-
-    run.finish()
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """Guard that the inference path stays free of training-only dependencies.
 
-If a future change adds ``import wandb`` (or zarr, sklearn, pandas, etc.)
+If a future change adds ``import zarr`` (or sklearn, pandas, etc.)
 anywhere in the ``deepcell_types.predict`` import graph, this test fails
 loudly. The split is the whole point of the ``[train]`` extra: a user
 who only wants to load a checkpoint and run inference should be able to
@@ -20,7 +20,6 @@ import textwrap
 # split has been broken — find the leaking import and move it under
 # ``deepcell_types.training`` or behind a function-local import.
 TRAINING_ONLY_MODULES = (
-    "wandb",
     "zarr",
     "sklearn",
     "pandas",

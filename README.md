@@ -112,8 +112,8 @@ resolved marker names, and must return a `(C, H, W)` array in `[0, 1]`. With
 
 ## Training
 
-To retrain or fine-tune, install the `[train]` extra (pulls in `wandb`,
-`zarr`, `pandas`, `scikit-learn`, `torchmetrics`, plotly, etc.):
+To retrain or fine-tune, install the `[train]` extra (pulls in `zarr`,
+`pandas`, `scikit-learn`, `torchmetrics`, plotly, etc.):
 
 ```bash
 pip install "deepcell-types[train] @ git+https://github.com/vanvalenlab/deepcell-types@master"

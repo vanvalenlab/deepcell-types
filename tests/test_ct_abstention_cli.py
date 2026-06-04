@@ -2,13 +2,15 @@
 
 Exercises the lower-level building blocks in `deepcell_types.abstention` —
 `compute_iqr_fence` and `apply_abstention` — that the CLI wires up. Five
-scenarios are covered, mirroring the deliverables checklist:
+scenarios are covered:
 
 1. Default (no abstention applied) — `apply_abstention` not called → no
    `abstained` column, no `-1` sentinels.
 2. k=1.5 on a synthetic 100-cell frame → ~0.23% abstained (near-no-op).
 3. k=0.5 on the same frame → ~10% abstained (aggressive).
-4. Per-(tissue, modality) grouping is honoured (different fences per group).
+4. Per-FOV grouping is honoured — the canonical default; fences are computed
+   per (dataset_name, fov_name). The optional (tissue, modality) grouping is
+   also exercised to confirm `group_cols` is respected.
 5. Degenerate distribution (all max-softmax identical) yields no abstentions.
 """
 
@@ -35,6 +37,8 @@ def _synthetic_frame(
         {
             "predicted_ct": np.array(["CD4T"] * n, dtype=object),
             "_max_softmax": max_softmax,
+            "dataset_name": ["ds0"] * n,
+            "fov_name": ["fov0"] * n,
             "tissue": [tissue] * n,
             "modality": [modality] * n,
         }
@@ -81,9 +85,10 @@ def test_disable_abstention_with_nonpositive_k():
 def test_k_1_5_near_no_op_on_100_cells():
     """k=1.5 (canonical Tukey fence) abstains a tiny fraction (~0%–2%).
 
-    The sweep doc reports ~0.23% on the v7 val split (1.3M cells). On a
-    100-cell synthetic frame the count is small (often 0) but must remain at
-    most a few percent — the assertion is "<= 5%" to absorb sampling noise.
+    At this multiplier the fence sits well below the bulk of the confidence
+    distribution, so on a 100-cell synthetic frame the count is small (often 0)
+    but must remain at most a few percent — the assertion is "<= 5%" to absorb
+    sampling noise.
     """
     df = _synthetic_frame(100, seed=42)
     out = apply_abstention(df.copy(), k=1.5)
@@ -92,9 +97,9 @@ def test_k_1_5_near_no_op_on_100_cells():
 
 
 def test_k_0_5_aggressive_on_1000_cells():
-    """k=0.5 is aggressive; the doc reports ~10.5% coverage cost on the v7
-    val split. On a beta-distributed synthetic 1000-cell frame the fraction
-    abstained should land in a similar 5%–25% band.
+    """k=0.5 is aggressive (a tighter fence trims more low-confidence cells).
+    On a beta-distributed synthetic 1000-cell frame the fraction abstained
+    should land in a 5%–25% band.
     """
     df = _synthetic_frame(1000, seed=7)
     out = apply_abstention(df.copy(), k=0.5)
@@ -154,6 +159,8 @@ def test_degenerate_distribution_no_abstention():
         {
             "predicted_ct": ["Y"] * 50,
             "_max_softmax": np.full(50, 0.42, dtype=np.float32),
+            "dataset_name": ["ds0"] * 50,
+            "fov_name": ["fov0"] * 50,
             "tissue": ["liver"] * 50,
             "modality": ["MIBI"] * 50,
         }

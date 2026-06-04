@@ -308,9 +308,7 @@ def predict(
         softmax probability matrix and the cell indices.
     ct_abstention_k : float or None, default=0.2
         IQR-fence post-hoc abstention multiplier. The default ``k=0.2`` is
-        the paper headline operating point — chosen to maximise macro_F1
-        separation against the strongest baseline while keeping a sizeable
-        cohort of confident cells. For each FOV, the fence is
+        the paper headline operating point. For each FOV, the fence is
         ``Q1 - k*IQR`` on the cell-wise max-softmax distribution; cells
         below it are relabelled to ``"Unknown"``. Pass ``k=0`` or
         ``k=None`` to disable abstention and get the raw argmax label for
@@ -323,7 +321,7 @@ def predict(
         MPP and restricted to in-vocabulary channels, and ``channel_names``
         are the resolved standard marker names aligned to ``raw``. Must return
         a ``(C, H, W)`` array in ``[0, 1]``. When ``None`` (default), the
-        built-in per-channel p99 clip + min-max normalization is used. Build
+        built-in per-channel p99.9 clip + min-max normalization is used. Build
         one declaratively with
         :func:`deepcell_types.make_preprocessor`.
 
@@ -385,10 +383,10 @@ def predict(
 
     cell_types_raw, _top_probs, cell_indices, full_probs = pred_logger.get_result()
 
-    # IQR-fence abstention on the FOV's max-softmax distribution. The whole
-    # FOV is one (tissue, modality) group at this API level, so no grouping
-    # column is needed — `compute_iqr_fence` returns None when n_cells < 4,
-    # in which case no cells are abstained.
+    # IQR-fence abstention on the FOV's max-softmax distribution. Abstention is
+    # bucketed per FOV, and this API processes a single FOV, so the whole input
+    # is one bucket and no grouping column is needed — `compute_iqr_fence`
+    # returns None when n_cells < 4, in which case no cells are abstained.
     abstained = np.zeros(len(cell_types_raw), dtype=bool)
     cell_types = list(cell_types_raw)
     if ct_abstention_k is not None and ct_abstention_k > 0 and len(_top_probs) >= 4:

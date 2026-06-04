@@ -1,4 +1,4 @@
-"""Regression test for checkpoint save/load + atomic-write cleanup (issue #14, gap 6).
+"""Regression test for checkpoint save/load + atomic-write cleanup.
 
 `scripts/train.py` writes checkpoints via `torch.save({"model": ...}, tmp_path)`
 followed by `os.replace(tmp_path, final_path)` for atomicity. Tests that:

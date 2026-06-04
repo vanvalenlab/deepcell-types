@@ -113,7 +113,7 @@ def _is_control_channel(channel: str) -> bool:
 def _resolve_channel(channel: str, root_channels: set[str]) -> str | None:
     # Strict canonical contract: only exact matches against the registered
     # channels resolve. Source-data variants must be canonicalized at
-    # ingestion (hubmap-to-zarr/apply_canonicalization.py).
+    # ingestion (the archive ingestion pipeline).
     return channel if channel in root_channels else None
 
 

@@ -250,74 +250,51 @@ class PredLogger:
         self.write_csv_atomic(self.to_dataframe(), path_name)
 
 
-def log_epoch_metrics(epoch_metrics, prefix, wandb_run=None):
-    """Log epoch-level metrics to wandb.
+def log_epoch_metrics(epoch_metrics, prefix):
+    """Log epoch-level metrics to the module logger.
 
     Args:
         epoch_metrics: Dict of metric name -> value
         prefix: "train", "val", or "test"
-        wandb_run: Optional wandb run object. If None, imports wandb and logs directly.
     """
-    # Only network/IO failures from wandb should be swallowed. Logic errors
-    # (AttributeError/KeyError/TypeError) must propagate — they indicate a
-    # bug in the caller, not an expected runtime condition.
-    try:
-        import wandb
-        import wandb.errors as _wandb_errors
-    except ImportError as exc:
-        logger.warning(
-            "log_epoch_metrics: wandb import failed (prefix=%s): %s", prefix, exc
-        )
-        return
-
     for metric_name, metric_value in epoch_metrics.items():
-        try:
-            wandb.log({f"{prefix}/{metric_name}_epoch": metric_value})
-        except (_wandb_errors.CommError, OSError) as exc:
-            logger.warning(
-                "log_epoch_metrics failed for prefix=%s metric=%s: %s",
-                prefix,
-                metric_name,
-                exc,
-            )
+        logger.info("%s/%s_epoch: %s", prefix, metric_name, metric_value)
 
 
 def log_confusion_matrix(
-    metric, prefix, class_names, metric_name="confusion_matrix", tmp_dir="./tmp_images"
+    metric, prefix, class_names, metric_name="confusion_matrix", out_dir="./tmp_images"
 ):
-    """Log confusion matrix to wandb.
+    """Save raw and row-normalized confusion-matrix images under ``out_dir``.
 
     Args:
         metric: torchmetrics confusion matrix metric
         prefix: "train", "val", or "test"
         class_names: List of class names for axis labels
-        metric_name: Name for the wandb log entry
-        tmp_dir: Directory for temporary image files
+        metric_name: Base filename for the saved images
+        out_dir: Directory for the output image files
     """
     # Compute outside try/except so torchmetrics / numpy errors propagate loudly.
     conf_mat = metric.compute().cpu().numpy()
     conf_mat_norm = conf_mat / (conf_mat.sum(axis=1, keepdims=True) + 1e-8)
 
     try:
-        import wandb
-        import wandb.errors as _wandb_errors
         import plotly.express as px
     except ImportError as exc:
         logger.warning(
-            "log_confusion_matrix: required import failed (prefix=%s): %s",
+            "log_confusion_matrix: plotly import failed (prefix=%s): %s",
             prefix,
             exc,
         )
         return
 
     side = 1500
-    tmp_dir = Path(tmp_dir)
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-    base_path = tmp_dir / f"{metric_name}.png"
-    norm_path = tmp_dir / f"{metric_name}_norm.png"
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    base_path = out_dir / f"{metric_name}.png"
+    norm_path = out_dir / f"{metric_name}_norm.png"
 
-    # Only wandb network/IO and plotly image-writer errors are swallowed.
-    # Logic errors (AttributeError, KeyError, TypeError) propagate.
+    # Only image-writer IO errors are swallowed. Logic errors
+    # (AttributeError, KeyError, TypeError) propagate.
     try:
         fig = px.imshow(
             conf_mat,
@@ -328,7 +305,6 @@ def log_confusion_matrix(
             height=side,
         )
         fig.write_image(base_path)
-        wandb.log({metric_name: wandb.Image(str(base_path))})
 
         fig_norm = px.imshow(
             conf_mat_norm,
@@ -339,8 +315,13 @@ def log_confusion_matrix(
             height=side,
         )
         fig_norm.write_image(norm_path)
-        wandb.log({f"{metric_name}_normalized": wandb.Image(str(norm_path))})
-    except (_wandb_errors.CommError, OSError, RuntimeError) as exc:
+        logger.info(
+            "Saved confusion matrices (prefix=%s) to %s and %s",
+            prefix,
+            base_path,
+            norm_path,
+        )
+    except (OSError, RuntimeError) as exc:
         logger.warning(
             "log_confusion_matrix failed for prefix=%s metric=%s: %s",
             prefix,

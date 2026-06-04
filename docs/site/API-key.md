@@ -39,8 +39,8 @@ A specific version can be requested:
 download_model(version="2026-05-17")
 ```
 
-A listing of available pre-trained models is available at
-`deepcell_types.utils._model_registry`.
+A listing of available pre-trained model versions is available from
+`deepcell_types.utils.list_model_versions()`.
 
 To fetch a baseline checkpoint instead of the main DeepCellTypes model:
 

@@ -42,7 +42,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 @click.command()
 @click.option("--model_name", type=str, default="deepcell-types")
 @click.option("--device_num", type=str, default="cuda:0")
-@click.option("--enable_wandb", type=bool, default=False)
 @click.option("--zarr_dir", type=str, default=str(DATA_DIR))
 @click.option("--skip_datasets", type=str, multiple=True, default=[])
 @click.option("--keep_datasets", type=str, multiple=True, default=[])
@@ -103,20 +102,17 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
     default=0.2,
     help=(
         "Per-FOV IQR-fence abstention on max-softmax confidence. "
-        "Default k=0.2 — the published headline setting, chosen to maximise "
-        "macro_F1 separation against the strongest baseline (XGBoost-tuned) "
-        "while keeping a sizeable cohort of confident cells. "
+        "Default k=0.2 is the published headline operating point. "
         "Cells whose max-softmax falls below Q1 - k*IQR within their "
         "(dataset_name, fov_name) group are flagged as abstained "
         "(predicted_ct = 'Unknown', original kept in predicted_ct_raw). "
         "Set k <= 0 or pass 'none' to disable. k=1.5 is the canonical Tukey "
-        "fence (~no-op). See docs/reports/ct_iqr_abstention_test.md."
+        "fence (~no-op)."
     ),
 )
 def main(
     model_name,
     device_num,
-    enable_wandb,
     zarr_dir,
     skip_datasets,
     keep_datasets,
@@ -135,18 +131,6 @@ def main(
 ):
     seed_everything(seed)
 
-    import wandb
-
-    if enable_wandb:
-        wandb.login()
-    run = wandb.init(
-        project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
-        dir="wandb_tmp",
-        job_type="predict",
-        mode="online" if enable_wandb else "disabled",
-        name=model_name + "_predict",
-    )
-
     device = torch.device(device_num)
     dct_config = TissueNetConfig(zarr_dir)
     d_model = 256
@@ -163,7 +147,7 @@ def main(
     # the one-pass scan over the training split preserves per-worker zarr
     # cache locality. `shuffle=True` over a multi-thousand-FOV archive forces
     # each worker to cold-load ~1 GB of zarr per cell, which under spawn
-    # workers manifests as the historical deadlock (issue #79).
+    # workers manifests as the historical deadlock.
     if split_file is not None:
         train_loader, test_loader, metadata = create_dataloader(
             zarr_dir=zarr_dir,
@@ -521,8 +505,6 @@ def main(
             attn_mp=np.concatenate(all_attn_mp, axis=0),
         )
         print(f"MP artifacts saved to {mp_artifacts_path}")
-
-    run.finish()
 
 
 if __name__ == "__main__":

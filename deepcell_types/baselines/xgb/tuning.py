@@ -20,7 +20,7 @@ import xgboost as xgb
 
 
 # Default data directory from environment
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
 from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
 from deepcell_types.training.baseline_features import (
@@ -361,7 +361,6 @@ def train_best_model(
     help="Metric to optimize. macro_f1 / weighted_f1 read the same key out of "
     "compute_baseline_metrics() — no separate scorer required.",
 )
-@click.option("--enable_wandb", type=bool, default=False)
 @click.option(
     "--zarr_dir",
     type=str,
@@ -415,7 +414,6 @@ def main(
     study_name: Optional[str],
     n_trials: int,
     metric: str,
-    enable_wandb: bool,
     zarr_dir: str,
     skip_datasets: Tuple[str, ...],
     keep_datasets: Tuple[str, ...],
@@ -426,24 +424,6 @@ def main(
     device_num: str,
 ):
     """Run XGBoost hyperparameter tuning with Optuna."""
-    # Initialize wandb if enabled
-    if enable_wandb:
-        import wandb
-
-        wandb.login()
-        run = wandb.init(
-            project="deepcelltypes-temp-train",
-            dir="wandb_tmp",
-            job_type="tuning",
-            name=study_name or f"xgb_tuning_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            config={
-                "model_type": "xgboost_tuning",
-                "n_trials": n_trials,
-                "metric": metric,
-                "split_mode": split_mode,
-            },
-        )
-
     # Load config
     dct_config = TissueNetConfig(zarr_dir)
     num_classes = dct_config.NUM_CELLTYPES
@@ -714,33 +694,6 @@ def main(
     history_path = output_dir / f"{study_name_safe}_history.csv"
     study.trials_dataframe().to_csv(history_path, index=False)
     print(f"Trial history saved to {history_path}")
-
-    # Log to wandb if enabled
-    if enable_wandb:
-        wandb.log(
-            {
-                "best_trial_value": study.best_trial.value,
-                "test/macro_accuracy": test_metrics["macro_accuracy"],
-                "test/weighted_accuracy": test_metrics["weighted_accuracy"],
-                **{f"best_param/{k}": v for k, v in best_params.items()},
-            }
-        )
-
-        # Log optimization history plot
-        try:
-            fig = optuna.visualization.plot_optimization_history(study)
-            wandb.log({"optimization_history": fig})
-        except Exception:
-            pass
-
-        # Log parameter importance
-        try:
-            fig = optuna.visualization.plot_param_importances(study)
-            wandb.log({"param_importances": fig})
-        except Exception:
-            pass
-
-        run.finish()
 
     print("\nDone!")
 

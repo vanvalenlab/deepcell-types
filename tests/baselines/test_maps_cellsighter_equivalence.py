@@ -19,10 +19,15 @@ MODEL_ORIG_SHA = {
 }
 # Re-pinned after removing the locally-added ``--min_channels`` CLI option
 # (an unused channel-count filter that caused unfair baseline comparisons via
-# mismatched defaults). The import rewrite remains the only delta vs. these.
+# mismatched defaults).
+# Re-pinned again for the public release: the machine-specific ``DATA_DIR``
+# fallback was replaced with ``""`` and the optional wandb experiment-logging
+# code (the ``--enable_wandb`` flag and its ``if enable_wandb:`` blocks) was
+# removed from both files. Logging-only deltas: no model, data, or evaluation
+# logic changed. The import rewrite remains the only structural delta vs. these.
 RUN_ORIG_SHA = {
-    "maps": "9a7d093d13a7250a77859243d42d9d8c24e823841adbc38c3667b340b31fa085",
-    "cellsighter": "84d480710c54b09169c87bd01ce72972febfa69086b39315b2217f6b2e85fea3",
+    "maps": "78888f8088b9ed3574a3e48cfb86e2317da224e1bb12c507a4e727cc32ece05e",
+    "cellsighter": "0c8a38ebaeb1ec5e6b5839ab31065ce0a7d5e66af2374a1bcabad0cb6b359a13",
 }
 INIT_ORIG_SHA = {
     "maps": "5a0a765d62d2f11c841da99f34ccd63b226b47285fe85b6a9edbf92636a58f75",

@@ -98,7 +98,7 @@ def summarize_mp_per_marker(per_marker_counts: dict) -> dict:
         # Symmetric vacuous-marker exclusion across precision/recall/F1/accuracy
         # — otherwise the triangle identity macro_f1 ≈ 2pr/(p+r) breaks because
         # prec/rec would include 0.0 for vacuous markers while F1 used nanmean
-        # (PR #55 fix). Accuracy is also excluded so the four macro reductions
+        # Accuracy is also excluded so the four macro reductions
         # share the same denominator (mp_num_markers - excluded).
         n_pos_gt = tp + fn
         n_pos_pred = tp + fp

@@ -15,7 +15,7 @@ import xgboost as xgb
 from sklearn.model_selection import GroupShuffleSplit
 
 # Default data directory from environment
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data2"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
 from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
 from deepcell_types.training.baseline_features import (
@@ -27,7 +27,6 @@ from deepcell_types.training.baseline_features import (
 
 @click.command()
 @click.option("--model_name", type=str, default="xgb_baseline_0")
-@click.option("--enable_wandb", type=bool, default=False)
 @click.option(
     "--zarr_dir",
     type=str,
@@ -79,7 +78,6 @@ from deepcell_types.training.baseline_features import (
 )
 def main(
     model_name: str,
-    enable_wandb: bool,
     zarr_dir: str,
     skip_datasets: Tuple[str, ...],
     keep_datasets: Tuple[str, ...],
@@ -90,24 +88,6 @@ def main(
     features_cache: str,
 ):
     """Train XGBoost baseline for cell type classification."""
-    # Initialize wandb if enabled
-    if enable_wandb:
-        import wandb
-
-        wandb.login()
-        run = wandb.init(
-            project="deepcelltypes-temp-train",
-            dir="wandb_tmp",
-            job_type="train",
-            name=f"{model_name}_xgboost",
-            config={
-                "model_type": "xgboost",
-                "n_estimators": n_estimators,
-                "max_depth": max_depth,
-                "learning_rate": learning_rate,
-            },
-        )
-
     # Load config
     dct_config = TissueNetConfig(zarr_dir)
     num_classes = dct_config.NUM_CELLTYPES
@@ -283,17 +263,6 @@ def main(
     print(f"  Macro F1: {metrics['macro_f1']:.4f}")
     print(f"  Weighted F1: {metrics['weighted_f1']:.4f}")
 
-    # Log to wandb if enabled
-    if enable_wandb:
-        wandb.log(
-            {
-                "test/macro_accuracy": metrics["macro_accuracy"],
-                "test/weighted_accuracy": metrics["weighted_accuracy"],
-                "test/macro_f1": metrics["macro_f1"],
-                "test/weighted_f1": metrics["weighted_f1"],
-            }
-        )
-
     # Save model
     model_path = Path(f"models/xgb_model_{model_name}.json")
     model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -345,9 +314,6 @@ def main(
         dct_config.ct2idx,
         output_path,
     )
-
-    if enable_wandb:
-        run.finish()
 
     print("\nDone!")
 

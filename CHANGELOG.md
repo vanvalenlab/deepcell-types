@@ -6,9 +6,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.0] — unreleased
 
-This release consolidates the training and inference pipelines into a
-single repository and switches the inference path to canonical-only
-checkpoints. **Breaking changes** are noted below.
+This release ships the training and inference pipelines in a single
+repository and switches the inference path to checkpoints that embed the
+full canonical metadata. **Breaking changes** are noted below.
 
 ### Added
 - **Custom preprocessing hook.** `predict(..., preprocess=...)` overrides the
@@ -83,8 +83,13 @@ checkpoints. **Breaking changes** are noted below.
   releases. Pass `ct_abstention_k=0` to recover the raw argmax label for
   every cell.
 - `TissueNetConfig(zarr_path=...)` defaults to `None` (was a hard-coded
-  lab-internal `/data2/...` path). When `None`, falls back to the
-  `DEEPCELL_TYPES_ZARR_PATH` environment variable.
+  filesystem path that only resolved in one environment). When `None`,
+  falls back to the `DEEPCELL_TYPES_ZARR_PATH` environment variable.
+- Weights & Biases experiment logging is removed. The training and baseline
+  scripts no longer accept `--enable_wandb`, `wandb` is no longer a `[train]`
+  dependency, and `log_epoch_metrics` / `log_confusion_matrix` now log to the
+  standard Python logger and save confusion-matrix images locally instead of
+  uploading them.
 - `mp_macro_precision` / `mp_macro_recall` now use `np.nanmean` to
   exclude vacuous markers, matching `mp_macro_f1`. Training runs no
   longer log `NaN` for these metrics.
@@ -103,10 +108,10 @@ checkpoints. **Breaking changes** are noted below.
   `_get_combined_celltype_mapping()` to silently return `{}`.
 - `tifffile` is now declared in `[train]` (TIFF-based ingest tooling
   imported it at module load without declaring it as a dependency).
-- Stale `deepcelltypes-kit` fallback paths in `training/config.py`
-  pointed at a sibling repo that does not exist in the monorepo and
-  silently returned `{}` — these have been removed; the fallback now
-  uses the in-package `CONFIG_DIR` only.
+- Stale fallback paths in `training/config.py` pointed at a sibling
+  repository that is not bundled with this package and silently returned
+  `{}` — these have been removed; the fallback now uses the in-package
+  `CONFIG_DIR` only.
 - Three broad `except Exception` blocks in `_load_tissuenet_archive`
   have been narrowed; a >1% per-archive drop-rate now raises rather
   than silently dropping hundreds of datasets.

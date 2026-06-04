@@ -222,7 +222,7 @@ def extract_archive(archive_path, dest=None):
                     raise ValueError(
                         f"Refusing to extract unsafe tar member {member.name!r}."
                     )
-            tf.extractall(dest)
+            tf.extractall(dest, filter="data")
     else:
         raise ValueError(f"{archive_path} is not a recognized .zip or .tar archive.")
 

@@ -1,8 +1,8 @@
 """Registry + CLI option-snapshot tests for the round-2 baselines (maps, cellsighter).
 
-Frozen option snapshots are verbatim from the original per-baseline click commands
-(maps @ 85fa3229; cellsighter @ cebc391). cellsighter's command imports torchvision
-(via cellsighter.model), so its tests importorskip it.
+Frozen option snapshots of the per-baseline click commands (re-frozen after the
+wandb logging option was removed across all baselines). cellsighter's command
+imports torchvision (via cellsighter.model), so its tests importorskip it.
 """
 
 import click
@@ -15,7 +15,6 @@ from deepcell_types.baselines.__main__ import cli
 MAPS_OPTS = {
     "model_name",
     "device_num",
-    "enable_wandb",
     "zarr_dir",
     "skip_datasets",
     "keep_datasets",
@@ -31,7 +30,6 @@ MAPS_OPTS = {
 CELLSIGHTER_OPTS = {
     "model_name",
     "device_num",
-    "enable_wandb",
     "zarr_dir",
     "skip_datasets",
     "keep_datasets",

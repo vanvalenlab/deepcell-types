@@ -235,7 +235,7 @@ class FullImageDataset(Dataset):
                     # Narrowed from a bare ``except Exception``: schema/logic
                     # bugs (anything outside this set) should crash loudly.
                     # Routes through logging (was bare ``print("WARNING:...")``)
-                    # so the failure shows up in CI/wandb log capture with a
+                    # so the failure shows up in CI log capture with a
                     # real traceback.
                     logger.warning(
                         "Failed to load dataset %s; recording as empty entry",
@@ -524,7 +524,7 @@ class FullImageDataset(Dataset):
         """Direct marker2idx lookup. Strict canonical contract — no
         runtime alias resolution and no case-insensitive fallback.
         Source-data variants must be canonicalized at ingestion (by
-        hubmap-to-zarr/apply_canonicalization.py)."""
+        the archive ingestion pipeline)."""
         return self.marker2idx.get(ch_name, -1), ch_name
 
     def _calculate_marker_positivity(self, dataset_name, ct_label, ch_names):

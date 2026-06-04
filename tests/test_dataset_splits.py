@@ -1,4 +1,4 @@
-"""Regression tests for dataset centroid lookup and FOV split logic (issue #14, gaps 2-4).
+"""Regression tests for dataset centroid lookup and FOV split logic.
 
 Exercises:
 - `FullImageDataset._lookup_centroid` — zarr-v3 string/int key duality.

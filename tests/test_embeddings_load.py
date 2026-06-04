@@ -1,4 +1,4 @@
-"""Regression tests for load_marker_embeddings_array alignment (issue #14, gap 5).
+"""Regression tests for load_marker_embeddings_array alignment.
 
 The historical `embed_dim=0 -> Linear(0, 256)` all-zero-output bug was exactly
 this class of silent misalignment. The current code validates `marker2idx`

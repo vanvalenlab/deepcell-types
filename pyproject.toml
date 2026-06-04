@@ -14,15 +14,18 @@ readme = "README.md"
 # zarr>=3.1 (used in the [train] extra) requires Python >=3.11, so the
 # floor here matches that constraint rather than 3.10.
 requires-python = ">=3.11"
+# Lower bounds are conservative floors, not the tested versions: torch>=2.0
+# guarantees the `weights_only=True` checkpoint-load safety gate used in
+# deepcell_types/predict.py; the rest pin to widely-available releases.
 dependencies = [
-    "requests",
-    "pyyaml",
-    "numpy",
-    "numcodecs",
-    "scipy",
-    "scikit-image",
-    "tqdm",
-    "torch",
+    "requests>=2.25",
+    "pyyaml>=6.0",
+    "numpy>=1.24",
+    "numcodecs>=0.12",
+    "scipy>=1.9",
+    "scikit-image>=0.20",
+    "tqdm>=4.60",
+    "torch>=2.0",
 ]
 classifiers = [
     "Intended Audience :: Science/Research",
@@ -48,12 +51,11 @@ license = {file = "LICENSE"}
 [project.optional-dependencies]
 # Training pipeline: required to use anything under deepcell_types.training,
 # including the zarr-backed FullImageDataset, FocalLoss/HierarchicalLoss,
-# wandb logging, and the FOV-grouped sampler. Not needed for inference.
+# and the FOV-grouped sampler. Not needed for inference.
 # zarr is pinned >=3.1 because 3.0.0a* alpha has a metadata-cache bug.
 # kaleido is required at runtime by `fig.write_image()` calls in
 # training/utils.py; plotly is the figure backend behind those calls.
 train = [
-    "wandb",
     "zarr>=3.1.0,<4",
     "torchinfo",
     "torchmetrics",

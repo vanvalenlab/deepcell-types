@@ -1038,12 +1038,12 @@ class TestInstanceNormZeroInput:
 
 
 class TestLabelRemap:
-    """build_label_remap should be identity for 0-indexed ct2idx (post-migration)."""
+    """build_label_remap should be identity for 0-indexed ct2idx."""
 
     def test_maps_0indexed_identity(self):
         from deepcell_types.training.utils import build_label_remap
 
-        # ct2idx is now 0-indexed after archive migration
+        # ct2idx is 0-indexed
         ct2idx = {"A": 0, "B": 1, "C": 2}
         remap = build_label_remap(ct2idx)
         assert remap[0] == 0
@@ -1323,7 +1323,7 @@ class TestMPMetricsTracker:
 class TestStrictChannelContract:
     """Channel names must be CANONICAL — no runtime alias resolution and no
     case-insensitive fallback. Source-data variants get masked. The
-    canonicalization step (hubmap-to-zarr/apply_canonicalization.py) is
+    canonicalization step (the archive ingestion pipeline) is
     responsible for producing canonical channel names in the archive."""
 
     def _dataset_with_markers(self, marker2idx):
@@ -1357,7 +1357,7 @@ class TestStrictChannelContract:
     def test_alias_does_not_resolve_at_runtime(self):
         # DC-SIGN was historically aliased to CD209 via the in-package
         # CHANNEL_ALIASES dict. That dict is gone — aliases are an
-        # ingestion-time concern (hubmap-to-zarr/config/channel_mapping.yaml).
+        # ingestion-time concern (the archive ingestion pipeline's channel mapping).
         dataset = self._dataset_with_markers({"CD209": 12, "CD3": 0})
 
         result, canonical = dataset._resolve_channel_index("DC-SIGN")
