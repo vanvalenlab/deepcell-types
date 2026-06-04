@@ -8,7 +8,9 @@ scenarios are covered:
    `abstained` column, no `-1` sentinels.
 2. k=1.5 on a synthetic 100-cell frame → ~0.23% abstained (near-no-op).
 3. k=0.5 on the same frame → ~10% abstained (aggressive).
-4. Per-(tissue, modality) grouping is honoured (different fences per group).
+4. Per-FOV grouping is honoured — the canonical default; fences are computed
+   per (dataset_name, fov_name). The optional (tissue, modality) grouping is
+   also exercised to confirm `group_cols` is respected.
 5. Degenerate distribution (all max-softmax identical) yields no abstentions.
 """
 
@@ -35,6 +37,8 @@ def _synthetic_frame(
         {
             "predicted_ct": np.array(["CD4T"] * n, dtype=object),
             "_max_softmax": max_softmax,
+            "dataset_name": ["ds0"] * n,
+            "fov_name": ["fov0"] * n,
             "tissue": [tissue] * n,
             "modality": [modality] * n,
         }
@@ -155,6 +159,8 @@ def test_degenerate_distribution_no_abstention():
         {
             "predicted_ct": ["Y"] * 50,
             "_max_softmax": np.full(50, 0.42, dtype=np.float32),
+            "dataset_name": ["ds0"] * 50,
+            "fov_name": ["fov0"] * 50,
             "tissue": ["liver"] * 50,
             "modality": ["MIBI"] * 50,
         }

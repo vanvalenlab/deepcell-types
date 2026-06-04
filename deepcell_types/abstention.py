@@ -69,7 +69,7 @@ def compute_iqr_fence(max_softmax: np.ndarray, k: float) -> Optional[float]:
 def apply_abstention(
     df,
     k: float,
-    group_cols: Sequence[str] = ("tissue", "modality"),
+    group_cols: Sequence[str] = ("dataset_name", "fov_name"),
     max_softmax_col: str = "_max_softmax",
     pred_col: str = "predicted_ct",
     sentinel=ABSTENTION_LABEL,
@@ -79,7 +79,9 @@ def apply_abstention(
     This is the batched form of the per-FOV abstention that
     :func:`deepcell_types.predict` applies at inference time: it computes the
     Tukey lower fence ``Q1 - k * IQR`` per ``group_cols`` group on the
-    max-softmax column and relabels below-fence cells to ``sentinel``.
+    max-softmax column and relabels below-fence cells to ``sentinel``. The
+    default ``group_cols=("dataset_name", "fov_name")`` is the canonical
+    per-FOV bucketing used for all reported results.
 
     OWNERSHIP: abstention is a DeepCellTypes capability. This function must
     only ever be applied to **DCT model predictions** — never to baseline

@@ -383,10 +383,10 @@ def predict(
 
     cell_types_raw, _top_probs, cell_indices, full_probs = pred_logger.get_result()
 
-    # IQR-fence abstention on the FOV's max-softmax distribution. The whole
-    # FOV is one (tissue, modality) group at this API level, so no grouping
-    # column is needed — `compute_iqr_fence` returns None when n_cells < 4,
-    # in which case no cells are abstained.
+    # IQR-fence abstention on the FOV's max-softmax distribution. Abstention is
+    # bucketed per FOV, and this API processes a single FOV, so the whole input
+    # is one bucket and no grouping column is needed — `compute_iqr_fence`
+    # returns None when n_cells < 4, in which case no cells are abstained.
     abstained = np.zeros(len(cell_types_raw), dtype=bool)
     cell_types = list(cell_types_raw)
     if ct_abstention_k is not None and ct_abstention_k > 0 and len(_top_probs) >= 4:
