@@ -184,7 +184,6 @@ def evaluate(
 @click.command()
 @click.option("--model_name", type=str, default="cellsighter_0")
 @click.option("--device_num", type=str, default="cuda:0")
-@click.option("--enable_wandb", type=bool, default=False)
 @click.option(
     "--zarr_dir",
     type=str,
@@ -267,7 +266,6 @@ def evaluate(
 def main(
     model_name: str,
     device_num: str,
-    enable_wandb: bool,
     zarr_dir: str,
     skip_datasets: Tuple[str, ...],
     keep_datasets: Tuple[str, ...],
@@ -286,30 +284,6 @@ def main(
     # Set device
     device = torch.device(device_num if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-
-    # Initialize wandb if enabled
-    if enable_wandb:
-        import wandb
-
-        wandb.login()
-        run = wandb.init(
-            project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
-            dir="wandb_tmp",
-            job_type="train",
-            name=f"{model_name}_cellsighter",
-            config={
-                "model_type": "cellsighter",
-                "model_size": model_size,
-                "epochs": epochs,
-                "learning_rate": learning_rate,
-                "batch_size": batch_size,
-                "pretrained": pretrained,
-                "split_mode": split_mode,
-                "val_every_n_epochs": val_every_n_epochs,
-                "amp": not no_amp,
-                "compile": not no_compile,
-            },
-        )
 
     # Load config
     dct_config = TissueNetConfig(zarr_dir)
@@ -443,19 +417,6 @@ def main(
             print(f"  Test Macro F1: {metrics['macro_f1']:.4f}")
             print(f"  Test Weighted F1: {metrics['weighted_f1']:.4f}")
 
-            # Log to wandb
-            if enable_wandb:
-                wandb.log(
-                    {
-                        "epoch": epoch + 1,
-                        "train/loss": train_loss,
-                        "test/macro_accuracy": metrics["macro_accuracy"],
-                        "test/weighted_accuracy": metrics["weighted_accuracy"],
-                        "test/macro_f1": metrics["macro_f1"],
-                        "test/weighted_f1": metrics["weighted_f1"],
-                    }
-                )
-
             # Save best model
             if metrics["macro_accuracy"] > best_macro_acc:
                 best_macro_acc = metrics["macro_accuracy"]
@@ -475,15 +436,6 @@ def main(
                     model_path,
                 )
                 print(f"  Saved best model to {model_path}")
-        else:
-            # Log training metrics only
-            if enable_wandb:
-                wandb.log(
-                    {
-                        "epoch": epoch + 1,
-                        "train/loss": train_loss,
-                    }
-                )
 
     # Load best model before final evaluation
     best_checkpoint = torch.load(model_path, map_location=device, weights_only=False)
@@ -528,18 +480,6 @@ def main(
     print(f"  Weighted F1: {metrics['weighted_f1']:.4f}")
     print(f"  Best Macro Accuracy: {best_macro_acc:.4f}")
 
-    # Log final metrics to wandb
-    if enable_wandb:
-        wandb.log(
-            {
-                "final/macro_accuracy": metrics["macro_accuracy"],
-                "final/weighted_accuracy": metrics["weighted_accuracy"],
-                "final/macro_f1": metrics["macro_f1"],
-                "final/weighted_f1": metrics["weighted_f1"],
-                "final/best_macro_accuracy": best_macro_acc,
-            }
-        )
-
     # Map compact labels back to original ct2idx values for saving
     y_true_orig = np.array([compact_to_orig[int(y)] for y in y_true_compact])
 
@@ -564,9 +504,6 @@ def main(
         dct_config.ct2idx,
         output_path,
     )
-
-    if enable_wandb:
-        run.finish()
 
     print("\nDone!")
 

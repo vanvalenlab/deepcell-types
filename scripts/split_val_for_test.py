@@ -12,19 +12,19 @@ Output:
     models remain comparable for training), but have `val` containing only the
     subset relevant to each use:
 
-      splits/fov_split_v10_valsubset.json  -- train unchanged, val = val_subset (70%)
-      splits/fov_split_v10_test.json        -- train unchanged, val = test_subset (30%)
+      splits/fov_split_valsubset.json  -- train unchanged, val = val_subset (70%)
+      splits/fov_split_test.json        -- train unchanged, val = test_subset (30%)
 
     Each output declares the omitted validation FOVs in `heldout` so strict
     split loading can distinguish intentional exclusions from stale split files.
 
-    Use valsubset during training (`--split_file splits/fov_split_v10_valsubset.json`).
-    Use test for the final released number (`--split_file splits/fov_split_v10_test.json`).
+    Use valsubset during training (`--split_file splits/fov_split_valsubset.json`).
+    Use test for the final released number (`--split_file splits/fov_split_test.json`).
 
 Usage:
     python -m scripts.split_val_for_test \\
-        --input splits/fov_split_v10.json \\
-        --output_prefix splits/fov_split_v10 \\
+        --input splits/fov_split.json \\
+        --output_prefix splits/fov_split \\
         --test_ratio 0.3 --seed 42
 """
 
@@ -40,7 +40,7 @@ from pathlib import Path
     "input_path",
     type=str,
     required=True,
-    help="Existing 2-way split JSON (e.g. splits/fov_split_v9.json)",
+    help="Existing 2-way split JSON (e.g. splits/fov_split.json)",
 )
 @click.option(
     "--output_prefix",

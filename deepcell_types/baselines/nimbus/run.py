@@ -255,7 +255,6 @@ def compute_marker_positivity_metrics(
 @click.command()
 @click.option("--model_name", type=str, default="nimbus_0")
 @click.option("--device_num", type=str, default="cuda:0")
-@click.option("--enable_wandb", type=bool, default=False)
 @click.option(
     "--zarr_dir",
     type=str,
@@ -308,7 +307,6 @@ def compute_marker_positivity_metrics(
 def main(
     model_name: str,
     device_num: str,
-    enable_wandb: bool,
     zarr_dir: str,
     skip_datasets: Tuple[str, ...],
     keep_datasets: Tuple[str, ...],
@@ -334,25 +332,6 @@ def main(
     # Set device
     device = torch.device(device_num if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-
-    # Initialize wandb if enabled
-    if enable_wandb:
-        import wandb
-
-        wandb.login()
-        run = wandb.init(
-            project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
-            dir="wandb_tmp",
-            job_type="inference",
-            name=f"{model_name}_nimbus",
-            config={
-                "model_type": "nimbus",
-                "checkpoint": checkpoint,
-                "batch_size": batch_size,
-                "test_time_aug": test_time_aug,
-                "threshold": threshold,
-            },
-        )
 
     # Load config
     dct_config = TissueNetConfig(zarr_dir)
@@ -660,37 +639,6 @@ def main(
                 f"  {marker}: Acc={m['accuracy']:.3f}, F1={m['f1']:.3f}, N={m['n_samples']}"
             )
 
-    # Log to wandb
-    if enable_wandb:
-        wandb.log(
-            {
-                # Shared-with-main-model keys (apples-to-apples comparison):
-                "marker_positivity/mp_macro_f1": metrics["overall"].get(
-                    "mp_macro_f1", 0
-                ),
-                "marker_positivity/mp_micro_f1": metrics["overall"].get(
-                    "mp_micro_f1", 0
-                ),
-                "marker_positivity/mp_macro_precision": metrics["overall"].get(
-                    "mp_macro_precision", 0
-                ),
-                "marker_positivity/mp_macro_recall": metrics["overall"].get(
-                    "mp_macro_recall", 0
-                ),
-                "marker_positivity/mp_macro_accuracy": metrics["overall"].get(
-                    "mp_macro_accuracy", 0
-                ),
-                "marker_positivity/mp_num_markers": metrics["overall"].get(
-                    "mp_num_markers", 0
-                ),
-                # Legacy keys retained for analysis-script compat:
-                "marker_positivity/accuracy": metrics["overall"].get("accuracy", 0),
-                "marker_positivity/precision": metrics["overall"].get("precision", 0),
-                "marker_positivity/recall": metrics["overall"].get("recall", 0),
-                "marker_positivity/n_samples": metrics["overall"].get("n_samples", 0),
-            }
-        )
-
     # Save predictions
     output_path = Path(f"output/{model_name}_nimbus_predictions.csv")
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -718,9 +666,6 @@ def main(
     with open(metrics_path, "w") as f:
         json.dump(metrics_serializable, f, indent=2)
     print(f"Metrics saved to {metrics_path}")
-
-    if enable_wandb:
-        run.finish()
 
     print("\nDone!")
 

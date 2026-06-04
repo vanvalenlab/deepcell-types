@@ -9,8 +9,8 @@ importing it requires the ``[train]`` extra:
 
 Inference users do not need any of this. The split is enforced by a CI
 guard (``tests/test_inference_deps.py``) that fails if the inference path
-ever transitively imports a training-only dependency (wandb, zarr,
-scikit-learn, pandas, ...).
+ever transitively imports a training-only dependency (zarr, scikit-learn,
+pandas, ...).
 """
 
 # Convenience re-exports of the most commonly used training symbols, so

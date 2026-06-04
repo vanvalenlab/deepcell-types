@@ -1,8 +1,9 @@
 """Structure + CLI option-snapshot tests for the unified baselines runner.
 
 These pin the public surface (which subcommands exist and their exact options)
-without running any baseline. Option sets are frozen snapshots of the original
-per-baseline click commands.
+without running any baseline. Option sets are frozen snapshots of the
+per-baseline click commands (re-frozen after the wandb logging option was
+removed across all baselines).
 """
 
 import click
@@ -11,10 +12,9 @@ from deepcell_types.baselines import REGISTRY
 from deepcell_types.baselines.__main__ import cli
 
 
-# Frozen option snapshots (verbatim from the original run.py click commands).
+# Frozen option snapshots of the run.py click commands.
 XGBOOST_OPTS = {
     "model_name",
-    "enable_wandb",
     "zarr_dir",
     "skip_datasets",
     "keep_datasets",
@@ -27,7 +27,6 @@ XGBOOST_OPTS = {
 NIMBUS_OPTS = {
     "model_name",
     "device_num",
-    "enable_wandb",
     "zarr_dir",
     "skip_datasets",
     "keep_datasets",
@@ -41,7 +40,6 @@ XGBOOST_TUNE_OPTS = {
     "study_name",
     "n_trials",
     "metric",
-    "enable_wandb",
     "zarr_dir",
     "skip_datasets",
     "keep_datasets",

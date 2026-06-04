@@ -51,12 +51,11 @@ license = {file = "LICENSE"}
 [project.optional-dependencies]
 # Training pipeline: required to use anything under deepcell_types.training,
 # including the zarr-backed FullImageDataset, FocalLoss/HierarchicalLoss,
-# wandb logging, and the FOV-grouped sampler. Not needed for inference.
+# and the FOV-grouped sampler. Not needed for inference.
 # zarr is pinned >=3.1 because 3.0.0a* alpha has a metadata-cache bug.
 # kaleido is required at runtime by `fig.write_image()` calls in
 # training/utils.py; plotly is the figure backend behind those calls.
 train = [
-    "wandb",
     "zarr>=3.1.0,<4",
     "torchinfo",
     "torchmetrics",

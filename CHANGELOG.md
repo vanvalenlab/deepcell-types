@@ -85,6 +85,11 @@ full canonical metadata. **Breaking changes** are noted below.
 - `TissueNetConfig(zarr_path=...)` defaults to `None` (was a hard-coded
   filesystem path that only resolved in one environment). When `None`,
   falls back to the `DEEPCELL_TYPES_ZARR_PATH` environment variable.
+- Weights & Biases experiment logging is removed. The training and baseline
+  scripts no longer accept `--enable_wandb`, `wandb` is no longer a `[train]`
+  dependency, and `log_epoch_metrics` / `log_confusion_matrix` now log to the
+  standard Python logger and save confusion-matrix images locally instead of
+  uploading them.
 - `mp_macro_precision` / `mp_macro_recall` now use `np.nanmean` to
   exclude vacuous markers, matching `mp_macro_f1`. Training runs no
   longer log `NaN` for these metrics.

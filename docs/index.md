@@ -146,7 +146,7 @@ and select `Open with -> Jupytext notebook`.
 The repository also ships the training pipeline used to produce the canonical
 checkpoints. Training-only code lives under `deepcell_types.training` and is
 gated behind the `[train]` install extra so plain inference users don't pull
-in `wandb`, `zarr`, `pandas`, `scikit-learn`, etc.
+in `zarr`, `pandas`, `scikit-learn`, etc.
 
 ```bash
 pip install "deepcell-types[train] @ git+https://github.com/vanvalenlab/deepcell-types@master"

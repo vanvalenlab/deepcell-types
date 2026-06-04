@@ -9,9 +9,9 @@ manifest. Stage 2 (``scripts/split_val_for_test.py``) then carves the held-out
 The canonical manifests used in the paper are committed under ``splits/`` and
 do not need to be regenerated:
 
-    splits/fov_split_v10.json            -- stage 1 output (1722 train / 431 val)
-    splits/fov_split_v10_valsubset.json  -- stage 2: val=302 (model selection)
-    splits/fov_split_v10_test.json       -- stage 2: val=129 (frozen test set)
+    splits/fov_split.json            -- stage 1 output (1722 train / 431 val)
+    splits/fov_split_valsubset.json  -- stage 2: val=302 (model selection)
+    splits/fov_split_test.json       -- stage 2: val=129 (frozen test set)
 
 Usage (to reproduce stage 1 from a local archive):
     # Stratified (default — the canonical recipe):

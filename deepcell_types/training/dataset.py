@@ -235,7 +235,7 @@ class FullImageDataset(Dataset):
                     # Narrowed from a bare ``except Exception``: schema/logic
                     # bugs (anything outside this set) should crash loudly.
                     # Routes through logging (was bare ``print("WARNING:...")``)
-                    # so the failure shows up in CI/wandb log capture with a
+                    # so the failure shows up in CI log capture with a
                     # real traceback.
                     logger.warning(
                         "Failed to load dataset %s; recording as empty entry",

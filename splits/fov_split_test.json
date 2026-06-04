@@ -7,7 +7,7 @@
       "tissue"
     ],
     "num_train_fovs": 1722,
-    "num_val_fovs": 302,
+    "num_val_fovs": 129,
     "num_datasets": 2153,
     "num_single_fov_strata_forced_to_train": 5,
     "created": "2026-05-11T22:51:52.124698+00:00",
@@ -17,12 +17,12 @@
     "num_cell_types": 51,
     "zarr_path": "$DATA_DIR",
     "archive_fingerprint": "9f8cc9d682d2e760",
-    "derived_from": "splits/fov_split_v10.json",
-    "subset": "val_subset",
+    "derived_from": "splits/fov_split.json",
+    "subset": "test_subset",
     "test_ratio_split_off": 0.3,
     "subset_seed": 42,
     "subset_strategy": "global_fov_shuffle",
-    "num_heldout_fovs": 129
+    "num_heldout_fovs": 302
   },
   "train": {
     "ibex_liver": [
@@ -5193,6 +5193,395 @@
     ]
   },
   "val": {
+    "greenbaum_uterus_mibi_HBM837.KNJV.852-e4b47b364ff361889845f2d1ab2788a8": [
+      "greenbaum_uterus_mibi_HBM837.KNJV.852-e4b47b364ff361889845f2d1ab2788a8"
+    ],
+    "keren_pdac_mibi_P037_C_FOV480": [
+      "keren_pdac_mibi_P037_C_FOV480"
+    ],
+    "keren_new_mibi_FOV380": [
+      "keren_new_mibi_FOV380"
+    ],
+    "karimi_brain_imc_glioma_Glioma_075C2": [
+      "karimi_brain_imc_glioma_Glioma_075C2"
+    ],
+    "risom_dcis_mibi_Point5302_pt1070_31594": [
+      "risom_dcis_mibi_Point5302_pt1070_31594"
+    ],
+    "keren_melanoma_mibi_Slide08_Point014_8": [
+      "keren_melanoma_mibi_Slide08_Point014_8"
+    ],
+    "dryadrest_intestine_codex_B011_Trans_CL_reg004": [
+      "dryadrest_intestine_codex_B011_Trans_CL_reg004"
+    ],
+    "sorin_lung_imc_LUAD_D345": [
+      "sorin_lung_imc_LUAD_D345"
+    ],
+    "karimi_brain_imc_glioma_Glioma_109C1": [
+      "karimi_brain_imc_glioma_Glioma_109C1"
+    ],
+    "keren_new_mibi_FOV148": [
+      "keren_new_mibi_FOV148"
+    ],
+    "keren_new_mibi_FOV110": [
+      "keren_new_mibi_FOV110"
+    ],
+    "dryadrest_intestine_codex_B011_Proximal_jejunum_SB_reg001": [
+      "dryadrest_intestine_codex_B011_Proximal_jejunum_SB_reg001"
+    ],
+    "greenbaum_uterus_mibi_HBM555.ZNTK.962-1d988a3a09dd6ab19d70f6c33974eef2": [
+      "greenbaum_uterus_mibi_HBM555.ZNTK.962-1d988a3a09dd6ab19d70f6c33974eef2"
+    ],
+    "keren_melanoma_mibi_Slide11_TMA096_Point010_31": [
+      "keren_melanoma_mibi_Slide11_TMA096_Point010_31"
+    ],
+    "keren_new_mibi_FOV260": [
+      "keren_new_mibi_FOV260"
+    ],
+    "keren_tnbc_mibi_Point14": [
+      "keren_tnbc_mibi_Point14"
+    ],
+    "sorin_lung_imc_LUAD_V23B": [
+      "sorin_lung_imc_LUAD_V23B"
+    ],
+    "keren_melanoma_mibi_Slide11_TMA033_Point037_11": [
+      "keren_melanoma_mibi_Slide11_TMA033_Point037_11"
+    ],
+    "sorin_lung_imc_LUAD_D311": [
+      "sorin_lung_imc_LUAD_D311"
+    ],
+    "keren_melanoma_mibi_Slide04_Point025_50": [
+      "keren_melanoma_mibi_Slide04_Point025_50"
+    ],
+    "greenbaum_uterus_mibi_HBM776.KFMZ.755-3d6f8b2567f93473a8829133d3b89a21": [
+      "greenbaum_uterus_mibi_HBM776.KFMZ.755-3d6f8b2567f93473a8829133d3b89a21"
+    ],
+    "keren_pdac_mibi_P034_F_FOV470": [
+      "keren_pdac_mibi_P034_F_FOV470"
+    ],
+    "HBM238_ZKPC_934_S20030077": [
+      "HBM238_ZKPC_934_S20030077"
+    ],
+    "sorin_lung_imc_LUAD_D353": [
+      "sorin_lung_imc_LUAD_D353"
+    ],
+    "karimi_brain_imc_brm_BrM_001C103": [
+      "karimi_brain_imc_brm_BrM_001C103"
+    ],
+    "karimi_brain_imc_glioma_Glioma_064C2": [
+      "karimi_brain_imc_glioma_Glioma_064C2"
+    ],
+    "keren_melanoma_mibi_Slide08_Point019_Control_Melanoma": [
+      "keren_melanoma_mibi_Slide08_Point019_Control_Melanoma"
+    ],
+    "sorin_lung_imc_LUAD_V16A": [
+      "sorin_lung_imc_LUAD_V16A"
+    ],
+    "sorin_lung_imc_LUAD_D216": [
+      "sorin_lung_imc_LUAD_D216"
+    ],
+    "keren_pdac_mibi_P069_F_FOV575": [
+      "keren_pdac_mibi_P069_F_FOV575"
+    ],
+    "hartmann_crc_mibi_d3d3_healthy_Point43": [
+      "hartmann_crc_mibi_d3d3_healthy_Point43"
+    ],
+    "sorin_lung_imc_LUAD_D156": [
+      "sorin_lung_imc_LUAD_D156"
+    ],
+    "hartmann_crc_mibi_21d7_tumor_Point25": [
+      "hartmann_crc_mibi_21d7_tumor_Point25"
+    ],
+    "sorin_lung_imc_LUAD_D384": [
+      "sorin_lung_imc_LUAD_D384"
+    ],
+    "risom_dcis_mibi_Point2327_pt1100_20735": [
+      "risom_dcis_mibi_Point2327_pt1100_20735"
+    ],
+    "sorin_lung_imc_LUAD_D395": [
+      "sorin_lung_imc_LUAD_D395"
+    ],
+    "keren_new_mibi_FOV392": [
+      "keren_new_mibi_FOV392"
+    ],
+    "keren_melanoma_mibi_Slide11_TMA069_Point034_22": [
+      "keren_melanoma_mibi_Slide11_TMA069_Point034_22"
+    ],
+    "karimi_brain_imc_glioma_Glioma_130C1": [
+      "karimi_brain_imc_glioma_Glioma_130C1"
+    ],
+    "greenbaum_uterus_mibi_HBM785.QGFZ.856-0a5022e9d5a4697cd561b34949166694": [
+      "greenbaum_uterus_mibi_HBM785.QGFZ.856-0a5022e9d5a4697cd561b34949166694"
+    ],
+    "karimi_brain_imc_glioma_Glioma_004C1": [
+      "karimi_brain_imc_glioma_Glioma_004C1"
+    ],
+    "keren_new_mibi_FOV340": [
+      "keren_new_mibi_FOV340"
+    ],
+    "sorin_lung_imc_LUAD_D108": [
+      "sorin_lung_imc_LUAD_D108"
+    ],
+    "keren_new_mibi_FOV156": [
+      "keren_new_mibi_FOV156"
+    ],
+    "keren_melanoma_mibi_Slide09_Point013_9": [
+      "keren_melanoma_mibi_Slide09_Point013_9"
+    ],
+    "hartmann_crc_mibi_21d7_tumor_Point32": [
+      "hartmann_crc_mibi_21d7_tumor_Point32"
+    ],
+    "keren_pdac_mibi_P024_F_FOV440": [
+      "keren_pdac_mibi_P024_F_FOV440"
+    ],
+    "sorin_lung_imc_LUAD_D318": [
+      "sorin_lung_imc_LUAD_D318"
+    ],
+    "sorin_lung_imc_LUAD_D197": [
+      "sorin_lung_imc_LUAD_D197"
+    ],
+    "karimi_brain_imc_brm_BrM_001C70": [
+      "karimi_brain_imc_brm_BrM_001C70"
+    ],
+    "karimi_brain_imc_brm_BrM_001C37": [
+      "karimi_brain_imc_brm_BrM_001C37"
+    ],
+    "keren_melanoma_mibi_Slide09_Point027_11": [
+      "keren_melanoma_mibi_Slide09_Point027_11"
+    ],
+    "karimi_brain_imc_glioma_Glioma_060C2": [
+      "karimi_brain_imc_glioma_Glioma_060C2"
+    ],
+    "karimi_brain_imc_glioma_Glioma_100C1": [
+      "karimi_brain_imc_glioma_Glioma_100C1"
+    ],
+    "karimi_brain_imc_glioma_Glioma_061C2": [
+      "karimi_brain_imc_glioma_Glioma_061C2"
+    ],
+    "keren_melanoma_mibi_Slide04_Point013_12": [
+      "keren_melanoma_mibi_Slide04_Point013_12"
+    ],
+    "keren_new_mibi_FOV140": [
+      "keren_new_mibi_FOV140"
+    ],
+    "keren_pdac_mibi_P019_S_FOV427": [
+      "keren_pdac_mibi_P019_S_FOV427"
+    ],
+    "keren_gvhd_mibi_Control_08_FOV_1": [
+      "keren_gvhd_mibi_Control_08_FOV_1"
+    ],
+    "keren_new_mibi_FOV62": [
+      "keren_new_mibi_FOV62"
+    ],
+    "keren_gvhd_mibi_GVHD_05_FOV_2_R": [
+      "keren_gvhd_mibi_GVHD_05_FOV_2_R"
+    ],
+    "HBM875_SBHJ_939_S20030077": [
+      "HBM875_SBHJ_939_S20030077"
+    ],
+    "keren_pdac_mibi_P032_C_FOV465": [
+      "keren_pdac_mibi_P032_C_FOV465"
+    ],
+    "greenbaum_uterus_mibi_HBM999.MJZX.394-71c076d66bfd67580a7706f7d7ac020b": [
+      "greenbaum_uterus_mibi_HBM999.MJZX.394-71c076d66bfd67580a7706f7d7ac020b"
+    ],
+    "karimi_brain_imc_glioma_Glioma_036C1": [
+      "karimi_brain_imc_glioma_Glioma_036C1"
+    ],
+    "keren_new_mibi_FOV400": [
+      "keren_new_mibi_FOV400"
+    ],
+    "greenbaum_uterus_mibi_HBM653.FMZX.257-16072084adc2919788ef17ce61b602d6": [
+      "greenbaum_uterus_mibi_HBM653.FMZX.257-16072084adc2919788ef17ce61b602d6"
+    ],
+    "sorin_lung_imc_LUAD_D338": [
+      "sorin_lung_imc_LUAD_D338"
+    ],
+    "karimi_brain_imc_glioma_Glioma_103C2": [
+      "karimi_brain_imc_glioma_Glioma_103C2"
+    ],
+    "sorin_lung_imc_LUAD_D385": [
+      "sorin_lung_imc_LUAD_D385"
+    ],
+    "sorin_lung_imc_LUAD_D317": [
+      "sorin_lung_imc_LUAD_D317"
+    ],
+    "karimi_brain_imc_brm_BrM_001C51": [
+      "karimi_brain_imc_brm_BrM_001C51"
+    ],
+    "keren_pdac_mibi_P050_C_FOV519": [
+      "keren_pdac_mibi_P050_C_FOV519"
+    ],
+    "keren_pdac_mibi_P030_F_FOV458": [
+      "keren_pdac_mibi_P030_F_FOV458"
+    ],
+    "keren_new_mibi_FOV350": [
+      "keren_new_mibi_FOV350"
+    ],
+    "sorin_lung_imc_LUAD_D119": [
+      "sorin_lung_imc_LUAD_D119"
+    ],
+    "karimi_brain_imc_glioma_Glioma_103C1": [
+      "karimi_brain_imc_glioma_Glioma_103C1"
+    ],
+    "keren_tnbc_mibi_Point38": [
+      "keren_tnbc_mibi_Point38"
+    ],
+    "karimi_brain_imc_glioma_Glioma_029C1": [
+      "karimi_brain_imc_glioma_Glioma_029C1"
+    ],
+    "keren_melanoma_mibi_Slide11_TMA046_Point024_15": [
+      "keren_melanoma_mibi_Slide11_TMA046_Point024_15"
+    ],
+    "keren_tnbc_mibi_Point21": [
+      "keren_tnbc_mibi_Point21"
+    ],
+    "karimi_brain_imc_brm_BrM_001C54": [
+      "karimi_brain_imc_brm_BrM_001C54"
+    ],
+    "karimi_brain_imc_glioma_Glioma_097C2": [
+      "karimi_brain_imc_glioma_Glioma_097C2"
+    ],
+    "hartmann_crc_mibi_21d7_tumor_Point37": [
+      "hartmann_crc_mibi_21d7_tumor_Point37"
+    ],
+    "sorin_lung_imc_LUAD_V02B": [
+      "sorin_lung_imc_LUAD_V02B"
+    ],
+    "karimi_brain_imc_glioma_Glioma_117C2": [
+      "karimi_brain_imc_glioma_Glioma_117C2"
+    ],
+    "karimi_brain_imc_glioma_Glioma_127C": [
+      "karimi_brain_imc_glioma_Glioma_127C"
+    ],
+    "sorin_lung_imc_LUAD_D024": [
+      "sorin_lung_imc_LUAD_D024"
+    ],
+    "keren_gvhd_mibi_Control_02_FOV_3": [
+      "keren_gvhd_mibi_Control_02_FOV_3"
+    ],
+    "karimi_brain_imc_glioma_Glioma_084C1": [
+      "karimi_brain_imc_glioma_Glioma_084C1"
+    ],
+    "keren_melanoma_mibi_Slide01_Point004_47": [
+      "keren_melanoma_mibi_Slide01_Point004_47"
+    ],
+    "hartmann_crc_mibi_99c0_healthy_Point57": [
+      "hartmann_crc_mibi_99c0_healthy_Point57"
+    ],
+    "risom_dcis_mibi_Point2311_pt1053_20698": [
+      "risom_dcis_mibi_Point2311_pt1053_20698"
+    ],
+    "sorin_lung_imc_LUAD_D147": [
+      "sorin_lung_imc_LUAD_D147"
+    ],
+    "sorin_lung_imc_LUAD_D040": [
+      "sorin_lung_imc_LUAD_D040"
+    ],
+    "karimi_brain_imc_glioma_Glioma_038C3": [
+      "karimi_brain_imc_glioma_Glioma_038C3"
+    ],
+    "karimi_brain_imc_brm_BrM_001C3": [
+      "karimi_brain_imc_brm_BrM_001C3"
+    ],
+    "hartmann_crc_mibi_21d7_tumor_Point33": [
+      "hartmann_crc_mibi_21d7_tumor_Point33"
+    ],
+    "keren_tnbc_mibi_Point12": [
+      "keren_tnbc_mibi_Point12"
+    ],
+    "risom_dcis_mibi_Point5309_pt1134_31636": [
+      "risom_dcis_mibi_Point5309_pt1134_31636"
+    ],
+    "sorin_lung_imc_LUAD_D208": [
+      "sorin_lung_imc_LUAD_D208"
+    ],
+    "risom_dcis_mibi_Point2326_pt1101_20736": [
+      "risom_dcis_mibi_Point2326_pt1101_20736"
+    ],
+    "karimi_brain_imc_brm_BrM_001C90": [
+      "karimi_brain_imc_brm_BrM_001C90"
+    ],
+    "keren_new_mibi_FOV152": [
+      "keren_new_mibi_FOV152"
+    ],
+    "sorin_lung_imc_LUAD_D407": [
+      "sorin_lung_imc_LUAD_D407"
+    ],
+    "dryadrest_intestine_codex_B012_Right_CL_reg002": [
+      "dryadrest_intestine_codex_B012_Right_CL_reg002"
+    ],
+    "karimi_brain_imc_glioma_Glioma_051C1": [
+      "karimi_brain_imc_glioma_Glioma_051C1"
+    ],
+    "keren_new_mibi_FOV240": [
+      "keren_new_mibi_FOV240"
+    ],
+    "mccaffrey_tb_mibi_lung_sarcoid-7": [
+      "mccaffrey_tb_mibi_lung_sarcoid-7"
+    ],
+    "keren_gvhd_mibi_GVHD_08_FOV_3": [
+      "keren_gvhd_mibi_GVHD_08_FOV_3"
+    ],
+    "sorin_lung_imc_LUAD_D100": [
+      "sorin_lung_imc_LUAD_D100"
+    ],
+    "karimi_brain_imc_glioma_Glioma_097C1": [
+      "karimi_brain_imc_glioma_Glioma_097C1"
+    ],
+    "keren_gvhd_mibi_GVHD_05_FOV_1_R": [
+      "keren_gvhd_mibi_GVHD_05_FOV_1_R"
+    ],
+    "keren_melanoma_mibi_Slide11_TMA032_Point042_11": [
+      "keren_melanoma_mibi_Slide11_TMA032_Point042_11"
+    ],
+    "dryadb008_intestine_codex_B008_CL_reg002": [
+      "dryadb008_intestine_codex_B008_CL_reg002"
+    ],
+    "sorin_lung_imc_LUAD_D336": [
+      "sorin_lung_imc_LUAD_D336"
+    ],
+    "greenbaum_uterus_mibi_HBM258.SWDZ.622-8bd46321c86f76d71792d071f3ef6b69": [
+      "greenbaum_uterus_mibi_HBM258.SWDZ.622-8bd46321c86f76d71792d071f3ef6b69"
+    ],
+    "keren_pdac_mibi_P036_S_FOV478": [
+      "keren_pdac_mibi_P036_S_FOV478"
+    ],
+    "keren_melanoma_mibi_Slide05_Point005_44": [
+      "keren_melanoma_mibi_Slide05_Point005_44"
+    ],
+    "karimi_brain_imc_brm_BrM_001C59": [
+      "karimi_brain_imc_brm_BrM_001C59"
+    ],
+    "karimi_brain_imc_glioma_Glioma_139C1": [
+      "karimi_brain_imc_glioma_Glioma_139C1"
+    ],
+    "karimi_brain_imc_glioma_Glioma_078C1": [
+      "karimi_brain_imc_glioma_Glioma_078C1"
+    ],
+    "dryadb008_intestine_codex_B008_SB_reg005": [
+      "dryadb008_intestine_codex_B008_SB_reg005"
+    ],
+    "sorin_lung_imc_LUAD_D281": [
+      "sorin_lung_imc_LUAD_D281"
+    ],
+    "karimi_brain_imc_glioma_Glioma_017C1": [
+      "karimi_brain_imc_glioma_Glioma_017C1"
+    ],
+    "sorin_lung_imc_LUAD_D066": [
+      "sorin_lung_imc_LUAD_D066"
+    ],
+    "sorin_lung_imc_LUAD_D239": [
+      "sorin_lung_imc_LUAD_D239"
+    ],
+    "sorin_lung_imc_LUAD_V32B": [
+      "sorin_lung_imc_LUAD_V32B"
+    ],
+    "sorin_lung_imc_LUAD_D403": [
+      "sorin_lung_imc_LUAD_D403"
+    ]
+  },
+  "heldout": {
     "keren_pdac_mibi_P006_C_FOV387": [
       "keren_pdac_mibi_P006_C_FOV387"
     ],
@@ -6098,395 +6487,6 @@
     ],
     "mccaffrey_tb_mibi_reproductive_Patient13-2": [
       "mccaffrey_tb_mibi_reproductive_Patient13-2"
-    ]
-  },
-  "heldout": {
-    "greenbaum_uterus_mibi_HBM837.KNJV.852-e4b47b364ff361889845f2d1ab2788a8": [
-      "greenbaum_uterus_mibi_HBM837.KNJV.852-e4b47b364ff361889845f2d1ab2788a8"
-    ],
-    "keren_pdac_mibi_P037_C_FOV480": [
-      "keren_pdac_mibi_P037_C_FOV480"
-    ],
-    "keren_new_mibi_FOV380": [
-      "keren_new_mibi_FOV380"
-    ],
-    "karimi_brain_imc_glioma_Glioma_075C2": [
-      "karimi_brain_imc_glioma_Glioma_075C2"
-    ],
-    "risom_dcis_mibi_Point5302_pt1070_31594": [
-      "risom_dcis_mibi_Point5302_pt1070_31594"
-    ],
-    "keren_melanoma_mibi_Slide08_Point014_8": [
-      "keren_melanoma_mibi_Slide08_Point014_8"
-    ],
-    "dryadrest_intestine_codex_B011_Trans_CL_reg004": [
-      "dryadrest_intestine_codex_B011_Trans_CL_reg004"
-    ],
-    "sorin_lung_imc_LUAD_D345": [
-      "sorin_lung_imc_LUAD_D345"
-    ],
-    "karimi_brain_imc_glioma_Glioma_109C1": [
-      "karimi_brain_imc_glioma_Glioma_109C1"
-    ],
-    "keren_new_mibi_FOV148": [
-      "keren_new_mibi_FOV148"
-    ],
-    "keren_new_mibi_FOV110": [
-      "keren_new_mibi_FOV110"
-    ],
-    "dryadrest_intestine_codex_B011_Proximal_jejunum_SB_reg001": [
-      "dryadrest_intestine_codex_B011_Proximal_jejunum_SB_reg001"
-    ],
-    "greenbaum_uterus_mibi_HBM555.ZNTK.962-1d988a3a09dd6ab19d70f6c33974eef2": [
-      "greenbaum_uterus_mibi_HBM555.ZNTK.962-1d988a3a09dd6ab19d70f6c33974eef2"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA096_Point010_31": [
-      "keren_melanoma_mibi_Slide11_TMA096_Point010_31"
-    ],
-    "keren_new_mibi_FOV260": [
-      "keren_new_mibi_FOV260"
-    ],
-    "keren_tnbc_mibi_Point14": [
-      "keren_tnbc_mibi_Point14"
-    ],
-    "sorin_lung_imc_LUAD_V23B": [
-      "sorin_lung_imc_LUAD_V23B"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA033_Point037_11": [
-      "keren_melanoma_mibi_Slide11_TMA033_Point037_11"
-    ],
-    "sorin_lung_imc_LUAD_D311": [
-      "sorin_lung_imc_LUAD_D311"
-    ],
-    "keren_melanoma_mibi_Slide04_Point025_50": [
-      "keren_melanoma_mibi_Slide04_Point025_50"
-    ],
-    "greenbaum_uterus_mibi_HBM776.KFMZ.755-3d6f8b2567f93473a8829133d3b89a21": [
-      "greenbaum_uterus_mibi_HBM776.KFMZ.755-3d6f8b2567f93473a8829133d3b89a21"
-    ],
-    "keren_pdac_mibi_P034_F_FOV470": [
-      "keren_pdac_mibi_P034_F_FOV470"
-    ],
-    "HBM238_ZKPC_934_S20030077": [
-      "HBM238_ZKPC_934_S20030077"
-    ],
-    "sorin_lung_imc_LUAD_D353": [
-      "sorin_lung_imc_LUAD_D353"
-    ],
-    "karimi_brain_imc_brm_BrM_001C103": [
-      "karimi_brain_imc_brm_BrM_001C103"
-    ],
-    "karimi_brain_imc_glioma_Glioma_064C2": [
-      "karimi_brain_imc_glioma_Glioma_064C2"
-    ],
-    "keren_melanoma_mibi_Slide08_Point019_Control_Melanoma": [
-      "keren_melanoma_mibi_Slide08_Point019_Control_Melanoma"
-    ],
-    "sorin_lung_imc_LUAD_V16A": [
-      "sorin_lung_imc_LUAD_V16A"
-    ],
-    "sorin_lung_imc_LUAD_D216": [
-      "sorin_lung_imc_LUAD_D216"
-    ],
-    "keren_pdac_mibi_P069_F_FOV575": [
-      "keren_pdac_mibi_P069_F_FOV575"
-    ],
-    "hartmann_crc_mibi_d3d3_healthy_Point43": [
-      "hartmann_crc_mibi_d3d3_healthy_Point43"
-    ],
-    "sorin_lung_imc_LUAD_D156": [
-      "sorin_lung_imc_LUAD_D156"
-    ],
-    "hartmann_crc_mibi_21d7_tumor_Point25": [
-      "hartmann_crc_mibi_21d7_tumor_Point25"
-    ],
-    "sorin_lung_imc_LUAD_D384": [
-      "sorin_lung_imc_LUAD_D384"
-    ],
-    "risom_dcis_mibi_Point2327_pt1100_20735": [
-      "risom_dcis_mibi_Point2327_pt1100_20735"
-    ],
-    "sorin_lung_imc_LUAD_D395": [
-      "sorin_lung_imc_LUAD_D395"
-    ],
-    "keren_new_mibi_FOV392": [
-      "keren_new_mibi_FOV392"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA069_Point034_22": [
-      "keren_melanoma_mibi_Slide11_TMA069_Point034_22"
-    ],
-    "karimi_brain_imc_glioma_Glioma_130C1": [
-      "karimi_brain_imc_glioma_Glioma_130C1"
-    ],
-    "greenbaum_uterus_mibi_HBM785.QGFZ.856-0a5022e9d5a4697cd561b34949166694": [
-      "greenbaum_uterus_mibi_HBM785.QGFZ.856-0a5022e9d5a4697cd561b34949166694"
-    ],
-    "karimi_brain_imc_glioma_Glioma_004C1": [
-      "karimi_brain_imc_glioma_Glioma_004C1"
-    ],
-    "keren_new_mibi_FOV340": [
-      "keren_new_mibi_FOV340"
-    ],
-    "sorin_lung_imc_LUAD_D108": [
-      "sorin_lung_imc_LUAD_D108"
-    ],
-    "keren_new_mibi_FOV156": [
-      "keren_new_mibi_FOV156"
-    ],
-    "keren_melanoma_mibi_Slide09_Point013_9": [
-      "keren_melanoma_mibi_Slide09_Point013_9"
-    ],
-    "hartmann_crc_mibi_21d7_tumor_Point32": [
-      "hartmann_crc_mibi_21d7_tumor_Point32"
-    ],
-    "keren_pdac_mibi_P024_F_FOV440": [
-      "keren_pdac_mibi_P024_F_FOV440"
-    ],
-    "sorin_lung_imc_LUAD_D318": [
-      "sorin_lung_imc_LUAD_D318"
-    ],
-    "sorin_lung_imc_LUAD_D197": [
-      "sorin_lung_imc_LUAD_D197"
-    ],
-    "karimi_brain_imc_brm_BrM_001C70": [
-      "karimi_brain_imc_brm_BrM_001C70"
-    ],
-    "karimi_brain_imc_brm_BrM_001C37": [
-      "karimi_brain_imc_brm_BrM_001C37"
-    ],
-    "keren_melanoma_mibi_Slide09_Point027_11": [
-      "keren_melanoma_mibi_Slide09_Point027_11"
-    ],
-    "karimi_brain_imc_glioma_Glioma_060C2": [
-      "karimi_brain_imc_glioma_Glioma_060C2"
-    ],
-    "karimi_brain_imc_glioma_Glioma_100C1": [
-      "karimi_brain_imc_glioma_Glioma_100C1"
-    ],
-    "karimi_brain_imc_glioma_Glioma_061C2": [
-      "karimi_brain_imc_glioma_Glioma_061C2"
-    ],
-    "keren_melanoma_mibi_Slide04_Point013_12": [
-      "keren_melanoma_mibi_Slide04_Point013_12"
-    ],
-    "keren_new_mibi_FOV140": [
-      "keren_new_mibi_FOV140"
-    ],
-    "keren_pdac_mibi_P019_S_FOV427": [
-      "keren_pdac_mibi_P019_S_FOV427"
-    ],
-    "keren_gvhd_mibi_Control_08_FOV_1": [
-      "keren_gvhd_mibi_Control_08_FOV_1"
-    ],
-    "keren_new_mibi_FOV62": [
-      "keren_new_mibi_FOV62"
-    ],
-    "keren_gvhd_mibi_GVHD_05_FOV_2_R": [
-      "keren_gvhd_mibi_GVHD_05_FOV_2_R"
-    ],
-    "HBM875_SBHJ_939_S20030077": [
-      "HBM875_SBHJ_939_S20030077"
-    ],
-    "keren_pdac_mibi_P032_C_FOV465": [
-      "keren_pdac_mibi_P032_C_FOV465"
-    ],
-    "greenbaum_uterus_mibi_HBM999.MJZX.394-71c076d66bfd67580a7706f7d7ac020b": [
-      "greenbaum_uterus_mibi_HBM999.MJZX.394-71c076d66bfd67580a7706f7d7ac020b"
-    ],
-    "karimi_brain_imc_glioma_Glioma_036C1": [
-      "karimi_brain_imc_glioma_Glioma_036C1"
-    ],
-    "keren_new_mibi_FOV400": [
-      "keren_new_mibi_FOV400"
-    ],
-    "greenbaum_uterus_mibi_HBM653.FMZX.257-16072084adc2919788ef17ce61b602d6": [
-      "greenbaum_uterus_mibi_HBM653.FMZX.257-16072084adc2919788ef17ce61b602d6"
-    ],
-    "sorin_lung_imc_LUAD_D338": [
-      "sorin_lung_imc_LUAD_D338"
-    ],
-    "karimi_brain_imc_glioma_Glioma_103C2": [
-      "karimi_brain_imc_glioma_Glioma_103C2"
-    ],
-    "sorin_lung_imc_LUAD_D385": [
-      "sorin_lung_imc_LUAD_D385"
-    ],
-    "sorin_lung_imc_LUAD_D317": [
-      "sorin_lung_imc_LUAD_D317"
-    ],
-    "karimi_brain_imc_brm_BrM_001C51": [
-      "karimi_brain_imc_brm_BrM_001C51"
-    ],
-    "keren_pdac_mibi_P050_C_FOV519": [
-      "keren_pdac_mibi_P050_C_FOV519"
-    ],
-    "keren_pdac_mibi_P030_F_FOV458": [
-      "keren_pdac_mibi_P030_F_FOV458"
-    ],
-    "keren_new_mibi_FOV350": [
-      "keren_new_mibi_FOV350"
-    ],
-    "sorin_lung_imc_LUAD_D119": [
-      "sorin_lung_imc_LUAD_D119"
-    ],
-    "karimi_brain_imc_glioma_Glioma_103C1": [
-      "karimi_brain_imc_glioma_Glioma_103C1"
-    ],
-    "keren_tnbc_mibi_Point38": [
-      "keren_tnbc_mibi_Point38"
-    ],
-    "karimi_brain_imc_glioma_Glioma_029C1": [
-      "karimi_brain_imc_glioma_Glioma_029C1"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA046_Point024_15": [
-      "keren_melanoma_mibi_Slide11_TMA046_Point024_15"
-    ],
-    "keren_tnbc_mibi_Point21": [
-      "keren_tnbc_mibi_Point21"
-    ],
-    "karimi_brain_imc_brm_BrM_001C54": [
-      "karimi_brain_imc_brm_BrM_001C54"
-    ],
-    "karimi_brain_imc_glioma_Glioma_097C2": [
-      "karimi_brain_imc_glioma_Glioma_097C2"
-    ],
-    "hartmann_crc_mibi_21d7_tumor_Point37": [
-      "hartmann_crc_mibi_21d7_tumor_Point37"
-    ],
-    "sorin_lung_imc_LUAD_V02B": [
-      "sorin_lung_imc_LUAD_V02B"
-    ],
-    "karimi_brain_imc_glioma_Glioma_117C2": [
-      "karimi_brain_imc_glioma_Glioma_117C2"
-    ],
-    "karimi_brain_imc_glioma_Glioma_127C": [
-      "karimi_brain_imc_glioma_Glioma_127C"
-    ],
-    "sorin_lung_imc_LUAD_D024": [
-      "sorin_lung_imc_LUAD_D024"
-    ],
-    "keren_gvhd_mibi_Control_02_FOV_3": [
-      "keren_gvhd_mibi_Control_02_FOV_3"
-    ],
-    "karimi_brain_imc_glioma_Glioma_084C1": [
-      "karimi_brain_imc_glioma_Glioma_084C1"
-    ],
-    "keren_melanoma_mibi_Slide01_Point004_47": [
-      "keren_melanoma_mibi_Slide01_Point004_47"
-    ],
-    "hartmann_crc_mibi_99c0_healthy_Point57": [
-      "hartmann_crc_mibi_99c0_healthy_Point57"
-    ],
-    "risom_dcis_mibi_Point2311_pt1053_20698": [
-      "risom_dcis_mibi_Point2311_pt1053_20698"
-    ],
-    "sorin_lung_imc_LUAD_D147": [
-      "sorin_lung_imc_LUAD_D147"
-    ],
-    "sorin_lung_imc_LUAD_D040": [
-      "sorin_lung_imc_LUAD_D040"
-    ],
-    "karimi_brain_imc_glioma_Glioma_038C3": [
-      "karimi_brain_imc_glioma_Glioma_038C3"
-    ],
-    "karimi_brain_imc_brm_BrM_001C3": [
-      "karimi_brain_imc_brm_BrM_001C3"
-    ],
-    "hartmann_crc_mibi_21d7_tumor_Point33": [
-      "hartmann_crc_mibi_21d7_tumor_Point33"
-    ],
-    "keren_tnbc_mibi_Point12": [
-      "keren_tnbc_mibi_Point12"
-    ],
-    "risom_dcis_mibi_Point5309_pt1134_31636": [
-      "risom_dcis_mibi_Point5309_pt1134_31636"
-    ],
-    "sorin_lung_imc_LUAD_D208": [
-      "sorin_lung_imc_LUAD_D208"
-    ],
-    "risom_dcis_mibi_Point2326_pt1101_20736": [
-      "risom_dcis_mibi_Point2326_pt1101_20736"
-    ],
-    "karimi_brain_imc_brm_BrM_001C90": [
-      "karimi_brain_imc_brm_BrM_001C90"
-    ],
-    "keren_new_mibi_FOV152": [
-      "keren_new_mibi_FOV152"
-    ],
-    "sorin_lung_imc_LUAD_D407": [
-      "sorin_lung_imc_LUAD_D407"
-    ],
-    "dryadrest_intestine_codex_B012_Right_CL_reg002": [
-      "dryadrest_intestine_codex_B012_Right_CL_reg002"
-    ],
-    "karimi_brain_imc_glioma_Glioma_051C1": [
-      "karimi_brain_imc_glioma_Glioma_051C1"
-    ],
-    "keren_new_mibi_FOV240": [
-      "keren_new_mibi_FOV240"
-    ],
-    "mccaffrey_tb_mibi_lung_sarcoid-7": [
-      "mccaffrey_tb_mibi_lung_sarcoid-7"
-    ],
-    "keren_gvhd_mibi_GVHD_08_FOV_3": [
-      "keren_gvhd_mibi_GVHD_08_FOV_3"
-    ],
-    "sorin_lung_imc_LUAD_D100": [
-      "sorin_lung_imc_LUAD_D100"
-    ],
-    "karimi_brain_imc_glioma_Glioma_097C1": [
-      "karimi_brain_imc_glioma_Glioma_097C1"
-    ],
-    "keren_gvhd_mibi_GVHD_05_FOV_1_R": [
-      "keren_gvhd_mibi_GVHD_05_FOV_1_R"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA032_Point042_11": [
-      "keren_melanoma_mibi_Slide11_TMA032_Point042_11"
-    ],
-    "dryadb008_intestine_codex_B008_CL_reg002": [
-      "dryadb008_intestine_codex_B008_CL_reg002"
-    ],
-    "sorin_lung_imc_LUAD_D336": [
-      "sorin_lung_imc_LUAD_D336"
-    ],
-    "greenbaum_uterus_mibi_HBM258.SWDZ.622-8bd46321c86f76d71792d071f3ef6b69": [
-      "greenbaum_uterus_mibi_HBM258.SWDZ.622-8bd46321c86f76d71792d071f3ef6b69"
-    ],
-    "keren_pdac_mibi_P036_S_FOV478": [
-      "keren_pdac_mibi_P036_S_FOV478"
-    ],
-    "keren_melanoma_mibi_Slide05_Point005_44": [
-      "keren_melanoma_mibi_Slide05_Point005_44"
-    ],
-    "karimi_brain_imc_brm_BrM_001C59": [
-      "karimi_brain_imc_brm_BrM_001C59"
-    ],
-    "karimi_brain_imc_glioma_Glioma_139C1": [
-      "karimi_brain_imc_glioma_Glioma_139C1"
-    ],
-    "karimi_brain_imc_glioma_Glioma_078C1": [
-      "karimi_brain_imc_glioma_Glioma_078C1"
-    ],
-    "dryadb008_intestine_codex_B008_SB_reg005": [
-      "dryadb008_intestine_codex_B008_SB_reg005"
-    ],
-    "sorin_lung_imc_LUAD_D281": [
-      "sorin_lung_imc_LUAD_D281"
-    ],
-    "karimi_brain_imc_glioma_Glioma_017C1": [
-      "karimi_brain_imc_glioma_Glioma_017C1"
-    ],
-    "sorin_lung_imc_LUAD_D066": [
-      "sorin_lung_imc_LUAD_D066"
-    ],
-    "sorin_lung_imc_LUAD_D239": [
-      "sorin_lung_imc_LUAD_D239"
-    ],
-    "sorin_lung_imc_LUAD_V32B": [
-      "sorin_lung_imc_LUAD_V32B"
-    ],
-    "sorin_lung_imc_LUAD_D403": [
-      "sorin_lung_imc_LUAD_D403"
     ]
   }
 }

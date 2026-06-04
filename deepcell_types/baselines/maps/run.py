@@ -168,7 +168,6 @@ def evaluate(
 @click.command()
 @click.option("--model_name", type=str, default="maps_0")
 @click.option("--device_num", type=str, default="cuda:0")
-@click.option("--enable_wandb", type=bool, default=False)
 @click.option(
     "--zarr_dir",
     type=str,
@@ -239,7 +238,6 @@ def evaluate(
 def main(
     model_name: str,
     device_num: str,
-    enable_wandb: bool,
     zarr_dir: str,
     skip_datasets: Tuple[str, ...],
     keep_datasets: Tuple[str, ...],
@@ -259,27 +257,6 @@ def main(
     # Set device
     device = torch.device(device_num if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-
-    # Initialize wandb if enabled
-    if enable_wandb:
-        import wandb
-
-        wandb.login()
-        run = wandb.init(
-            project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
-            dir="wandb_tmp",
-            job_type="train",
-            name=f"{model_name}_maps",
-            config={
-                "model_type": "maps",
-                "hidden_dim": hidden_dim,
-                "dropout": dropout,
-                "learning_rate": learning_rate,
-                "batch_size": batch_size,
-                "max_epochs": max_epochs,
-                "seed": seed,
-            },
-        )
 
     # Load config
     dct_config = TissueNetConfig(zarr_dir)
@@ -466,21 +443,6 @@ def main(
                 f"AUROC={metrics['auroc']:.4f}"
             )
 
-        # Log to wandb
-        if enable_wandb:
-            wandb.log(
-                {
-                    "epoch": epoch + 1,
-                    "train/loss": train_loss,
-                    "val/loss": val_loss,
-                    "test/macro_accuracy": metrics["macro_accuracy"],
-                    "test/weighted_accuracy": metrics["weighted_accuracy"],
-                    "test/macro_f1": metrics["macro_f1"],
-                    "test/weighted_f1": metrics["weighted_f1"],
-                    "test/auroc": metrics["auroc"],
-                }
-            )
-
         # Model selection — keep the checkpoint with the lowest val loss
         # (canonical mahmoodlab/MAPS trainer.py:236-242).
         if val_loss < best_val_loss:
@@ -542,20 +504,6 @@ def main(
     print(f"  Best Epoch: {best_epoch}")
     print(f"  Best Val Loss: {best_val_loss:.4f}")
 
-    # Log final metrics to wandb
-    if enable_wandb:
-        wandb.log(
-            {
-                "final/macro_accuracy": metrics["macro_accuracy"],
-                "final/weighted_accuracy": metrics["weighted_accuracy"],
-                "final/macro_f1": metrics["macro_f1"],
-                "final/weighted_f1": metrics["weighted_f1"],
-                "final/auroc": metrics["auroc"],
-                "final/best_epoch": best_epoch,
-                "final/best_val_loss": best_val_loss,
-            }
-        )
-
     # Map probabilities to ct2idx-sorted columns for saving
     # save_baseline_predictions expects y_prob with len(ct2idx) columns,
     # one per cell type sorted by ct2idx value
@@ -586,9 +534,6 @@ def main(
     stats_path = Path(f"models/maps_{model_name}_stats.npz")
     np.savez(stats_path, mean=train_mean, std=train_std)
     print(f"Normalization stats saved to {stats_path}")
-
-    if enable_wandb:
-        run.finish()
 
     print("\nDone!")
 

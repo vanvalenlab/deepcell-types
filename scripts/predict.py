@@ -42,7 +42,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 @click.command()
 @click.option("--model_name", type=str, default="deepcell-types")
 @click.option("--device_num", type=str, default="cuda:0")
-@click.option("--enable_wandb", type=bool, default=False)
 @click.option("--zarr_dir", type=str, default=str(DATA_DIR))
 @click.option("--skip_datasets", type=str, multiple=True, default=[])
 @click.option("--keep_datasets", type=str, multiple=True, default=[])
@@ -114,7 +113,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 def main(
     model_name,
     device_num,
-    enable_wandb,
     zarr_dir,
     skip_datasets,
     keep_datasets,
@@ -132,18 +130,6 @@ def main(
     ct_abstention_k,
 ):
     seed_everything(seed)
-
-    import wandb
-
-    if enable_wandb:
-        wandb.login()
-    run = wandb.init(
-        project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
-        dir="wandb_tmp",
-        job_type="predict",
-        mode="online" if enable_wandb else "disabled",
-        name=model_name + "_predict",
-    )
 
     device = torch.device(device_num)
     dct_config = TissueNetConfig(zarr_dir)
@@ -519,8 +505,6 @@ def main(
             attn_mp=np.concatenate(all_attn_mp, axis=0),
         )
         print(f"MP artifacts saved to {mp_artifacts_path}")
-
-    run.finish()
 
 
 if __name__ == "__main__":

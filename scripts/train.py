@@ -199,7 +199,6 @@ def forward_one_batch(
 @click.command()
 @click.option("--model_name", type=str, default="deepcell-types")
 @click.option("--device_num", type=str, default="cuda:0")
-@click.option("--enable_wandb", type=bool, default=False)
 @click.option("--zarr_dir", type=str, default=str(DATA_DIR))
 @click.option("--skip_datasets", type=str, multiple=True, default=[])
 @click.option("--keep_datasets", type=str, multiple=True, default=[])
@@ -341,7 +340,6 @@ def forward_one_batch(
 def main(
     model_name,
     device_num,
-    enable_wandb,
     zarr_dir,
     skip_datasets,
     keep_datasets,
@@ -376,31 +374,6 @@ def main(
 ):
     # Seed everything
     seed_everything(seed)
-
-    # Lazy wandb init
-    import wandb
-
-    if enable_wandb:
-        wandb.login()
-    run = wandb.init(
-        project=os.environ.get("WANDB_PROJECT", "deepcell-types"),
-        dir="wandb_tmp",
-        job_type="train",
-        mode="online" if enable_wandb else "disabled",
-        name=model_name,
-        config={
-            "model_name": model_name,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "lr": lr,
-            "patience": patience,
-            "seed": seed,
-            "architecture": "CellTypeAnnotator",
-            "split_mode": split_mode,
-            "domain_weight": domain_weight,
-            "no_class_weights": no_class_weights,
-        },
-    )
 
     if debug:
         torch.autograd.set_detect_anomaly(True)
@@ -441,7 +414,6 @@ def main(
         pin_memory=use_cuda,
     )
 
-    wandb.config.update(metadata)
     print(
         f"Train: {metadata.get('num_train', '?')}, Val: {metadata.get('num_val', '?')}"
     )
@@ -676,7 +648,6 @@ def main(
         "domain": domain_weight,
         "marker_pos": marker_pos_weight,
     }
-    wandb.watch(model)
 
     # Early stopping state
     best_val_macro_f1 = 0.0
@@ -804,15 +775,15 @@ def main(
         # Log training metrics
         train_epoch_metrics = losses_metrics.compute()
         log_epoch_metrics(train_epoch_metrics, "train")
-        wandb.log(
-            {
-                "train/loss_epoch": np.mean(train_losses["loss"]),
-                "train/ct_loss_epoch": np.mean(train_losses["ct_loss"]),
-                "train/domain_loss_epoch": np.mean(train_losses["domain_loss"]),
-                "train/marker_pos_loss_epoch": np.mean(train_losses["marker_pos_loss"]),
-                "train/lr": scheduler.get_last_lr()[0],
-                "epoch": epoch,
-            }
+        logger.info(
+            "Epoch %d train: loss=%.4f ct_loss=%.4f domain_loss=%.4f "
+            "marker_pos_loss=%.4f lr=%.3e",
+            epoch,
+            np.mean(train_losses["loss"]),
+            np.mean(train_losses["ct_loss"]),
+            np.mean(train_losses["domain_loss"]),
+            np.mean(train_losses["marker_pos_loss"]),
+            scheduler.get_last_lr()[0],
         )
         losses_metrics.reset_metrics()
 
@@ -843,12 +814,11 @@ def main(
 
             val_epoch_metrics = losses_metrics.compute()
             log_epoch_metrics(val_epoch_metrics, "val")
-            wandb.log(
-                {
-                    "val/loss_epoch": np.mean(val_losses["loss"]),
-                    "val/ct_loss_epoch": np.mean(val_losses["ct_loss"]),
-                    "epoch": epoch,
-                }
+            logger.info(
+                "Epoch %d val: loss=%.4f ct_loss=%.4f",
+                epoch,
+                np.mean(val_losses["loss"]),
+                np.mean(val_losses["ct_loss"]),
             )
             losses_metrics.reset_metrics()
 
@@ -967,8 +937,6 @@ def main(
     output_path = Path(f"output/{model_name}_val_predictions.csv")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     predlogger.save(output_path)
-
-    run.finish()
 
 
 if __name__ == "__main__":
