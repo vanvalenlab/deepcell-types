@@ -18,7 +18,13 @@
 # The optional-dependency names mirror [project.optional-dependencies] in
 # pyproject.toml. Leave DCT_EXTRAS empty for the inference-only image.
 
-FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
+# Base image must ship Python >=3.11 to satisfy this package's
+# `requires-python = ">=3.11"` floor (pyproject.toml). The previous
+# `pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime` tag ships Python 3.10.14, so
+# `pip install .` failed for EVERY profile with
+# "requires a different Python: 3.10.14 not in '>=3.11'". The 2.4.1 runtime tag
+# below bundles Python 3.11, clearing the floor (and bumps cuDNN 8 -> 9).
+FROM pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
 
 # Which optional-dependency set to install (e.g. "[train]", "[baselines]",
 # "[all]"); empty means inference-only.

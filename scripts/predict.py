@@ -186,13 +186,27 @@ def main(
         model_path = f"models/model_{model_name}_best.pt"
     checkpoint = torch.load(model_path, map_location=device, weights_only=True)
 
+    # Self-describing inference: when the checkpoint bundles a "config" dict,
+    # read the model-construction params from it so a future retrain with
+    # different settings (e.g. compat_marker0_zero=False, a different
+    # resnet_base_channels, or the legacy Linear MP head) reconstructs the
+    # right architecture. compat_marker0_zero in particular is a pure-Python
+    # numerics flag — NOT a state_dict tensor — so strict load can't catch a
+    # mismatch; it would silently mis-infer. CLI flags / canonical defaults are
+    # used as the fallback when a key (or the whole config) is absent, which
+    # keeps the current released checkpoint loading unchanged.
+    ckpt_config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
+
     # Build model
     model = create_model(
         dct_config,
         marker_embeddings,
         d_model=d_model,
-        resnet_base_channels=resnet_channels,
-        spatial_pool_size=spatial_pool_size,
+        resnet_base_channels=ckpt_config.get("resnet_channels", resnet_channels),
+        spatial_pool_size=ckpt_config.get("spatial_pool_size", spatial_pool_size),
+        n_heads=ckpt_config.get("n_heads", 8),
+        use_conditioned_mp_head=ckpt_config.get("use_conditioned_mp_head", True),
+        compat_marker0_zero=ckpt_config.get("compat_marker0_zero", True),
     )
 
     if isinstance(checkpoint, dict) and "model" in checkpoint:

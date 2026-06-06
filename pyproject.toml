@@ -71,13 +71,28 @@ train = [
 ]
 # Comparison baselines, folded into deepcell_types.baselines. Each extra is
 # self-contained (pulls the train stack it needs) so it installs standalone.
-# NOTE: baseline-nimbus pins nimbus-inference==0.0.5, which requires Python <3.12.
+# NOTE: baseline-nimbus pins nimbus-inference==0.0.5, which requires Python
+# <3.12. The `python_version < '3.12'` environment marker below makes
+# `pip install .[baseline-nimbus]` / `.[baselines]` / `.[all]` resolvable on
+# BOTH 3.11 and 3.12: on 3.11 nimbus-inference installs and the Nimbus baseline
+# is runnable; on 3.12 the marker drops the nimbus pin (and opencv, only needed
+# by Nimbus), so the rest of the baselines stack still installs cleanly while
+# the Nimbus baseline is simply unavailable. The `ci-all-smoke` job pins 3.11
+# so the full stack (incl. nimbus) is exercised in CI.
 baseline-xgboost = ["deepcell-types[train]", "xgboost", "optuna"]
-baseline-nimbus = ["deepcell-types[train]", "nimbus-inference==0.0.5", "opencv-python-headless"]
+baseline-nimbus = [
+    "deepcell-types[train]",
+    "nimbus-inference==0.0.5; python_version < '3.12'",
+    "opencv-python-headless; python_version < '3.12'",
+]
 baseline-maps = ["deepcell-types[train]"]
 baseline-cellsighter = ["deepcell-types[train]", "torchvision"]
 baselines = ["deepcell-types[baseline-xgboost,baseline-nimbus,baseline-maps,baseline-cellsighter]"]
-all = ["deepcell-types[train,baselines]"]
+# Plotting / analysis stack used by the research-workspace figure scripts
+# (plot_tsne.py, plot_experiment_results.py, ...). seaborn + openpyxl are the
+# only deps not already pulled in by [train] (which carries plotly + kaleido).
+analysis = ["deepcell-types[train]", "seaborn", "openpyxl"]
+all = ["deepcell-types[train,baselines,analysis]"]
 
 [project.urls]
 "Source Code" = "https://github.com/vanvalenlab/deepcell-types"
