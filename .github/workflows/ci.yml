@@ -109,3 +109,29 @@ jobs:
           /tmp/wheelenv/bin/pip install --upgrade pip
           /tmp/wheelenv/bin/pip install dist/*.whl
           /tmp/wheelenv/bin/python -c "import deepcell_types; from deepcell_types import predict, make_preprocessor, DCTConfig; from deepcell_types.utils import download_model, list_model_versions; DCTConfig().marker2idx; print('wheel OK', deepcell_types.__version__)"
+
+  baselines-smoke:
+    # Installs the FULL [all] extra (train + every baseline, incl. the
+    # nimbus-inference==0.0.5 pin) and imports each baseline package. Pinned to
+    # Python 3.11 ONLY: nimbus-inference==0.0.5 requires Python <3.12, so the
+    # `python_version < '3.12'` markers in [baseline-nimbus] keep [all]
+    # resolvable on 3.12 (nimbus dropped there) but the runnable Nimbus stack is
+    # only exercised here on 3.11. Without this job the [baselines]/[all] Docker
+    # profiles ship untested.
+    name: baselines [all] import smoke / py3.11
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install [all] (train + baselines, incl. nimbus on py3.11)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+      - name: Import baseline packages
+        run: |
+          python -c "import xgboost, optuna, nimbus_inference; import deepcell_types.baselines.xgb, deepcell_types.baselines.nimbus, deepcell_types.baselines.maps, deepcell_types.baselines.cellsighter; print('baselines import OK')"

@@ -121,6 +121,20 @@ def _discover_preprocessed(root: Path) -> list[Path]:
     return sorted(path.parent for path in root.glob("**/preprocessed/zarr.json"))
 
 
+def _matrix_shape(matrix) -> tuple[int, ...] | None:
+    """Best-effort 2D shape of a JSON-stored positivity matrix (list-of-lists).
+
+    Returns ``None`` when the value is missing or not a non-empty 2D list.
+    """
+    if not isinstance(matrix, list) or not matrix:
+        return None
+    if not isinstance(matrix[0], list):
+        return None
+    n_rows = len(matrix)
+    n_cols = len(matrix[0])
+    return (n_rows, n_cols)
+
+
 def _fov_key(root: Path, preprocessed: Path) -> str:
     return preprocessed.parent.relative_to(root).as_posix()
 
@@ -268,6 +282,34 @@ def validate_archive(
         report.errors.extend(
             check_marker_index_order(root_channels_ordered, expected_marker_order)
         )
+
+    # cell_type_mapping is {cell_type_name: index} and IS the model's class
+    # index map; its keys must be exactly all_standardized_cell_types and its
+    # values a contiguous 0..N-1 range. A drifted mapping silently mislabels
+    # every prediction (analogous to the marker index-map guard above).
+    root_attrs = _attrs(root / "zarr.json")
+    cell_type_mapping = root_attrs.get("cell_type_mapping")
+    all_cell_types = root_attrs.get("all_standardized_cell_types")
+    if cell_type_mapping is None:
+        report.errors.append("root attrs missing 'cell_type_mapping'")
+    if all_cell_types is None:
+        report.errors.append("root attrs missing 'all_standardized_cell_types'")
+    if isinstance(cell_type_mapping, dict) and all_cell_types is not None:
+        mapping_keys = set(cell_type_mapping)
+        declared = set(all_cell_types)
+        if mapping_keys != declared:
+            missing = sorted(declared - mapping_keys)
+            extra = sorted(mapping_keys - declared)
+            report.errors.append(
+                "cell_type_mapping keys disagree with all_standardized_cell_types "
+                f"(missing from mapping: {missing[:10]}; extra in mapping: {extra[:10]})"
+            )
+        values = sorted(cell_type_mapping.values())
+        if values != list(range(len(cell_type_mapping))):
+            report.errors.append(
+                "cell_type_mapping values are not a contiguous 0..N-1 index range"
+            )
+
     preprocessed_paths = _discover_preprocessed(root)
     fov_keys = {_fov_key(root, path) for path in preprocessed_paths}
     unknown_channels: dict[str, int] = {}
@@ -320,6 +362,66 @@ def validate_archive(
                 channel, root_channels
             ) is None and not _is_control_channel(channel):
                 unknown_channels[channel] = unknown_channels.get(channel, 0) + 1
+
+        # preprocessed metadata the inference patch generator and the
+        # gold-standard pipeline depend on. centroids/scale_factor live on the
+        # preprocessed group's attrs (PatchDataset reads scale_factor for MPP
+        # resampling; centroids anchor each cell's patch).
+        preprocessed_attrs = _attrs(preprocessed / "zarr.json")
+        if "centroids" not in preprocessed_attrs:
+            report.errors.append(f"{fov_key}: preprocessed attrs missing 'centroids'")
+        if "scale_factor" not in preprocessed_attrs:
+            report.errors.append(
+                f"{fov_key}: preprocessed attrs missing 'scale_factor'"
+            )
+
+        # Cell-type ground truth: standardized_source is the SOLE GT source for
+        # all code. A FOV that ships a cell_types/annotations group must carry
+        # the standardized_source attr, or every consumer silently sees no
+        # labels for it. (Not every FOV is annotated, so only check when the
+        # annotations group exists.)
+        annotations_json = (
+            preprocessed.parent / "cell_types" / "annotations" / "zarr.json"
+        )
+        if annotations_json.exists():
+            annotation_attrs = _attrs(annotations_json)
+            if "standardized_source" not in annotation_attrs:
+                report.errors.append(
+                    f"{fov_key}: cell_types/annotations missing "
+                    "'standardized_source' (the sole GT source)"
+                )
+
+        # Marker positivity: when a FOV provides a marker_positivity group, its
+        # positivity_matrix must be shaped (n_cell_types, n_markers) and the
+        # 'markers'/'cell_types' label attrs must be present and agree with that
+        # shape. A degraded matrix (wrong axis order, stale markers list) would
+        # otherwise be read into the MP metrics with silently wrong alignment.
+        mp_json = preprocessed.parent / "marker_positivity" / "zarr.json"
+        if mp_json.exists():
+            mp_attrs = _attrs(mp_json)
+            markers = mp_attrs.get("markers")
+            mp_cell_types = mp_attrs.get("cell_types")
+            matrix_shape = _matrix_shape(mp_attrs.get("positivity_matrix"))
+            if markers is None:
+                report.errors.append(
+                    f"{fov_key}: marker_positivity missing 'markers' attr"
+                )
+            if "positivity_matrix" not in mp_attrs:
+                report.errors.append(
+                    f"{fov_key}: marker_positivity missing 'positivity_matrix' attr"
+                )
+            elif matrix_shape is None:
+                report.errors.append(
+                    f"{fov_key}: marker_positivity positivity_matrix is not a "
+                    "non-empty 2D matrix"
+                )
+            elif markers is not None and mp_cell_types is not None:
+                expected = (len(mp_cell_types), len(markers))
+                if matrix_shape != expected:
+                    report.errors.append(
+                        f"{fov_key}: marker_positivity positivity_matrix shape "
+                        f"{matrix_shape} != (n_cell_types, n_markers) {expected}"
+                    )
 
     report.num_unknown_channels = sum(unknown_channels.values())
     if unknown_channels:

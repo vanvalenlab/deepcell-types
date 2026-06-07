@@ -13,11 +13,60 @@ def _write_json(path, payload):
     path.write_text(json.dumps(payload))
 
 
-def _write_fov(root, key, channels, raw_shape, mask_shape):
+def _write_fov(
+    root,
+    key,
+    channels,
+    raw_shape,
+    mask_shape,
+    *,
+    centroids=True,
+    scale_factor=True,
+):
     preprocessed = root / key / "preprocessed"
-    _write_json(preprocessed / "zarr.json", {"attributes": {"channel_names": channels}})
+    attributes = {"channel_names": channels}
+    if centroids:
+        attributes["centroids"] = [[0, 0]]
+    if scale_factor:
+        attributes["scale_factor"] = 1.0
+    _write_json(preprocessed / "zarr.json", {"attributes": attributes})
     _write_json(preprocessed / "raw" / "zarr.json", {"shape": raw_shape})
     _write_json(preprocessed / "mask" / "zarr.json", {"shape": mask_shape})
+
+
+def _write_root(root, channels=("CD3",), cell_types=None):
+    """Write a root zarr.json with a consistent cell_type_mapping by default."""
+    if cell_types is None:
+        cell_types = ["Bcell", "Tcell"]
+    attributes = {
+        "all_standardized_channels": list(channels),
+        "all_standardized_cell_types": list(cell_types),
+        "cell_type_mapping": {name: i for i, name in enumerate(cell_types)},
+    }
+    _write_json(root / "zarr.json", {"attributes": attributes})
+
+
+def _write_marker_positivity(root, key, markers, cell_types, matrix):
+    _write_json(
+        root / key / "marker_positivity" / "zarr.json",
+        {
+            "attributes": {
+                "markers": list(markers),
+                "cell_types": list(cell_types),
+                "positivity_matrix": matrix,
+            }
+        },
+    )
+
+
+def _write_annotations(root, key, standardized_source=True):
+    attributes = {"source": {}}
+    if standardized_source:
+        attributes["standardized_source"] = {}
+    _write_json(
+        root / key / "cell_types" / "annotations" / "zarr.json",
+        {"attributes": attributes},
+    )
 
 
 def test_validator_rejects_two_channel_collapse(tmp_path):
@@ -151,3 +200,158 @@ def test_validator_passes_when_marker_order_matches(tmp_path):
 
     assert not any("order diverges" in e for e in report.errors)
     assert not any("index-map size mismatch" in e for e in report.errors)
+
+
+# ---------------------------------------------------------------------------
+# Added-coverage guards: centroids/scale_factor, standardized_source,
+# marker_positivity shape, and cell_type_mapping consistency. A degraded
+# archive previously PASSED these silently.
+# ---------------------------------------------------------------------------
+
+
+def test_validator_flags_missing_centroids(tmp_path):
+    root = tmp_path / "archive.zarr"
+    _write_root(root, channels=["CD3"])
+    _write_fov(root, "fov1", ["CD3", "DAPI", "CD3"], [3, 8, 8], [8, 8], centroids=False)
+
+    report = validate_archive(root)
+
+    assert any("missing 'centroids'" in e for e in report.errors)
+
+
+def test_validator_flags_missing_scale_factor(tmp_path):
+    root = tmp_path / "archive.zarr"
+    _write_root(root, channels=["CD3"])
+    _write_fov(
+        root, "fov1", ["CD3", "DAPI", "CD3"], [3, 8, 8], [8, 8], scale_factor=False
+    )
+
+    report = validate_archive(root)
+
+    assert any("missing 'scale_factor'" in e for e in report.errors)
+
+
+def test_validator_flags_missing_standardized_source(tmp_path):
+    root = tmp_path / "archive.zarr"
+    _write_root(root, channels=["CD3"])
+    _write_fov(root, "fov1", ["CD3", "DAPI", "CD3"], [3, 8, 8], [8, 8])
+    _write_annotations(root, "fov1", standardized_source=False)
+
+    report = validate_archive(root)
+
+    assert any("standardized_source" in e for e in report.errors)
+
+
+def test_validator_passes_with_standardized_source_present(tmp_path):
+    root = tmp_path / "archive.zarr"
+    _write_root(root, channels=["CD3"])
+    _write_fov(root, "fov1", ["CD3", "DAPI", "CD3"], [3, 8, 8], [8, 8])
+    _write_annotations(root, "fov1", standardized_source=True)
+
+    report = validate_archive(root)
+
+    assert not any("standardized_source" in e for e in report.errors)
+
+
+def test_validator_flags_marker_positivity_shape_mismatch(tmp_path):
+    root = tmp_path / "archive.zarr"
+    _write_root(root, channels=["CD3"])
+    _write_fov(root, "fov1", ["CD3", "DAPI", "CD3"], [3, 8, 8], [8, 8])
+    # 2 cell types x 3 markers expected, but matrix is transposed (3x2).
+    _write_marker_positivity(
+        root,
+        "fov1",
+        markers=["CD3", "CD4", "CD8"],
+        cell_types=["Tcell", "Bcell"],
+        matrix=[[1, 0], [0, 1], [1, 1]],
+    )
+
+    report = validate_archive(root)
+
+    assert any(
+        "positivity_matrix shape" in e and "n_markers" in e for e in report.errors
+    )
+
+
+def test_validator_passes_with_well_formed_marker_positivity(tmp_path):
+    root = tmp_path / "archive.zarr"
+    _write_root(root, channels=["CD3"])
+    _write_fov(root, "fov1", ["CD3", "DAPI", "CD3"], [3, 8, 8], [8, 8])
+    _write_marker_positivity(
+        root,
+        "fov1",
+        markers=["CD3", "CD4", "CD8"],
+        cell_types=["Tcell", "Bcell"],
+        matrix=[[1, 0, 1], [0, 1, 0]],
+    )
+
+    report = validate_archive(root)
+
+    assert not any("positivity_matrix" in e for e in report.errors)
+    assert not any("marker_positivity" in e for e in report.errors)
+
+
+def test_validator_flags_marker_positivity_missing_markers(tmp_path):
+    root = tmp_path / "archive.zarr"
+    _write_root(root, channels=["CD3"])
+    _write_fov(root, "fov1", ["CD3", "DAPI", "CD3"], [3, 8, 8], [8, 8])
+    _write_json(
+        root / "fov1" / "marker_positivity" / "zarr.json",
+        {"attributes": {"cell_types": ["Tcell"], "positivity_matrix": [[1, 0]]}},
+    )
+
+    report = validate_archive(root)
+
+    assert any("marker_positivity missing 'markers'" in e for e in report.errors)
+
+
+def test_validator_flags_cell_type_mapping_key_drift(tmp_path):
+    root = tmp_path / "archive.zarr"
+    _write_json(
+        root / "zarr.json",
+        {
+            "attributes": {
+                "all_standardized_channels": ["CD3"],
+                "all_standardized_cell_types": ["Bcell", "Tcell"],
+                # mapping has an extra/renamed key -> set mismatch
+                "cell_type_mapping": {"Bcell": 0, "Tumor": 1},
+            }
+        },
+    )
+    _write_fov(root, "fov1", ["CD3", "DAPI", "CD3"], [3, 8, 8], [8, 8])
+
+    report = validate_archive(root)
+
+    assert any(
+        "cell_type_mapping keys disagree with all_standardized_cell_types" in e
+        for e in report.errors
+    )
+
+
+def test_validator_flags_cell_type_mapping_noncontiguous(tmp_path):
+    root = tmp_path / "archive.zarr"
+    _write_json(
+        root / "zarr.json",
+        {
+            "attributes": {
+                "all_standardized_channels": ["CD3"],
+                "all_standardized_cell_types": ["Bcell", "Tcell"],
+                "cell_type_mapping": {"Bcell": 0, "Tcell": 5},
+            }
+        },
+    )
+    _write_fov(root, "fov1", ["CD3", "DAPI", "CD3"], [3, 8, 8], [8, 8])
+
+    report = validate_archive(root)
+
+    assert any("contiguous 0..N-1 index range" in e for e in report.errors)
+
+
+def test_validator_passes_with_consistent_cell_type_mapping(tmp_path):
+    root = tmp_path / "archive.zarr"
+    _write_root(root, channels=["CD3"], cell_types=["Bcell", "Tcell"])
+    _write_fov(root, "fov1", ["CD3", "DAPI", "CD3"], [3, 8, 8], [8, 8])
+
+    report = validate_archive(root)
+
+    assert not any("cell_type_mapping" in e for e in report.errors)

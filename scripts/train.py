@@ -110,7 +110,8 @@ def forward_one_batch(
     batch_data = batch_data.to(device)
 
     # Remap cell type labels to compact 0-indexed
-    # (ct2idx values are 1-indexed, but FocalLoss/metrics need 0-indexed)
+    # (ct2idx values are already 0-indexed; the remap collapses any gaps in
+    # the label space so FocalLoss/metrics see a contiguous 0..N-1 range)
     orig_ct_idx = batch_data.ct_idx
     if label_remap is not None:
         compact_ct_idx = label_remap[batch_data.ct_idx]
@@ -418,7 +419,8 @@ def main(
         f"Train: {metadata.get('num_train', '?')}, Val: {metadata.get('num_val', '?')}"
     )
 
-    # Build label remap (ct2idx values are 1-indexed, need 0-indexed for loss/metrics)
+    # Build label remap (ct2idx values are 0-indexed; remap collapses gaps to a
+    # contiguous 0..N-1 range for loss/metrics)
     # Move to device once to avoid per-batch CPU→GPU transfer
     label_remap = build_label_remap(dct_config.ct2idx).to(device)
 
