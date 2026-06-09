@@ -490,6 +490,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.zarr is None:
+        parser.error(
+            "--zarr is required when the DATA_DIR environment variable is not set"
+        )
+
     required_markers = {key: set(value) for key, value in KNOWN_REPAIR_MARKERS.items()}
     for fov_key, marker in args.require_marker:
         required_markers.setdefault(fov_key, set()).add(marker)
