@@ -17,6 +17,7 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
+from .abstention import ABSTENTION_LABEL as ABSTENTION_LABEL
 from .config import DCTConfig as DCTConfig
 from .predict import predict as predict
 from .predict import PredictionResult as PredictionResult
@@ -25,7 +26,9 @@ from .preprocessing import PreprocessedFov as PreprocessedFov
 from .preprocessing_ops import apply_config as apply_config
 from .preprocessing_ops import make_preprocessor as make_preprocessor
 from .preprocessing_ops import DEFAULT_CONFIG as DEFAULT_CONFIG
+from .utils import download_baseline_checkpoint as download_baseline_checkpoint
 from .utils import download_model as download_model
+from .utils import list_model_versions as list_model_versions
 
 try:
     __version__ = version("deepcell-types")
@@ -42,5 +45,8 @@ __all__ = [
     "make_preprocessor",
     "DEFAULT_CONFIG",
     "download_model",
+    "download_baseline_checkpoint",
+    "list_model_versions",
+    "ABSTENTION_LABEL",
     "__version__",
 ]
