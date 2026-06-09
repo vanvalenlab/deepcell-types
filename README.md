@@ -37,17 +37,18 @@ from deepcell_types.utils import download_model
 download_model()
 ```
 
-## TissueNet zarr archive
+## TissueNet zarr archive (optional)
 
-Canonical checkpoints do not embed the marker / cell-type registry —
-they read it from a **TissueNet zarr v3 archive** at inference time. You
-must provide one before calling `predict`, either by passing
-`zarr_path=...` directly or by setting the `DEEPCELL_TYPES_ZARR_PATH`
-environment variable.
+`predict()` does **not** require the TissueNet archive: the marker /
+cell-type registry it needs ships with the package as a small `vocab.json`
+snapshot, so `download_model()` (above) is enough to run inference.
 
-A registered user can download a public TissueNet zarr archive from
-`https://users.deepcell.org`; see `docs/site/API-key.md` for the access
-token flow. Place the resulting `.zarr` directory anywhere, then:
+The (multi-GB) `tissuenet-v*.zarr` archive is only needed if you want the
+tissue→cell-type mapping or are reproducing the training pipeline. A
+registered user can download it from `https://users.deepcell.org`; see
+`docs/site/API-key.md` for the access token flow. When you do have an
+archive, point `predict` at it with `zarr_path=...`, or set it once for the
+session:
 
 ```bash
 export DEEPCELL_TYPES_ZARR_PATH=/absolute/path/to/tissuenet.zarr
