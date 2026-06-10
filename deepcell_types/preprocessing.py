@@ -344,6 +344,22 @@ def patch_generator(raw, mask, mpp, dct_config, preprocess=None, channel_names=N
                 "preprocess must return a (C, H, W) array matching its input; "
                 f"got {raw_chw.shape} for input {(raw.shape[2], raw.shape[0], raw.shape[1])}."
             )
+        # Enforce the hook's value contract: finite and in [0, 1]. A NaN/inf
+        # would poison the softmax (uniform argmax for every cell) and out-of-
+        # range values feed the model out-of-distribution input — both fail
+        # silently with wrong-but-confident predictions if not caught here.
+        if not np.all(np.isfinite(raw_chw)):
+            raise ValueError(
+                "preprocess returned non-finite values (NaN/inf); the hook must "
+                "return a finite (C, H, W) array in [0, 1]."
+            )
+        lo, hi = float(raw_chw.min()), float(raw_chw.max())
+        if lo < -1e-6 or hi > 1 + 1e-6:
+            raise ValueError(
+                "preprocess must return values in [0, 1] (the model expects "
+                f"normalized input); got range [{lo:.4g}, {hi:.4g}]. Append a "
+                "'min_max_normalize' op (or normalize in your hook)."
+            )
         raw = np.transpose(raw_chw, (1, 2, 0))
     raw, mask = _pad_cell(raw, mask, dct_config.CROP_SIZE)
 

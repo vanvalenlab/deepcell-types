@@ -2,8 +2,10 @@
 
 DeepCell Types is a generalized cell-phenotyping model for spatial
 proteomics. It addresses generalization across datasets with varying
-marker panels by reading the active marker / cell-type registry from a
-TissueNet zarr archive at inference time.
+marker panels by matching each image's channels against a marker /
+cell-type registry, which ships with the package as a `vocab.json`
+snapshot — so inference runs on any in-memory image with no extra data
+download.
 
 > **License notice.** This project is distributed under a *Modified Apache
 > License, Version 2.0* with non-commercial / academic-only carve-outs (see
@@ -37,13 +39,31 @@ from deepcell_types.utils import download_model
 download_model()
 ```
 
-## TissueNet zarr archive
+## Running inference (no archive required)
 
-Canonical checkpoints do not embed the marker / cell-type registry —
-they read it from a **TissueNet zarr v3 archive** at inference time. You
-must provide one before calling `predict`, either by passing
-`zarr_path=...` directly or by setting the `DEEPCELL_TYPES_ZARR_PATH`
-environment variable.
+Inference needs only the model checkpoint (`download_model()` above) and
+your image as an in-memory array — **no TissueNet archive download is
+required**. The marker / cell-type registry ships inside the package as a
+`vocab.json` snapshot, and `predict` resolves your channels against it
+automatically:
+
+```python
+from deepcell_types import predict
+
+# raw: numpy (C, H, W); mask: 2D label image; channel_names: list[str]
+labels = predict(raw, mask, channel_names, mpp, device="cuda:0")
+```
+
+For a complete example of the cell-type inference pipeline, check out
+the [tutorial](https://vanvalenlab.github.io/deepcell-types/site/tutorial.html).
+
+## TissueNet zarr archive (optional)
+
+The archive is **only** needed if you want to override the packaged
+registry — e.g. to run against a custom marker panel — or for training (see
+[Training](#training)). When present, `predict` reads the registry from it
+instead of `vocab.json`; pass `zarr_path=...` directly or set the
+`DEEPCELL_TYPES_ZARR_PATH` environment variable.
 
 A registered user can download a public TissueNet zarr archive from
 `https://users.deepcell.org`; see `docs/site/API-key.md` for the access
@@ -69,15 +89,7 @@ It exits non-zero on any marker-order/size drift. (The check's logic is
 unit-tested in CI via `tests/test_archive_contract_validator.py`; this script
 runs it against the actual archive, which CI cannot access.)
 
-## Running
-
-The `deepcell-types` cell-type inference functionality is provided via
-a simple functional interface, `deepcell_types.predict`.
-
-For a complete example of the cell-type inference pipeline, check out
-the [tutorial](https://vanvalenlab.github.io/deepcell-types/site/tutorial.html).
-
-### Custom preprocessing (advanced)
+## Custom preprocessing (advanced)
 
 When a single FOV's predictions look biologically implausible — usually because
 one channel is saturated or has heavy background and is steering the calls — the
