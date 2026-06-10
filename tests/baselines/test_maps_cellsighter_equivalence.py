@@ -22,7 +22,8 @@ PKG = Path(__file__).resolve().parents[2] / "deepcell_types" / "baselines"
 
 MODEL_ORIG_SHA = {
     "maps": "29202958b4326a542732663eb92541681d1d3a10ebc0767bad547416249edc00",
-    "cellsighter": "fccb04d5d1eb87159d6afcac473b5b872d5c5aafa54a8c56a65457adbeb2f7f2",
+    # cellsighter: faithful-reimplementation drift guard (ImageNet stem, see docstring).
+    "cellsighter": "83629b114b193cc945f23e49e22743ab53d0788a0045d98659bc2f97603d3f5f",
 }
 INIT_ORIG_SHA = {
     "maps": "5a0a765d62d2f11c841da99f34ccd63b226b47285fe85b6a9edbf92636a58f75",

@@ -31,6 +31,7 @@ from deepcell_types.training.baseline_features import (
 from deepcell_types.training.metrics import build_label_remap
 
 from .model import CellSighterModel, convert_batch_for_cellsighter
+from .transforms import build_cellsighter_train_transform
 
 
 def train_one_epoch(
@@ -234,6 +235,41 @@ def evaluate(
     help="ResNet variant: 'resnet50' (default, matches paper) or 'resnet18' (faster)",
 )
 @click.option(
+    "--crop_size",
+    type=int,
+    default=60,
+    help="Patch crop size. Default 60 matches the original CellSighter paper.",
+)
+@click.option(
+    "--mask_self",
+    is_flag=True,
+    default=False,
+    help="Ablation: zero all non-target-cell pixels (single-cell input, like "
+    "DCT/MAPS). Default OFF — faithful CellSighter sees neighbor intensities.",
+)
+@click.option(
+    "--cifar_stem",
+    is_flag=True,
+    default=False,
+    help="Ablation: use the 3x3/s1 CIFAR stem (for 32x32 crops) instead of the "
+    "faithful ImageNet 7x7/s2 ResNet50 stem.",
+)
+@click.option(
+    "--allow_split_mismatch",
+    is_flag=True,
+    default=False,
+    help="Downgrade the split archive-fingerprint check to a warning. Use when "
+    "the split file's FOVs all exist in the current archive but a non-FOV "
+    "archive attr changed since the split was created.",
+)
+@click.option(
+    "--seed",
+    type=int,
+    default=42,
+    help="Random seed for weight init, augmentation, and the training sampler. "
+    "Vary across runs to build an ensemble of diverse members.",
+)
+@click.option(
     "--split_mode",
     type=click.Choice(["fov", "patch"]),
     default="fov",
@@ -244,6 +280,15 @@ def evaluate(
     type=str,
     default=None,
     help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)",
+)
+@click.option(
+    "--test_split_file",
+    type=str,
+    default=None,
+    help="If set, the final evaluation + prediction CSV run on the 'val' FOVs "
+    "of THIS split (e.g. the held-out v10 test split), using the same faithful "
+    "crop/mask settings. Training and model selection still use --split_file. "
+    "This yields a CSV directly comparable to the published baseline numbers.",
 )
 @click.option(
     "--val_every_n_epochs",
@@ -274,8 +319,14 @@ def main(
     batch_size: int,
     pretrained: bool,
     model_size: str,
+    crop_size: int,
+    mask_self: bool,
+    cifar_stem: bool,
+    allow_split_mismatch: bool,
+    seed: int,
     split_mode: str,
     split_file: str,
+    test_split_file: str,
     val_every_n_epochs: int,
     no_amp: bool,
     no_compile: bool,
@@ -284,6 +335,9 @@ def main(
     # Set device
     device = torch.device(device_num if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    # Seed weight init + augmentation RNG; the training sampler/splits get the
+    # same seed via create_dataloader below. Vary --seed for ensemble members.
+    torch.manual_seed(seed)
 
     # Load config
     dct_config = TissueNetConfig(zarr_dir)
@@ -316,6 +370,15 @@ def main(
 
     use_cuda = device.type == "cuda"
 
+    # Faithful CellSighter: full crop incl. neighbor intensities (mask_self=False),
+    # 60x60 crops, and the original's geometric augmentation pipeline.
+    print(
+        f"Crop: {crop_size}x{crop_size} | "
+        f"intensities: {'self-masked (ablation)' if mask_self else 'unmasked (faithful)'} | "
+        f"stem: {'CIFAR (ablation)' if cifar_stem else 'ImageNet (faithful)'}"
+    )
+    cs_train_transform = build_cellsighter_train_transform()
+
     # Load train and test data. inner_val_ratio carves a FOV-grouped
     # inner-validation set out of the TRAIN FOVs for model selection, so the
     # reported (test) set never drives checkpoint selection. train_loader then
@@ -339,6 +402,12 @@ def main(
         multiprocessing_context="spawn",  # zarr v3 is not fork-safe
         pin_memory=use_cuda,  # Faster CPU→GPU transfers
         inner_val_ratio=0.1,
+        crop_size=crop_size,
+        output_size=crop_size,  # extract directly at crop_size (no resize)
+        mask_intensities=mask_self,  # faithful CellSighter: False -> keep neighbors
+        train_transform=cs_train_transform,
+        split_strict=not allow_split_mismatch,
+        seed=seed,
     )
     sel_loader = metadata.get("inner_val_loader")
     if sel_loader is None:
@@ -359,6 +428,7 @@ def main(
         num_classes=num_classes,
         pretrained=pretrained,
         model_size=model_size,
+        cifar_stem=cifar_stem,
     ).to(device)
 
     # Fix 6: torch.compile for fused operations (PyTorch 2.x+)
@@ -464,6 +534,34 @@ def main(
     print(
         f"Loaded best model from {model_path} (epoch {best_checkpoint['epoch']}, macro_f1={best_checkpoint['macro_f1']:.4f})"
     )
+
+    # Optionally swap in a dedicated held-out test split for the final eval,
+    # using the SAME faithful crop/mask settings the model was trained with.
+    # The val loader from create_dataloader is unaugmented (AugmentedDataset
+    # wraps only the train subset), so this is a clean test-time pass.
+    if test_split_file:
+        print(f"\nRebuilding eval loader on held-out test split: {test_split_file}")
+        _, test_loader, _ = create_dataloader(
+            zarr_dir=zarr_dir,
+            dct_config=dct_config,
+            skip_datasets=skip_datasets,
+            keep_datasets=keep_datasets,
+            batch_size=batch_size,
+            num_dropout_channels=0,
+            num_workers=8,
+            only_test=False,
+            use_fov_splits=True,
+            split_file=test_split_file,
+            skip_distance_transform=True,
+            persistent_workers=True,
+            max_samples_per_epoch=500_000,
+            multiprocessing_context="spawn",
+            pin_memory=use_cuda,
+            crop_size=crop_size,
+            output_size=crop_size,
+            mask_intensities=mask_self,
+            split_strict=not allow_split_mismatch,
+        )
 
     # Final evaluation (returns compact 0-indexed labels and probabilities)
     print("\nFinal evaluation on test set...")
