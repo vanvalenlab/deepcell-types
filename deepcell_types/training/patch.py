@@ -142,6 +142,7 @@ def extract_patch(
     crop_size: int,
     output_size: int = 32,
     skip_distance_transform: bool = False,
+    mask_intensities: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Extract patch in factored format.
 
@@ -149,9 +150,19 @@ def extract_patch(
         skip_distance_transform: If True, fill the distance transform channel
             with zeros instead of computing it. Useful for models that don't
             use it (e.g., CellSighter) to avoid the expensive scipy EDT call.
+        mask_intensities: If True (default), zero every pixel outside the target
+            cell's own mask (``raw * self_mask``), so the model sees only the
+            target cell's expression — this is the canonical single-cell input
+            used by DCT/MAPS and MUST stay the default to keep their behavior
+            unchanged. If False, return the full crop including neighboring
+            cells' intensities; used by the faithful CellSighter baseline, whose
+            CNN is designed to exploit neighborhood/spillover context (Amitay
+            et al., Nat Commun 2023). The self/neighbor masks are still returned
+            in ``spatial_context`` regardless of this flag.
 
     Returns:
-        raw_masked: (C, output_size, output_size) - raw * self_mask per channel
+        raw_out: (C, output_size, output_size) - ``raw * self_mask`` when
+            ``mask_intensities`` (default), else the full unmasked crop.
         spatial_context: (3, output_size, output_size) - [self_mask, neighbor_mask, distance_transform]
     """
     raw_crop, mask_patch = extract_patch_from_zarr(
@@ -172,7 +183,11 @@ def extract_patch(
         [self_mask, neighbor_mask, dist_transform], axis=0
     ).astype(np.float32)
 
-    # raw * self_mask for each channel → (C, H, W)
-    raw_masked = raw_crop * self_mask[np.newaxis, :, :]
+    if mask_intensities:
+        # raw * self_mask for each channel → (C, H, W): single-cell input
+        raw_out = raw_crop * self_mask[np.newaxis, :, :]
+    else:
+        # Full crop incl. neighbor intensities (faithful CellSighter)
+        raw_out = raw_crop
 
-    return raw_masked.astype(np.float32), spatial_context
+    return raw_out.astype(np.float32), spatial_context

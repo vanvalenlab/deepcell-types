@@ -67,6 +67,9 @@ class FullImageDataset(Dataset):
         keep_fovs=None,
         skip_distance_transform=False,
         numpy_cache_max_bytes=None,
+        crop_size=None,
+        output_size=None,
+        mask_intensities=True,
         **kwargs,
     ):
         """
@@ -81,6 +84,15 @@ class FullImageDataset(Dataset):
             skip_distance_transform: If True, skip distance transform computation
                 (zeros instead). Saves CPU time for models that don't use it.
             numpy_cache_max_bytes: Per-worker full-FOV numpy cache budget.
+            crop_size: Patch extraction size. Defaults to ``dct_config.CROP_SIZE``
+                (32). The faithful CellSighter baseline overrides this to 60.
+            output_size: Final patch size after resize. Defaults to
+                ``dct_config.OUTPUT_SIZE``. When ``crop_size == output_size`` no
+                resize is done.
+            mask_intensities: If True (default), feed single-cell input
+                (``raw * self_mask``) — the canonical DCT/MAPS behavior. If
+                False, feed the full crop including neighbor intensities
+                (faithful CellSighter). See ``patch.extract_patch``.
         """
         super().__init__(**kwargs)
         self.skip_distance_transform = skip_distance_transform
@@ -100,8 +112,11 @@ class FullImageDataset(Dataset):
         self._zero_channel_cache: dict = {}
 
         self.max_channels = dct_config.MAX_NUM_CHANNELS
-        self.crop_size = dct_config.CROP_SIZE
-        self.output_size = dct_config.OUTPUT_SIZE
+        self.crop_size = crop_size if crop_size is not None else dct_config.CROP_SIZE
+        self.output_size = (
+            output_size if output_size is not None else dct_config.OUTPUT_SIZE
+        )
+        self.mask_intensities = mask_intensities
         self.transform = transform
         self.domain_mapping = dct_config.domain_mapping
         self.marker2idx = dct_config.marker2idx
@@ -681,6 +696,7 @@ class FullImageDataset(Dataset):
             self.crop_size,
             self.output_size,
             skip_distance_transform=self.skip_distance_transform,
+            mask_intensities=self.mask_intensities,
         )
         # raw_masked: (C, H, W), spatial_context: (3, H, W) = (self_mask,
         # neighbor_mask, distance_transform)

@@ -90,6 +90,11 @@ def create_dataloader(
     fov_grouped_train: bool = False,
     inner_val_ratio: float = 0.0,
     inner_val_seed: int = 42,
+    crop_size=None,
+    output_size=None,
+    mask_intensities=True,
+    train_transform=None,
+    split_strict=True,
 ):
     """Create dataloaders with factored representation.
 
@@ -136,12 +141,16 @@ def create_dataloader(
         (train_loader is None if only_test=True). When inner_val_ratio > 0,
         metadata["inner_val_loader"] is the held-out inner-val DataLoader.
     """
-    train_transform = _Compose(
-        [
-            _RandomHorizontalFlip(),
-            _RandomVerticalFlip(),
-        ]
-    )
+    # Default train-time spatial augmentation = H/V flips (DCT/MAPS behavior).
+    # Callers (e.g. the faithful CellSighter baseline) can pass a richer
+    # transform that operates on the same (C_max + 3, H, W) combined tensor.
+    if train_transform is None:
+        train_transform = _Compose(
+            [
+                _RandomHorizontalFlip(),
+                _RandomVerticalFlip(),
+            ]
+        )
 
     dropout_transform = DropOutChannels(num_dropout_channels)
 
@@ -167,6 +176,9 @@ def create_dataloader(
         keep_fovs=keep_fovs,
         skip_distance_transform=skip_distance_transform,
         numpy_cache_max_bytes=numpy_cache_max_bytes,
+        crop_size=crop_size,
+        output_size=output_size,
+        mask_intensities=mask_intensities,
     )
 
     metadata = dataset.metadata
@@ -187,7 +199,9 @@ def create_dataloader(
 
     if use_fov_splits:
         if split_file is not None:
-            train_indices, val_indices = load_fov_splits(dataset, split_file)
+            train_indices, val_indices = load_fov_splits(
+                dataset, split_file, strict=split_strict
+            )
         else:
             train_indices, val_indices = create_fov_splits(
                 dataset, train_ratio=train_ratio, seed=seed
