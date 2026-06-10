@@ -169,6 +169,10 @@ class DCTConfig:
     vocabulary snapshot (``vocab.json``) shipped with the package, so
     ``predict()`` works without the (large) archive.
 
+    Note: ``DCTConfig`` is unrelated to
+    :data:`deepcell_types.DEFAULT_CONFIG` (a preprocessing op list for the
+    ``preprocess`` hook), despite the similar name.
+
     Parameters
     ----------
     zarr_path : str or Path, optional

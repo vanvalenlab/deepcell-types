@@ -66,7 +66,7 @@ clip step. Matches the production-pipeline value recovered from
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(frozen=True)
 class PreprocessedFov:
     """Result of ``preprocess_fov``.
 

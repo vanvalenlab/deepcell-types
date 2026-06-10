@@ -16,6 +16,7 @@ Inference
    PreprocessedFov
    make_preprocessor
    apply_config
+   DEFAULT_CONFIG
 
 Abstention
 ----------
