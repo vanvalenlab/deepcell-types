@@ -34,6 +34,104 @@ from .model import CellSighterModel, convert_batch_for_cellsighter
 from .transforms import build_cellsighter_train_transform
 
 
+def channel_presence(batch_data: BatchData, num_markers: int) -> torch.Tensor:
+    """Per-sample presence mask over global marker channels.
+
+    A global marker channel g is "present" for sample b iff some real (non-padded)
+    local channel of that sample scatters into g (i.e. ch_idx[b] == g for a valid
+    local channel). Absent channels are zero-padded by convert_batch_for_cellsighter
+    and must be excluded from normalization statistics.
+
+    Returns:
+        present: (B, num_markers) bool — True where a real marker channel exists.
+    """
+    ch_idx = batch_data.ch_idx  # (B, C_max), global marker idx or -1 for padding
+    valid = ch_idx >= 0  # (B, C_max)
+    B = ch_idx.shape[0]
+    present = ch_idx.new_zeros(B, num_markers, dtype=torch.bool)
+    ch_idx_clamped = ch_idx.clamp(min=0)
+    present.scatter_(1, ch_idx_clamped, valid)
+    return present  # (B, num_markers)
+
+
+def fit_per_modality_norm(
+    dataloader: DataLoader,
+    device: torch.device,
+    num_markers: int,
+    num_domains: int,
+    max_batches: int = 200,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Streaming per-(domain, global-marker-channel) z-score statistics.
+
+    Accumulates sum, sumsq and pixel-count over VALID pixels only (real channels
+    present for that cell; zero-padded absent channels excluded) across up to
+    max_batches training batches.
+
+    Returns:
+        mean: (num_domains, num_markers)
+        std:  (num_domains, num_markers) — floored at 1e-6.
+    """
+    csum = torch.zeros(num_domains, num_markers, dtype=torch.float64, device=device)
+    csumsq = torch.zeros(num_domains, num_markers, dtype=torch.float64, device=device)
+    ccount = torch.zeros(num_domains, num_markers, dtype=torch.float64, device=device)
+
+    for i, batch in enumerate(tqdm(dataloader, desc="Fitting norm stats")):
+        if i >= max_batches:
+            break
+        batch_data = BatchData(*batch)
+        batch_data.sample = batch_data.sample.to(device, non_blocking=True)
+        batch_data.spatial_context = batch_data.spatial_context.to(
+            device, non_blocking=True
+        )
+        batch_data.mask = batch_data.mask.to(device, non_blocking=True)
+        batch_data.ch_idx = batch_data.ch_idx.to(device, non_blocking=True)
+        domain_idx = batch_data.domain_idx.to(device, non_blocking=True)  # (B,)
+
+        x = convert_batch_for_cellsighter(batch_data, num_markers)
+        markers = x[:, :num_markers].double()  # (B, num_markers, H, W)
+        B, _, H, W = markers.shape
+        present = channel_presence(batch_data, num_markers)  # (B, num_markers) bool
+
+        # Per-(sample, channel) reductions over spatial pixels, gated by presence.
+        npix = float(H * W)
+        ch_sum = markers.sum(dim=(2, 3)) * present  # (B, num_markers)
+        ch_sumsq = (markers * markers).sum(dim=(2, 3)) * present
+        ch_count = present.double() * npix  # (B, num_markers)
+
+        # Scatter-add per-sample contributions into the sample's domain row.
+        idx = domain_idx.view(B, 1).expand(B, num_markers)  # (B, num_markers)
+        csum.scatter_add_(0, idx, ch_sum)
+        csumsq.scatter_add_(0, idx, ch_sumsq)
+        ccount.scatter_add_(0, idx, ch_count)
+
+    denom = ccount.clamp(min=1.0)
+    mean = csum / denom
+    var = (csumsq / denom) - mean * mean
+    std = var.clamp(min=0.0).sqrt().clamp(min=1e-6)
+    # Domains/channels never seen: mean 0, std 1 (identity-ish, no NaNs).
+    unseen = ccount == 0
+    mean = mean.masked_fill(unseen, 0.0)
+    std = std.masked_fill(unseen, 1.0)
+    return mean.float(), std.float()
+
+
+def apply_per_modality_norm(
+    x: torch.Tensor,
+    domain_idx: torch.Tensor,
+    mean: torch.Tensor,
+    std: torch.Tensor,
+    num_markers: int,
+) -> torch.Tensor:
+    """Z-score the marker channels of x in place by the sample's domain.
+
+    Mask channels (x[:, num_markers:]) are left untouched.
+    """
+    m = mean[domain_idx][:, :, None, None]  # (B, num_markers, 1, 1)
+    s = std[domain_idx][:, :, None, None]
+    x[:, :num_markers] = (x[:, :num_markers] - m) / s
+    return x
+
+
 def train_one_epoch(
     model: nn.Module,
     dataloader: DataLoader,
@@ -44,6 +142,7 @@ def train_one_epoch(
     num_markers: int = 269,
     scaler: torch.amp.GradScaler | None = None,
     amp_dtype: torch.dtype | None = None,
+    norm_stats: Tuple[torch.Tensor, torch.Tensor] | None = None,
 ) -> float:
     """
     Train for one epoch.
@@ -84,6 +183,25 @@ def train_one_epoch(
         # Convert to CellSighter format (globally aligned channels)
         x = convert_batch_for_cellsighter(batch_data, num_markers)
 
+        # Optional per-modality z-score of marker channels
+        if norm_stats is not None:
+            domain_idx = batch_data.domain_idx.to(device, non_blocking=True)
+            if not getattr(train_one_epoch, "_norm_dbg_printed", False):
+                mean_before = x[:, :num_markers].mean().item()
+                x = apply_per_modality_norm(
+                    x, domain_idx, norm_stats[0], norm_stats[1], num_markers
+                )
+                mean_after = x[:, :num_markers].mean().item()
+                print(
+                    f"  [per_modality_norm] x[:, :num_markers] mean "
+                    f"before={mean_before:.6f} after={mean_after:.6f}"
+                )
+                train_one_epoch._norm_dbg_printed = True
+            else:
+                x = apply_per_modality_norm(
+                    x, domain_idx, norm_stats[0], norm_stats[1], num_markers
+                )
+
         # Forward pass with optional AMP
         optimizer.zero_grad()
         if use_amp:
@@ -113,6 +231,7 @@ def evaluate(
     label_remap: torch.Tensor,
     num_markers: int = 269,
     amp_dtype: torch.dtype | None = None,
+    norm_stats: Tuple[torch.Tensor, torch.Tensor] | None = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[str], List[str], List[int]]:
     """
     Evaluate model on dataloader.
@@ -157,6 +276,13 @@ def evaluate(
 
         # Convert to CellSighter format (globally aligned channels)
         x = convert_batch_for_cellsighter(batch_data, num_markers)
+
+        # Optional per-modality z-score of marker channels
+        if norm_stats is not None:
+            domain_idx = batch_data.domain_idx.to(device, non_blocking=True)
+            x = apply_per_modality_norm(
+                x, domain_idx, norm_stats[0], norm_stats[1], num_markers
+            )
 
         # Forward pass (returns softmax probabilities in eval mode)
         if use_amp:
@@ -308,6 +434,22 @@ def evaluate(
     default=False,
     help="Disable torch.compile optimization",
 )
+@click.option(
+    "--no_weighted_sampler",
+    is_flag=True,
+    default=False,
+    help="Ablation: disable the sqrt-inverse-frequency WeightedRandomSampler on "
+    "the TRAINING loader (uniform sampling instead). Default OFF — faithful "
+    "CellSighter uses the weighted sampler.",
+)
+@click.option(
+    "--per_modality_norm",
+    is_flag=True,
+    default=False,
+    help="Apply per-(modality, global-marker-channel) z-score normalization to the "
+    "marker input channels. Stats are fit by a streaming pass over the training "
+    "loader before training. Default OFF — faithful CellSighter feeds raw [0,1].",
+)
 def main(
     model_name: str,
     device_num: str,
@@ -330,6 +472,8 @@ def main(
     val_every_n_epochs: int,
     no_amp: bool,
     no_compile: bool,
+    no_weighted_sampler: bool,
+    per_modality_norm: bool,
 ):
     """Train CellSighter baseline for cell type classification."""
     # Set device
@@ -408,6 +552,7 @@ def main(
         train_transform=cs_train_transform,
         split_strict=not allow_split_mismatch,
         seed=seed,
+        use_weighted_sampler=not no_weighted_sampler,  # ablation: off -> uniform
     )
     sel_loader = metadata.get("inner_val_loader")
     if sel_loader is None:
@@ -451,6 +596,35 @@ def main(
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
+    # Optional: fit per-(modality, marker-channel) z-score stats on the train loader
+    # before training. num_domains comes from the config's domain2idx mapping.
+    norm_stats = None
+    if per_modality_norm:
+        num_domains = dct_config.NUM_DOMAINS
+        print(
+            f"\nFitting per-modality norm stats "
+            f"(num_domains={num_domains}, num_markers={num_markers}, max 200 batches)..."
+        )
+        norm_mean, norm_std = fit_per_modality_norm(
+            train_loader, device, num_markers, num_domains, max_batches=200
+        )
+        print(
+            f"  norm_mean shape: {tuple(norm_mean.shape)}, "
+            f"norm_std shape: {tuple(norm_std.shape)}"
+        )
+        # Sample value from a populated (domain, channel) cell for evidence
+        # (unseen cells are left at mean=0/std=1; show a real fitted one).
+        seen = norm_mean.abs() > 0
+        if seen.any():
+            d0, c0 = (seen.nonzero()[0]).tolist()
+        else:
+            d0, c0 = 0, 0
+        print(
+            f"  sample mean[{d0},{c0}]={norm_mean[d0, c0].item():.6f}, "
+            f"std[{d0},{c0}]={norm_std[d0, c0].item():.6f}"
+        )
+        norm_stats = (norm_mean, norm_std)
+
     # Training loop
     print("\nTraining CellSighter model...")
     # Select on macro-F1 — the headline metric, matching the main model
@@ -474,6 +648,7 @@ def main(
             num_markers,
             scaler=scaler,
             amp_dtype=amp_dtype,
+            norm_stats=norm_stats,
         )
         print(f"  Train Loss: {train_loss:.4f}")
 
@@ -490,6 +665,7 @@ def main(
                 label_remap,
                 num_markers,
                 amp_dtype=amp_dtype,
+                norm_stats=norm_stats,
             )
             # Shared hierarchy collapse (Tcell + Stromal) — matches main model
             metrics = compute_baseline_metrics(
@@ -616,6 +792,7 @@ def main(
         label_remap,
         num_markers=num_markers,
         amp_dtype=amp_dtype,
+        norm_stats=norm_stats,
     )
     # Shared hierarchy collapse (Tcell + Stromal) — matches main model
     metrics = compute_baseline_metrics(

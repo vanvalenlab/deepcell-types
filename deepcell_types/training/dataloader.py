@@ -252,20 +252,39 @@ def create_dataloader(
                 seed=seed,
             )
             shuffle = False
-        elif fov_grouped_train and len(train_indices) > 0:
-            # One-pass uniform sampler that preserves FOV cache locality.
-            # `shuffle=True` over a multi-thousand-FOV archive forces every
-            # worker to cold-load a fresh ~1 GB FOV per cell, which on spawn
-            # workers manifests as the documented `--learn_mp_thresholds`
-            # deadlock. Same locality guarantee as `FOVGroupedSampler`, but
-            # with uniform coverage instead of weighted draws.
-            sampler = SequentialFOVGroupedSampler(
-                dataset.indices,
-                train_indices,
-                seed=seed,
-                max_samples=max_samples_per_epoch,
-            )
-            shuffle = False
+        elif len(train_indices) > 0 and (
+            fov_grouped_train or max_samples_per_epoch is not None
+        ):
+            if max_samples_per_epoch is not None:
+                # Ablation (use_weighted_sampler=False) WITH a per-epoch budget:
+                # draw `max_samples_per_epoch` cells UNIFORMLY (replacement) so
+                # the epoch budget matches the weighted-sampler arm exactly.
+                # This isolates the class-balancing effect from epoch size — the
+                # weighted arm and this arm see the same number of cells/epoch,
+                # differing only in the draw distribution (balanced vs uniform).
+                uniform_weights = torch.ones(len(train_indices))
+                sampler = FOVGroupedSampler(
+                    uniform_weights,
+                    min(len(train_indices), max_samples_per_epoch),
+                    dataset.indices,
+                    train_indices,
+                    replacement=True,
+                    seed=seed,
+                )
+                shuffle = False
+            else:
+                # One-pass uniform sampler that preserves FOV cache locality.
+                # `shuffle=True` over a multi-thousand-FOV archive forces every
+                # worker to cold-load a fresh ~1 GB FOV per cell, which on spawn
+                # workers manifests as the documented `--learn_mp_thresholds`
+                # deadlock. Same locality guarantee as `FOVGroupedSampler`, but
+                # with uniform coverage instead of weighted draws.
+                sampler = SequentialFOVGroupedSampler(
+                    dataset.indices,
+                    train_indices,
+                    seed=seed,
+                )
+                shuffle = False
 
         mp_ctx = multiprocessing_context if num_workers > 0 else None
         # Wire per-worker RNG seeding so augmentation (`_RandomHorizontalFlip`,
