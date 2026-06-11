@@ -316,7 +316,12 @@ def main(
 
     use_cuda = device.type == "cuda"
 
-    # Load train and test data
+    # Load train and test data. inner_val_ratio carves a FOV-grouped
+    # inner-validation set out of the TRAIN FOVs for model selection, so the
+    # reported (test) set never drives checkpoint selection. train_loader then
+    # iterates only inner-train cells; the held-out inner-val loader comes back
+    # via metadata["inner_val_loader"]. test_loader is the reported set,
+    # unchanged. Mirrors the XGBoost baseline's FOV-grouped early-stopping set.
     train_loader, test_loader, metadata = create_dataloader(
         zarr_dir=zarr_dir,
         dct_config=dct_config,
@@ -333,10 +338,20 @@ def main(
         max_samples_per_epoch=500_000,  # Cap iterations (~2K batches/epoch at bs=256)
         multiprocessing_context="spawn",  # zarr v3 is not fork-safe
         pin_memory=use_cuda,  # Faster CPU→GPU transfers
+        inner_val_ratio=0.1,
     )
+    sel_loader = metadata.get("inner_val_loader")
+    if sel_loader is None:
+        # FOV splits are required for a leakage-free inner-val carve.
+        raise click.UsageError(
+            "CellSighter model selection requires FOV splits (--split_mode fov "
+            "with a --split_file) so an inner-validation set can be carved from "
+            "the training FOVs."
+        )
 
     print(f"Active datasets: {metadata['active_datasets']}")
     print(f"Number of samples: {metadata['num_samples']}")
+    print(f"Inner-val cells (FOV-grouped, for selection): {metadata['num_inner_val']}")
 
     # Create model
     model = CellSighterModel(
@@ -390,13 +405,15 @@ def main(
         )
         print(f"  Train Loss: {train_loss:.4f}")
 
-        # Validate every N epochs + final epoch (matches original paper)
+        # Validate every N epochs + final epoch (matches original paper).
+        # Selection runs on the held-out inner-val set (never the reported test
+        # set) so the best checkpoint is not chosen on the set it is reported on.
         is_val_epoch = ((epoch + 1) % val_every_n_epochs == 0) or (epoch + 1 == epochs)
         if is_val_epoch:
-            # Evaluate (returns compact 0-indexed labels)
+            # Evaluate on inner-val (returns compact 0-indexed labels)
             y_true, y_pred, y_prob, _, _, _ = evaluate(
                 model,
-                test_loader,
+                sel_loader,
                 device,
                 label_remap,
                 num_markers,
@@ -412,12 +429,12 @@ def main(
                 ct2idx=compact_ct2idx,
             )
 
-            print(f"  Test Macro Accuracy: {metrics['macro_accuracy']:.4f}")
-            print(f"  Test Weighted Accuracy: {metrics['weighted_accuracy']:.4f}")
-            print(f"  Test Macro F1: {metrics['macro_f1']:.4f}")
-            print(f"  Test Weighted F1: {metrics['weighted_f1']:.4f}")
+            print(f"  Inner-val Macro Accuracy: {metrics['macro_accuracy']:.4f}")
+            print(f"  Inner-val Weighted Accuracy: {metrics['weighted_accuracy']:.4f}")
+            print(f"  Inner-val Macro F1: {metrics['macro_f1']:.4f}")
+            print(f"  Inner-val Weighted F1: {metrics['weighted_f1']:.4f}")
 
-            # Save best model
+            # Save best model (selected on inner-val macro accuracy)
             if metrics["macro_accuracy"] > best_macro_acc:
                 best_macro_acc = metrics["macro_accuracy"]
                 model_path.parent.mkdir(parents=True, exist_ok=True)

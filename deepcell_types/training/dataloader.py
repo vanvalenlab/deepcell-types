@@ -57,6 +57,8 @@ def create_dataloader(
     pin_memory=False,
     numpy_cache_max_bytes=None,
     fov_grouped_train: bool = False,
+    inner_val_ratio: float = 0.0,
+    inner_val_seed: int = 42,
 ):
     """Create dataloaders with factored representation.
 
@@ -88,10 +90,20 @@ def create_dataloader(
         pin_memory: Pin DataLoader memory for faster CPU→GPU transfers (default False)
         numpy_cache_max_bytes: Optional per-worker numpy cache budget. If None,
             defaults to a 2 GiB total budget divided across workers.
+        inner_val_ratio: If > 0 (and FOV splits are used), carve a FOV-grouped
+            inner-validation set out of the TRAIN indices for leakage-free model
+            selection. ``train_loader`` then iterates only the inner-train cells,
+            and ``metadata["inner_val_loader"]`` holds a DataLoader over the
+            held-out inner-val cells. The reported ``val_loader`` is unchanged.
+            Default 0.0 is a no-op (main-model training path is unaffected). Used
+            by the MAPS / CellSighter baselines so the reported set never drives
+            checkpoint selection.
+        inner_val_seed: Seed for the FOV-grouped inner-val carve (default 42).
 
     Returns:
         train_loader, val_loader, metadata dict
-        (train_loader is None if only_test=True)
+        (train_loader is None if only_test=True). When inner_val_ratio > 0,
+        metadata["inner_val_loader"] is the held-out inner-val DataLoader.
     """
     train_transform = _Compose(
         [
@@ -149,6 +161,34 @@ def create_dataloader(
             train_indices, val_indices = create_fov_splits(
                 dataset, train_ratio=train_ratio, seed=seed
             )
+
+        # Optionally carve a FOV-grouped inner-validation set out of the TRAIN
+        # indices, for callers that must not select on the reported (val) set
+        # — e.g. the MAPS / CellSighter baselines. The carve is at FOV
+        # granularity (whole FOVs go to inner-train or inner-val, never split),
+        # mirroring the XGBoost baseline's GroupShuffleSplit early-stopping set.
+        # Default inner_val_ratio=0.0 is a no-op, so the main-model training
+        # path is unchanged.
+        inner_val_indices = None
+        if inner_val_ratio and inner_val_ratio > 0.0 and len(train_indices) > 0:
+            fov_keys = [
+                (dataset.indices[i][6], dataset.indices[i][5]) for i in train_indices
+            ]  # (dataset_name, fov_name)
+            unique_fovs = sorted(set(fov_keys))
+            rng_iv = np.random.default_rng(inner_val_seed)
+            perm = rng_iv.permutation(len(unique_fovs))
+            n_iv = max(1, int(round(len(unique_fovs) * inner_val_ratio)))
+            n_iv = min(n_iv, len(unique_fovs) - 1)  # always keep ≥1 inner-train FOV
+            inner_val_fovs = {unique_fovs[p] for p in perm[:n_iv].tolist()}
+            inner_train_indices = [
+                i for i, k in zip(train_indices, fov_keys) if k not in inner_val_fovs
+            ]
+            inner_val_indices = [
+                i for i, k in zip(train_indices, fov_keys) if k in inner_val_fovs
+            ]
+            # Train only on inner-train; the sampler/loaders below all key off
+            # ``train_indices``, so reassigning here is sufficient.
+            train_indices = inner_train_indices
 
         train_subset = torch.utils.data.Subset(dataset, train_indices)
 
@@ -233,6 +273,22 @@ def create_dataloader(
             generator=val_gen,
             worker_init_fn=worker_init_fn,
         )
+        if inner_val_indices is not None:
+            inner_val_gen = make_generator(seed + 2)
+            inner_val_loader = DataLoader(
+                torch.utils.data.Subset(dataset, inner_val_indices),
+                batch_size=batch_size,
+                shuffle=False,
+                num_workers=num_workers,
+                prefetch_factor=2 if num_workers > 0 else None,
+                persistent_workers=pw,
+                multiprocessing_context=mp_ctx,
+                pin_memory=pin_memory,
+                generator=inner_val_gen,
+                worker_init_fn=worker_init_fn,
+            )
+            metadata["inner_val_loader"] = inner_val_loader
+            metadata["num_inner_val"] = len(inner_val_indices)
     else:
         # Legacy: cell-level random split
         if lengths is None:

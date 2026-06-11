@@ -35,6 +35,14 @@ python -m deepcell_types.baselines maps ...
   (`run.py:407`), matching the upstream default.
 - **Model: single hidden layer of width 512, dropout 0.25** (`model.py:28-29`),
   matching the upstream MAPS MLP.
-- **50 epochs, best epoch selected on validation loss** (`run.py:216-219`,
-  `run.py:409-463`). The full epoch count is run (no early stopping); the
-  lowest-val-loss checkpoint is kept.
+- **50 epochs, best epoch selected on a held-out inner-validation set**
+  (`run.py:216-219`, the inner-val carve and selection loop in `run.py`). The
+  full epoch count is run (no early stopping); the lowest-inner-val-loss
+  checkpoint is kept and then evaluated once on the reported test set.
+  - **Deviation from upstream:** canonical mahmoodlab/MAPS selects the best
+    epoch on the same set it reports. We instead carve a FOV-grouped
+    inner-validation set (10%, `GroupShuffleSplit`) out of the training FOVs and
+    select on it, so the reported test set never drives checkpoint selection
+    (selection-on-the-reported-set is leakage). This mirrors the XGBoost
+    baseline's FOV-grouped early-stopping set. As a consequence the model now
+    trains on ~90% of the training cells (the inner-val FOVs are held out).
