@@ -60,12 +60,18 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 DEFAULT_LOSS_WEIGHTS = {"ct": 1.0, "domain": 0.0, "marker_pos": 1.0}
 
 
-def compute_class_weights(dct_config, dataset, label_remap):
+def compute_class_weights(dct_config, dataset, label_remap, train_indices):
     """Compute sqrt-inverse-frequency class weights for FocalLoss.
 
-    Weights are indexed in compact 0-indexed label space.
+    Counts are taken over the TRAIN indices only — never the whole-archive
+    ``dataset.ct_counts``, which includes val/test cells. Using whole-archive
+    counts leaks evaluation-set label frequencies into the training objective
+    (over-weighting classes concentrated in val/test, under-weighting those
+    concentrated in train). Weights are indexed in compact 0-indexed label space.
     """
-    ct_counts = dataset.ct_counts
+    ct_counts = defaultdict(int)
+    for i in train_indices:
+        ct_counts[dataset.indices[i].ct_label_standard] += 1
     total = sum(ct_counts.values())
     n_classes = len(dct_config.ct2idx)
 
@@ -450,8 +456,11 @@ def main(
     train_dataset_ref = (
         train_loader.dataset.dataset.dataset
     )  # Augmented -> Subset -> FullImageDataset
+    train_indices = (
+        train_loader.dataset.dataset.indices
+    )  # Subset.indices = the train cells (never val/test)
     class_weights = compute_class_weights(
-        dct_config, train_dataset_ref, label_remap
+        dct_config, train_dataset_ref, label_remap, train_indices
     ).to(device)
 
     # Build model
