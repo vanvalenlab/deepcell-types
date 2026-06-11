@@ -41,7 +41,7 @@ python -m deepcell_types.baselines cellsighter ...
   repo constructs an `ExponentialLR` scheduler but never calls
   `scheduler.step()`, so it trains at constant LR; we reproduce that exactly and
   do not step a scheduler (`run.py:389-393`).
-- **Best epoch selected on a held-out inner-validation set by macro-accuracy**;
+- **Best epoch selected on a held-out inner-validation set by macro-F1**;
   validation runs every `val_every_n_epochs` (default 10) plus the final epoch,
   matching the upstream cadence.
   - **Deviation from upstream:** the original CellSighter selects the best epoch
@@ -51,5 +51,6 @@ python -m deepcell_types.baselines cellsighter ...
     selection (selection-on-the-reported-set is leakage). This mirrors the
     XGBoost baseline's FOV-grouped early-stopping set. As a consequence the
     model now trains on ~90% of the training cells (the inner-val FOVs are held
-    out). Selection still uses macro-accuracy; switching it to macro-F1 (the
-    headline metric) is a separate, not-yet-applied change.
+    out). Selection uses macro-F1 — the headline metric, matching the main
+    model (`scripts/train.py` selects on `val_macro_f1`) and the other
+    baselines; upstream CellSighter selected on macro-accuracy.

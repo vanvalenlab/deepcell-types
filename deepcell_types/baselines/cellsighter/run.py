@@ -383,9 +383,11 @@ def main(
 
     # Training loop
     print("\nTraining CellSighter model...")
-    # Use -inf so the first val pass always wins, even if macro_accuracy is exactly 0
+    # Select on macro-F1 — the headline metric, matching the main model
+    # (scripts/train.py selects on val_macro_f1) and the other baselines. Use
+    # -inf so the first val pass always wins, even if macro_f1 is exactly 0
     # (happens on smoke runs that don't train long enough to predict the majority class).
-    best_macro_acc = float("-inf")
+    best_macro_f1 = float("-inf")
     model_path = Path(f"models/cellsighter_{model_name}.pth")
 
     for epoch in range(epochs):
@@ -434,9 +436,9 @@ def main(
             print(f"  Inner-val Macro F1: {metrics['macro_f1']:.4f}")
             print(f"  Inner-val Weighted F1: {metrics['weighted_f1']:.4f}")
 
-            # Save best model (selected on inner-val macro accuracy)
-            if metrics["macro_accuracy"] > best_macro_acc:
-                best_macro_acc = metrics["macro_accuracy"]
+            # Save best model (selected on inner-val macro-F1)
+            if metrics["macro_f1"] > best_macro_f1:
+                best_macro_f1 = metrics["macro_f1"]
                 model_path.parent.mkdir(parents=True, exist_ok=True)
                 # Strip _orig_mod. prefix from torch.compile'd models
                 state_dict = {
@@ -448,7 +450,7 @@ def main(
                         "epoch": epoch + 1,
                         "model_state_dict": state_dict,
                         "optimizer_state_dict": optimizer.state_dict(),
-                        "macro_accuracy": best_macro_acc,
+                        "macro_f1": best_macro_f1,
                     },
                     model_path,
                 )
@@ -460,7 +462,7 @@ def main(
     load_target = getattr(model, "_orig_mod", model)
     load_target.load_state_dict(best_checkpoint["model_state_dict"])
     print(
-        f"Loaded best model from {model_path} (epoch {best_checkpoint['epoch']}, macro_acc={best_checkpoint['macro_accuracy']:.4f})"
+        f"Loaded best model from {model_path} (epoch {best_checkpoint['epoch']}, macro_f1={best_checkpoint['macro_f1']:.4f})"
     )
 
     # Final evaluation (returns compact 0-indexed labels and probabilities)
@@ -495,7 +497,7 @@ def main(
     print(f"  Weighted Accuracy: {metrics['weighted_accuracy']:.4f}")
     print(f"  Macro F1: {metrics['macro_f1']:.4f}")
     print(f"  Weighted F1: {metrics['weighted_f1']:.4f}")
-    print(f"  Best Macro Accuracy: {best_macro_acc:.4f}")
+    print(f"  Best Inner-val Macro F1: {best_macro_f1:.4f}")
 
     # Map compact labels back to original ct2idx values for saving
     y_true_orig = np.array([compact_to_orig[int(y)] for y in y_true_compact])
