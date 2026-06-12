@@ -245,7 +245,13 @@ def _normalize_per_channel(image):
     min_vals = np.min(image, axis=(0, 1), keepdims=True)
     ptp_vals = np.ptp(image, axis=(0, 1), keepdims=True)
     ptp_vals[ptp_vals == 0] = 1.0
-    return (image - min_vals) / ptp_vals
+    # In-place to avoid two extra full-array copies (`image - min` then `/ ptp`).
+    # `image` is freshly allocated by the percentile step above and owned solely
+    # here, so mutating it is safe. Elementwise result is bit-identical to
+    # (image - min_vals) / ptp_vals for the float32 input on this path.
+    image -= min_vals
+    image /= ptp_vals
+    return image
 
 
 def _percentile_threshold_nonzero(image, percentile=99.9):
@@ -258,16 +264,19 @@ def _percentile_threshold_nonzero(image, percentile=99.9):
     published checkpoint was trained against — see
     https://github.com/vanvalenlab/deepcell-toolbox/blob/e8c1277/deepcell_toolbox/processing.py#L104
     """
-    processed_image = np.zeros_like(image)
+    # Clip in place per channel instead of allocating a full zeros_like plus a
+    # per-channel copy. For an all-zero channel there is nothing above the
+    # threshold so it stays zero (matching the old zeros_like default); for a
+    # channel with signal, np.minimum(.., img_max) clips values above the
+    # nonzero-pixel percentile, identical to the old boolean-mask assignment
+    # (both store float32(img_max)). Net: one full-array allocation saved.
     for chan in range(image.shape[-1]):
-        current_img = np.copy(image[..., chan])
+        current_img = image[..., chan]
         non_zero_vals = current_img[np.nonzero(current_img)]
         if len(non_zero_vals) > 0:
             img_max = np.percentile(non_zero_vals, percentile)
-            threshold_mask = current_img > img_max
-            current_img[threshold_mask] = img_max
-            processed_image[..., chan] = current_img
-    return processed_image
+            np.minimum(current_img, img_max, out=current_img)
+    return image
 
 
 def _pad_cell(X, y, crop_size):
