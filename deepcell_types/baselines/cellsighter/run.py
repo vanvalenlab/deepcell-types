@@ -450,6 +450,20 @@ def evaluate(
     "marker input channels. Stats are fit by a streaming pass over the training "
     "loader before training. Default OFF — faithful CellSighter feeds raw [0,1].",
 )
+@click.option(
+    "--max_samples_per_epoch",
+    type=int,
+    default=500_000,
+    help="Cap cells drawn per training epoch (default 500000). Lower it for a fast "
+    "undertrained signal sweep.",
+)
+@click.option(
+    "--num_workers",
+    type=int,
+    default=8,
+    help="DataLoader workers (default 8). Lower it to reduce memory under "
+    "concurrent runs.",
+)
 def main(
     model_name: str,
     device_num: str,
@@ -474,6 +488,8 @@ def main(
     no_compile: bool,
     no_weighted_sampler: bool,
     per_modality_norm: bool,
+    max_samples_per_epoch: int,
+    num_workers: int,
 ):
     """Train CellSighter baseline for cell type classification."""
     # Set device
@@ -536,13 +552,13 @@ def main(
         keep_datasets=keep_datasets,
         batch_size=batch_size,
         num_dropout_channels=0,  # No channel dropout for CellSighter
-        num_workers=8,
+        num_workers=num_workers,
         only_test=False,
         use_fov_splits=(split_mode == "fov"),
         split_file=split_file,
         skip_distance_transform=True,  # CellSighter doesn't use distance transform
         persistent_workers=True,
-        max_samples_per_epoch=500_000,  # Cap iterations (~2K batches/epoch at bs=256)
+        max_samples_per_epoch=max_samples_per_epoch,
         multiprocessing_context="spawn",  # zarr v3 is not fork-safe
         pin_memory=use_cuda,  # Faster CPU→GPU transfers
         inner_val_ratio=0.1,
@@ -624,6 +640,12 @@ def main(
             f"std[{d0},{c0}]={norm_std[d0, c0].item():.6f}"
         )
         norm_stats = (norm_mean, norm_std)
+        # Reap the fit-pass dataloader workers before training spawns a fresh
+        # set — otherwise spawn workers briefly double (~16) and OOM under
+        # concurrent runs ("DataLoader worker exited unexpectedly").
+        import gc
+
+        gc.collect()
 
     # Training loop
     print("\nTraining CellSighter model...")
@@ -753,13 +775,13 @@ def main(
             keep_datasets=keep_datasets,
             batch_size=batch_size,
             num_dropout_channels=0,
-            num_workers=8,
+            num_workers=num_workers,
             only_test=False,
             use_fov_splits=True,
             split_file=test_split_file,
             skip_distance_transform=True,
             persistent_workers=True,
-            max_samples_per_epoch=500_000,
+            max_samples_per_epoch=max_samples_per_epoch,
             multiprocessing_context="spawn",
             pin_memory=use_cuda,
             crop_size=crop_size,
