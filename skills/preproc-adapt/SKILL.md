@@ -231,15 +231,24 @@ hand — that is exactly how pre-registration gets skipped. Instead:
    FOV's typical channel (a background pedestal) with low dynamic range, especially
    when the cell type that marker defines is also over-called. These are extra
    candidates the ratio gates miss.
-4. **The artifact signature is NECESSARY but NOT SUFFICIENT — always confirm with the
-   loop.** A bright channel can be a real abundant marker, not an artifact. Test each
-   scan-flagged channel by suppressing it (targeted `background_subtract_per_channel`,
-   or `channel_weight` after `min_max_normalize`) and re-running: trust it only if the
-   call drops *and multiple lineages move toward biology*. In practice a high-background
-   CD15 was a real artifact (Neutrophil 41%→~15%, endothelial/macrophage/lymphocyte all
-   rose), while equally-bright ASMA (gut muscularis) and OLFM4 (gut epithelium) were
-   robust to suppression — real biology. Acting on the scan alone would have fabricated
-   those edits; only the loop edit tells artifact from a genuinely bright marker.
+4. **The artifact signature is NECESSARY but NOT SUFFICIENT — and the *kind* of edit
+   that "fixes" it matters.** A bright channel can be a real abundant marker, not an
+   artifact, so confirm with the loop — but be careful which op you trust:
+   - A **flat high pedestal is already removed by `min_max_normalize`** (which the model
+     always applies), so the principled `background_subtract_per_channel` often changes
+     little — that is the *correct* outcome and tells you the pedestal was never the
+     driver.
+   - A drop produced **only** by `channel_weight` / `channel_drop` (uniformly dimming the
+     marker) is the **circular** edit — dimming any marker mechanically reduces its cell
+     type, so it does *not* prove an artifact, even if multiple lineages shift.
+   Worked example: spleen FOVs were ~40% Neutrophil with a high-background CD15. Dimming
+   CD15 (`channel_weight 0.2`) cut it to ~17% and other lineages rose — but the
+   principled `background_subtract_per_channel` on CD15 barely moved it (41%→38%),
+   because the calls came from genuinely CD15-bright cells, not the pedestal. Verdict:
+   **not a clean preprocessing-fixable artifact** — a channel-QC / model-prior issue to
+   flag, not edit. Equally-bright ASMA (gut muscularis) and OLFM4 (gut epithelium) were
+   likewise robust = real biology. Trust an edit only when a *background/artifact*
+   removal (not mere signal suppression) moves multiple lineages toward biology.
 5. **Run the per-FOV loop only on the genuine candidates** (composition- and
    scan-flagged). For coverage caveats, panel inspection already settles it (you can't
    `background_subtract` your way to a marker that isn't there) — no run needed; record
