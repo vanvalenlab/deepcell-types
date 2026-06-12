@@ -48,6 +48,26 @@ def _min_max(x):
     return (x - mn) / ptp
 
 
+def _background_subtract_per_channel(x, p, channels=None):
+    """Per-channel subtract the p-th percentile of *nonzero* pixels (the channel's
+    own background floor), clipped at 0.
+
+    Unlike ``background_subtract`` (one global value for every channel), this
+    removes each channel's own pedestal: a high-background channel (e.g. a poorly
+    normalized CD15 sitting on a large floor) gets a large subtraction while a
+    clean channel whose floor is already near zero is barely touched. Restrict to
+    specific channels with ``channels`` (indices); ``None`` applies to all.
+    """
+    out = x.copy()
+    sel = range(x.shape[0]) if channels is None else channels
+    for c in sel:
+        nz = out[c][np.nonzero(out[c])]
+        if nz.size:
+            floor = np.percentile(nz, p)
+            out[c] = np.clip(out[c] - floor, 0, None)
+    return out
+
+
 def _hot_pixel_removal(x, z):
     out = x.copy()
     for c in range(x.shape[0]):
@@ -74,6 +94,10 @@ def apply_config(raw, channel_names, config):
             x = np.log1p(np.clip(x, 0, None))
         elif op == "background_subtract":
             x = np.clip(x - float(step["value"]), 0, None)
+        elif op == "background_subtract_per_channel":
+            names = step.get("names")
+            sel = [idx[n] for n in names if n in idx] if names else None
+            x = _background_subtract_per_channel(x, float(step.get("p", 25.0)), sel)
         elif op == "gamma":
             mx = x.max(axis=(1, 2), keepdims=True)
             mx[mx == 0] = 1.0
