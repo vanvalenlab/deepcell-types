@@ -100,6 +100,15 @@ Use this when a full `channel_drop` over-corrects.
 
 ## The per-FOV loop (do these IN ORDER)
 
+> **GATE — do not skip.** Do **not** call `predict` for judgement until
+> `expectations.json` exists and is committed (step 1). If predictions already
+> exist (e.g. a cohort was scored before you started), pre-registration is still
+> possible and still required: write the expectation as a **pure function of
+> inputs** — `f(tissue, panel, model class vocab)` — that reads **no** prediction.
+> An expectation derived only from inputs cannot be contaminated by the outputs it
+> judges, regardless of when you write it. Inline rules written after eyeballing
+> predictions are the failure this gate exists to prevent.
+
 ### 1. Pre-register the expectation — FROZEN, before any prediction
 **First inspect two things — the panel AND the model's class vocabulary.**
 - **Panel** (`channel_names`): a lineage with no marker in the panel is undetectable and
@@ -146,8 +155,18 @@ you'll likely act on it in step 4.
   ratios, not just the lineage rollup — a spurious type can hide inside a *correct*
   lineage (a panel with no mast marker had a third of cells called Mast, which rolls into
   Myeloid, so a lineage-only check passed silently). Flag any type predicted above a small
-  fraction (~10%) whose defining marker is absent from the panel; it is almost always
-  spurious. **This cell-type-ratio check is the single most useful part of the loop** — it
+  fraction (~10%) whose defining marker is absent from the panel.
+
+  **Split marker-absent calls into two kinds — they are not the same.** A marker-absent
+  type that is **not** an expected constituent of this tissue (Mast in a no-mast lymph
+  node) is a spurious **candidate** → send it to step 4. A marker-absent type that **is**
+  expected tissue biology (trophoblast/EVT in decidua with no HLA-G; enterocytes in gut
+  with no CDX2; NK in a node with no CD56) is a **coverage caveat** — preprocessing cannot
+  conjure a missing marker, so **record it and do not loop it**. Pre-register these
+  expected-but-unconfirmable types per tissue so they don't masquerade as spurious;
+  conflating the two over-flags massively.
+
+  **This cell-type-ratio check is the single most useful part of the loop** — it
   distinguishes a fixable input artifact from an unfixable model prior.
 
 If it already passes → **STOP, make no edit.** Most FOVs need none; fabricating edits is
@@ -180,9 +199,40 @@ Stop on success, after **≤10 rounds**, or when you hit a floor — whichever c
   modality saturates to one lineage regardless). Flag for retraining.
 Record the final config + before/after composition.
 
+## Cohort / batch mode (many FOVs)
+The loop above is per-FOV. To apply it across a whole cohort (e.g. an archive of
+hundreds of FOVs already scored), do **not** eyeball predictions and write rules by
+hand — that is exactly how pre-registration gets skipped. Instead:
+
+1. **Generate expectations programmatically as a pure function of inputs.** Write a
+   small generator that, for each FOV, emits the step-1 expectation from
+   `f(tissue, resolved panel, model class vocab)` only — reading **no** prediction.
+   Resolve the panel with the *same* path inference uses (`config.resolve_channel_name`)
+   so `panel_can_detect` reflects what the model actually sees, and **assert every
+   marker name exists in the model registry** (catches typos / phantom markers). Per
+   tissue, pre-register `expected_unconfirmable` — expected constituents whose specific
+   marker the panel commonly lacks (trophoblast/EVT, gut enterocytes/muscularis, nodal
+   NK). **Commit `expectations.json` before flagging** (a sha/commit is your freeze).
+2. **Flag against the frozen file**, splitting each flag into a **candidate** (possible
+   fixable artifact) vs a **coverage caveat** (marker-absent but expected biology —
+   logged, not looped). A well-behaved model on in-distribution tissue should yield a
+   *small* candidate set and a larger, explicitly-recorded caveat set. A flagger that
+   marks a large fraction of the cohort is over-flagging — usually an incomplete
+   defining-marker list or the candidate/caveat split missing.
+3. **Run the per-FOV loop only on the genuine candidates.** For coverage caveats,
+   panel inspection already settles it (you can't `background_subtract` your way to a
+   marker that isn't there) — no run needed; record and move on.
+
+This is the same discipline as the single-FOV loop, just with the expectation frozen
+in bulk up front. The integrity property is identical: the criterion is a function of
+inputs, committed before any prediction is judged.
+
 ## Guardrails (load-bearing)
-- **Pre-registration first.** If you didn't freeze `expectations.json` before step 2,
-  you can't trust the result — redo.
+- **Pre-registration first (see the GATE at the top of the loop).** If you didn't
+  freeze `expectations.json` before judging any prediction, you can't trust the result —
+  redo. If predictions already exist, this is still required: write the expectation as a
+  prediction-blind function of inputs and commit it. Rules written after eyeballing
+  outputs are not a pre-registration.
 - **Reject degenerate edits.** Log abstention + mean confidence every round. An edit
   that only inflates confidence or collapses lineage diversity to hit the expectation,
   without genuinely improving plausibility, is rejected.
