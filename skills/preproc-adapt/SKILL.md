@@ -84,7 +84,8 @@ Available ops (apply in listed order; always end with a normalize so the model s
 |---|---|---|
 | `clip_percentile` | `p` | per-channel clip at the p-th percentile of nonzero pixels (tames bright outliers) |
 | `log1p` | — | `log1p(max(x,0))` |
-| `background_subtract` | `value` | `clip(x - value, 0, None)` — removes a pervasive background floor |
+| `background_subtract` | `value` | `clip(x - value, 0, None)` — removes a pervasive background floor (one global value for all channels) |
+| `background_subtract_per_channel` | `p` (percentile, default 25), optional `names:[...]` | subtract each channel's own p-th-percentile nonzero floor — removes a high-background *pedestal* on one channel without touching clean channels; the principled fix for a saturated/high-background channel |
 | `gamma` | `g` | per-channel gamma on `[0,max]` |
 | `denoise` | `kind` (median/gaussian), `size` | spatial denoise |
 | `hot_pixel_removal` | `z` | clip per-channel hot pixels above `z` MADs |
@@ -178,7 +179,7 @@ then pick the op whose mechanism targets it:
 
 | Likely cause | Op family (mechanism) |
 |---|---|
-| A channel positive in most pixels / non-specific high background | suppress it: `channel_drop`, or `background_subtract` at the floor |
+| A channel positive in most pixels / non-specific high background | suppress it: `background_subtract_per_channel` on that channel (keeps the bright real signal, removes the pedestal), `channel_weight` after `min_max_normalize`, or `channel_drop` for full removal |
 | The canonical marker of a lineage the panel shouldn't show, driving that lineage | down-weight or drop that marker (`channel_weight` must come *after* `min_max_normalize` to have any effect; `channel_drop` for full removal) |
 | A spurious type with a punctate / granular appearance | spatial denoise: `hot_pixel_removal` or `denoise` |
 | Bright outliers dominating after normalization | compress dynamic range: lower `clip_percentile` p, or `log1p` |
@@ -219,9 +220,30 @@ hand — that is exactly how pre-registration gets skipped. Instead:
    *small* candidate set and a larger, explicitly-recorded caveat set. A flagger that
    marks a large fraction of the cohort is over-flagging — usually an incomplete
    defining-marker list or the candidate/caveat split missing.
-3. **Run the per-FOV loop only on the genuine candidates.** For coverage caveats,
-   panel inspection already settles it (you can't `background_subtract` your way to a
-   marker that isn't there) — no run needed; record and move on.
+3. **Also run a channel-artifact scan — composition gates alone are not enough.** A
+   composition flagger can only see problems that distort the lineage/cell-type
+   *ratios*. It is **blind** to a high-background / saturated channel inflating a call
+   that still rolls up into a lineage the tissue is *expected* to be dominated by (a
+   high-background CD15 made spleen FOVs ~40% Neutrophil — Myeloid is expected-dominant
+   in spleen, so every composition gate passed). So scan every FOV's channels
+   independently of composition: per channel compute how *widespread* the signal is and
+   its **dynamic range** (`p99/median`). Flag a channel whose median sits far above the
+   FOV's typical channel (a background pedestal) with low dynamic range, especially
+   when the cell type that marker defines is also over-called. These are extra
+   candidates the ratio gates miss.
+4. **The artifact signature is NECESSARY but NOT SUFFICIENT — always confirm with the
+   loop.** A bright channel can be a real abundant marker, not an artifact. Test each
+   scan-flagged channel by suppressing it (targeted `background_subtract_per_channel`,
+   or `channel_weight` after `min_max_normalize`) and re-running: trust it only if the
+   call drops *and multiple lineages move toward biology*. In practice a high-background
+   CD15 was a real artifact (Neutrophil 41%→~15%, endothelial/macrophage/lymphocyte all
+   rose), while equally-bright ASMA (gut muscularis) and OLFM4 (gut epithelium) were
+   robust to suppression — real biology. Acting on the scan alone would have fabricated
+   those edits; only the loop edit tells artifact from a genuinely bright marker.
+5. **Run the per-FOV loop only on the genuine candidates** (composition- and
+   scan-flagged). For coverage caveats, panel inspection already settles it (you can't
+   `background_subtract` your way to a marker that isn't there) — no run needed; record
+   and move on.
 
 This is the same discipline as the single-FOV loop, just with the expectation frozen
 in bulk up front. The integrity property is identical: the criterion is a function of
