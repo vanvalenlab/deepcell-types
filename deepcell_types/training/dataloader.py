@@ -192,6 +192,7 @@ def create_dataloader(
                 dataset.indices,
                 train_indices,
                 seed=seed,
+                max_samples=max_samples_per_epoch,
             )
             shuffle = False
 

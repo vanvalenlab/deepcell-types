@@ -164,7 +164,9 @@ class SequentialFOVGroupedSampler(Sampler):
     produces under spawn workers on a large multi-FOV archive.
     """
 
-    def __init__(self, dataset_indices, train_indices, seed: int = 42):
+    def __init__(
+        self, dataset_indices, train_indices, seed: int = 42, max_samples=None
+    ):
         """
         Args:
             dataset_indices: ``dataset.indices`` list (full dataset).
@@ -184,6 +186,15 @@ class SequentialFOVGroupedSampler(Sampler):
         self._ds_idx_map = [int(dataset_indices[i].ds_idx) for i in train_indices]
         self._base_seed = int(seed)
         self._epoch = 0
+        # Optional per-epoch cap. When set, each epoch emits the first
+        # ``max_samples`` positions in the (per-epoch reshuffled) FOV-group
+        # order, so successive epochs draw a different cache-local subset of
+        # FOVs and full coverage is reached across epochs — uniform-distribution
+        # counterpart to ``FOVGroupedSampler``'s ``num_samples`` cap.
+        self._max = None if max_samples is None else int(max_samples)
+
+    def _cap(self):
+        return self._n if self._max is None else min(self._max, self._n)
 
     def __iter__(self):
         if self._n == 0:
@@ -198,8 +209,14 @@ class SequentialFOVGroupedSampler(Sampler):
         ordered_ds = list(groups.keys())
         rng.shuffle(ordered_ds)
 
+        cap = self._cap()
+        emitted = 0
         for ds_idx in ordered_ds:
-            yield from groups[ds_idx]
+            for pos in groups[ds_idx]:
+                if emitted >= cap:
+                    return
+                yield pos
+                emitted += 1
 
     def __len__(self):
-        return self._n
+        return self._cap()

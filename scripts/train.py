@@ -298,6 +298,11 @@ def forward_one_batch(
     help="Disable per-class weights in FocalLoss (use when WeightedRandomSampler is active to avoid double-weighting)",
 )
 @click.option(
+    "--no_weighted_sampler",
+    is_flag=True,
+    help="Disable the sqrt-inv-freq WeightedRandomSampler and train on the natural class distribution (lifts macro-F1; see xgb_dct_gap probes)",
+)
+@click.option(
     "--hierarchical_weight",
     type=float,
     default=0.0,
@@ -370,6 +375,7 @@ def main(
     domain_weight,
     marker_pos_weight,
     no_class_weights,
+    no_weighted_sampler,
     hierarchical_weight,
     enable_amp,
     spatial_pool_size,
@@ -411,7 +417,11 @@ def main(
         use_fov_splits=(split_mode == "fov"),
         train_ratio=0.8,
         seed=seed,
-        use_weighted_sampler=True,
+        use_weighted_sampler=not no_weighted_sampler,
+        # With the weighted sampler off, fall back to the cache-local uniform
+        # FOV-grouped sampler (natural class distribution) rather than
+        # shuffle=True, which triggers the cold-zarr I/O storm on this archive.
+        fov_grouped_train=no_weighted_sampler,
         split_file=split_file,
         skip_distance_transform=skip_distance_transform,
         persistent_workers=num_workers > 0,
