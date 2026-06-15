@@ -121,9 +121,15 @@ pip install "deepcell-types[train] @ git+https://github.com/vanvalenlab/deepcell
 
 Training entry points live under `scripts/`:
 
-- `scripts/train.py` — main training loop.
+- `scripts/train.py` — main training loop (stage 1: backbone, weighted sampler on).
+- `scripts/retrain_head.py` — stage 2: freeze the backbone, retrain the residual-MLP
+  cell-type head on the natural class distribution (sampler off). This decoupled
+  recipe is the default and produces the best model (`ct_head_arch="resmlp"`).
 - `scripts/pretrain.py` — masked-marker pretraining.
 - `scripts/predict.py` — batched evaluation over a zarr archive.
+- `scripts/evaluate_on_test.sh` — **canonical evaluation on the held-out 129-FOV
+  test split** (`splits/fov_split_test_current.json`). All headline cell-type numbers
+  are reported on this frozen, leakage-free test set; this is the default eval.
 
 All training scripts read configuration from a TissueNet zarr v3 archive.
 Pass `--zarr_dir` (training scripts) or set `DEEPCELL_TYPES_ZARR_PATH`
