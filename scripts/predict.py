@@ -207,6 +207,7 @@ def main(
         n_heads=ckpt_config.get("n_heads", 8),
         use_conditioned_mp_head=ckpt_config.get("use_conditioned_mp_head", True),
         compat_marker0_zero=ckpt_config.get("compat_marker0_zero", True),
+        ct_head_arch=ckpt_config.get("ct_head_arch", "mlp"),
     )
 
     if isinstance(checkpoint, dict) and "model" in checkpoint:

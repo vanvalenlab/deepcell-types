@@ -225,6 +225,15 @@ def _build_model(checkpoint, dct_config, device):
     n_heads = int(config.get("n_heads", 8))
     compat_marker0_zero = bool(config.get("compat_marker0_zero", True))
 
+    # Cell-type head architecture: auto-detect from the state_dict (the residual
+    # MLP head has a distinctive ``ct_head.inp.0.weight``), falling back to the
+    # saved config, then to the legacy "mlp". This makes resMLP checkpoints load
+    # without any caller change.
+    if "ct_head.inp.0.weight" in state_dict:
+        ct_head_arch = "resmlp"
+    else:
+        ct_head_arch = config.get("ct_head_arch", "mlp")
+
     model = create_model(
         dct_config,
         marker_embeddings,
@@ -236,6 +245,7 @@ def _build_model(checkpoint, dct_config, device):
         spatial_pool_size=_infer_spatial_pool_size(state_dict),
         use_conditioned_mp_head=use_conditioned_mp_head,
         compat_marker0_zero=compat_marker0_zero,
+        ct_head_arch=ct_head_arch,
     )
     model.load_state_dict(state_dict)
     return model.to(device)
