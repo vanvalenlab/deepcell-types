@@ -540,6 +540,35 @@ def main(
     # The val loader from create_dataloader is unaugmented (AugmentedDataset
     # wraps only the train subset), so this is a clean test-time pass.
     if test_split_file:
+        # Fairness guard: the held-out test FOVs (the 'val' set of
+        # test_split_file) must be disjoint from the training FOVs (the 'train'
+        # set of split_file), or the reported number leaks training data.
+        # load_fov_splits only checks overlap *within* a single file, so this
+        # cross-file overlap must be checked explicitly.
+        if split_file:
+            import json
+
+            with open(split_file) as f:
+                _train_fovs = {
+                    (ds, fov)
+                    for ds, fovs in json.load(f).get("train", {}).items()
+                    for fov in fovs
+                }
+            with open(test_split_file) as f:
+                _test_fovs = {
+                    (ds, fov)
+                    for ds, fovs in json.load(f).get("val", {}).items()
+                    for fov in fovs
+                }
+            _leak = _train_fovs & _test_fovs
+            if _leak:
+                raise click.UsageError(
+                    f"{len(_leak)} FOV(s) appear in both the training split "
+                    f"(--split_file 'train') and the held-out test split "
+                    f"(--test_split_file 'val'), e.g. {sorted(_leak)[:5]}. The "
+                    "reported number would leak training data; use coordinated "
+                    "splits (see scripts/split_val_for_test.py)."
+                )
         print(f"\nRebuilding eval loader on held-out test split: {test_split_file}")
         _, test_loader, _ = create_dataloader(
             zarr_dir=zarr_dir,
@@ -561,6 +590,14 @@ def main(
             output_size=crop_size,
             mask_intensities=mask_self,
             split_strict=not allow_split_mismatch,
+        )
+    else:
+        print(
+            "\nWARNING: --test_split_file not set. Final evaluation reuses the "
+            "val loader that was also used for checkpoint selection, so this "
+            "number is selection-on-the-eval-set and is NOT comparable to a "
+            "held-out published baseline. Pass --test_split_file for any "
+            "reported number (see scripts/split_val_for_test.py)."
         )
 
     # Final evaluation (returns compact 0-indexed labels and probabilities)
