@@ -145,6 +145,12 @@ class PatchDataset(IterableDataset):
         Patchify the raw and mask data into smaller patches
         """
         worker_info = get_worker_info()
+        if self.raw is None:
+            raise RuntimeError(
+                "PatchDataset is single-pass: its source array is released "
+                "after the first iteration to free memory. Construct a new "
+                "PatchDataset to iterate again."
+            )
         # Release the dataset's reference to the full-resolution source array
         # before iterating, so it can be freed as soon as patch_generator
         # rescales it (the rescaled copy is roughly half the size at these MPPs).
