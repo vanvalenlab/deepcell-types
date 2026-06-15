@@ -300,7 +300,7 @@ def forward_one_batch(
 @click.option(
     "--no_weighted_sampler",
     is_flag=True,
-    help="Disable the sqrt-inv-freq WeightedRandomSampler and train on the natural class distribution (lifts macro-F1; see xgb_dct_gap probes)",
+    help="Disable the sqrt-inv-freq WeightedRandomSampler and train on the natural class distribution. EXPERIMENTAL: end-to-end sampler-off training erodes the backbone; the canonical sampler-off recipe is the two-stage scripts/retrain_head.py (frozen backbone + residual-MLP head on the natural distribution).",
 )
 @click.option(
     "--hierarchical_weight",

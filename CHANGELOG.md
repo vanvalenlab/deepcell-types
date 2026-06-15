@@ -34,6 +34,14 @@ full canonical metadata. **Breaking changes** are noted below.
   focused submodules `training/{archive,patch,metrics,baseline_features}.py`.
 - End-to-end training scripts under `scripts/` (`train.py`,
   `pretrain.py`, `predict.py`).
+- **Residual-MLP cell-type head (`ct_head_arch="resmlp"`).** A width-512,
+  depth-4 residual-MLP head trained on the frozen backbone via
+  `scripts/retrain_head.py` (the two-stage sampler-off recipe). Checkpoints
+  record `config["ct_head_arch"]` and `predict()` auto-detects a `resmlp` head
+  from the state dict. The legacy 3-layer MLP (`ct_head_arch="mlp"`) remains
+  the default, so existing v0.1.0 checkpoints load unchanged — `resmlp`
+  checkpoints have a different head shape and are NOT interchangeable with
+  `mlp` checkpoints.
 - Public top-level exports: `DCTConfig` and `PredictionResult` are now
   importable from `deepcell_types` directly.
 - `predict(return_probabilities=True)` returns a `PredictionResult`

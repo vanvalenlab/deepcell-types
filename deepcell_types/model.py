@@ -379,10 +379,11 @@ class CellTypeAnnotator(nn.Module):
         #              old checkpoints have these shapes).
         #   "resmlp" – residual-MLP head (width 512, depth 4). On the frozen
         #              backbone, trained on the natural class distribution, this
-        #              lifts full-coverage macro-F1 from 70.8 to 79.1 (beats the
-        #              XGBoost baseline). It is the canonical/recommended head;
-        #              produced by scripts/retrain_head.py and selected via the
-        #              checkpoint's ``ct_head_arch`` config key.
+        #              lifted full-coverage macro-F1 from 70.8 to 79.1 in our
+        #              experiments (above the XGBoost baseline). It is the
+        #              canonical/recommended head; produced by
+        #              scripts/retrain_head.py and selected via the checkpoint's
+        #              ``ct_head_arch`` config key.
         self.ct_head_arch = ct_head_arch
         if ct_head_arch == "resmlp":
             self.ct_head = ResidualMLPHead(
