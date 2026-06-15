@@ -22,6 +22,8 @@ from .samplers import (
     FOVGroupedSampler,
     SequentialFOVGroupedSampler,
     compute_sample_weights,
+    compute_sample_weights_equal,
+    subsample_indices_per_class,
 )
 from .splits import create_fov_splits, load_fov_splits
 from .transforms import (
@@ -95,6 +97,8 @@ def create_dataloader(
     mask_intensities=True,
     train_transform=None,
     split_strict=True,
+    class_balance=None,
+    size_data=None,
 ):
     """Create dataloaders with factored representation.
 
@@ -112,7 +116,18 @@ def create_dataloader(
         use_fov_splits: Use FOV-level splits (default True, no leakage)
         train_ratio: Fraction for training (default 0.8)
         seed: Random seed
-        use_weighted_sampler: Use sqrt-frequency WeightedRandomSampler (default True)
+        use_weighted_sampler: Use sqrt-frequency WeightedRandomSampler (default True).
+            Legacy boolean; only consulted when ``class_balance`` is None.
+        class_balance: Explicit class-balancing scheme, overrides
+            ``use_weighted_sampler`` when set. One of:
+            ``"sqrt"`` (sqrt-inverse-frequency, 1000-count floor — DCT default),
+            ``"equal"`` (full-inverse-frequency / equal-proportion — faithful
+            CellSighter ``define_sampler``), or ``"none"`` (uniform). Default
+            None preserves the ``use_weighted_sampler`` behaviour.
+        size_data: Faithful CellSighter ``subsample_const_size`` cap. When set
+            (and ``class_balance="equal"``), the TRAIN pool is subsampled to at
+            most ``size_data`` cells per class before sampler construction
+            (val/test untouched). Default None disables the cap.
         split_file: Path to pre-computed FOV split JSON (overrides use_fov_splits/seed)
         skip_distance_transform: Skip distance transform in patch extraction
         persistent_workers: Keep DataLoader workers alive between epochs
@@ -217,9 +232,30 @@ def create_dataloader(
         # Train only on inner-train; the sampler/loaders below all key off
         # ``train_indices``, so reassigning here is sufficient. Default
         # inner_val_ratio=0.0 is a no-op (returns train_indices unchanged, None).
+        # NOTE: carve FIRST, then apply the scheme + size_data cap below, so the
+        # cap thins only the inner-TRAIN pool while inner-val is drawn from the
+        # full FOV pool (selection set is never subsampled).
         train_indices, inner_val_indices = _carve_inner_val_fovs(
             dataset, train_indices, inner_val_ratio, inner_val_seed
         )
+
+        # Resolve the class-balancing scheme. Explicit ``class_balance`` wins;
+        # otherwise fall back to the legacy ``use_weighted_sampler`` boolean
+        # (True -> sqrt-inverse-frequency, False -> uniform/none).
+        if class_balance is not None:
+            scheme = class_balance
+        else:
+            scheme = "sqrt" if use_weighted_sampler else "none"
+
+        # Faithful CellSighter ``size_data`` cap (``subsample_const_size``): cap
+        # the TRAIN pool to <= size_data cells/class BEFORE building the subset
+        # and sampler, so over-represented classes lose per-epoch diversity
+        # while rare classes are untouched. Only meaningful for the
+        # equal-proportion scheme; val/test are never capped.
+        if scheme == "equal" and size_data is not None and len(train_indices) > 0:
+            train_indices = subsample_indices_per_class(
+                dataset, train_indices, size_data, seed=seed
+            )
 
         train_subset = torch.utils.data.Subset(dataset, train_indices)
 
@@ -238,8 +274,14 @@ def create_dataloader(
         # Weighted sampler for class balance
         sampler = None
         shuffle = True
-        if use_weighted_sampler and len(train_indices) > 0:
-            weights = compute_sample_weights(dataset, train_indices)
+        if scheme in ("sqrt", "equal") and len(train_indices) > 0:
+            if scheme == "equal":
+                # Full-inverse-frequency (equal-proportion) weights — faithful
+                # CellSighter ``define_sampler``. Pairs with the size_data cap.
+                weights = compute_sample_weights_equal(dataset, train_indices)
+            else:
+                # sqrt-inverse-frequency with a 1000-count floor (DCT default).
+                weights = compute_sample_weights(dataset, train_indices)
             num_samples = len(weights)
             if max_samples_per_epoch is not None:
                 num_samples = min(num_samples, max_samples_per_epoch)
@@ -427,6 +469,8 @@ class DataLoaderConfig:
     multiprocessing_context: Optional[Any] = None
     pin_memory: bool = False
     numpy_cache_max_bytes: Optional[int] = None
+    class_balance: Optional[str] = None
+    size_data: Optional[int] = None
 
 
 def create_dataloader_from_config(zarr_dir, dct_config, config: DataLoaderConfig):

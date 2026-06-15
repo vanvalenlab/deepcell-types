@@ -849,6 +849,8 @@ from .samplers import (  # noqa: E402,F401  (re-exported for back-compat)
     FOVGroupedSampler,
     SequentialFOVGroupedSampler,
     compute_sample_weights,
+    compute_sample_weights_equal,
+    subsample_indices_per_class,
 )
 from .splits import (  # noqa: E402,F401  (re-exported for back-compat)
     _ADVISORY_SPLIT_METADATA_KEYS,
@@ -883,6 +885,8 @@ __all__ = [
     "FOVGroupedSampler",
     "SequentialFOVGroupedSampler",
     "compute_sample_weights",
+    "compute_sample_weights_equal",
+    "subsample_indices_per_class",
     # splits
     "CellIndexRecord",
     "create_fov_splits",

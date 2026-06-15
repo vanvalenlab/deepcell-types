@@ -54,6 +54,14 @@ CELLSIGHTER_OPTS = {
     "no_compile",
     "pretrained",
     "val_every_n_epochs",
+    # Ablation / faithfulness knobs added by the faithful-CellSighter work.
+    "max_samples_per_epoch",
+    "num_workers",
+    "per_modality_norm",
+    # Class-balancing scheme (faithful equal-proportion default + ablations).
+    "class_balance",
+    "size_data",
+    "no_weighted_sampler",
 }
 
 

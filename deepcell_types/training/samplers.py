@@ -3,10 +3,12 @@
 Extracted from ``deepcell_types.training.dataset`` for modularity. These
 symbols are re-exported from ``dataset`` for backward compatibility.
 
-Contains the sqrt-inverse-frequency weight helper (``compute_sample_weights``)
-and the two FOV-grouped samplers (``FOVGroupedSampler``,
-``SequentialFOVGroupedSampler``) that preserve per-worker numpy-cache locality
-by emitting same-FOV cells contiguously.
+Contains the sqrt-inverse-frequency weight helper (``compute_sample_weights``),
+the full-inverse-frequency / equal-proportion helpers
+(``compute_sample_weights_equal``, ``subsample_indices_per_class`` — the
+faithful CellSighter recipe), and the two FOV-grouped samplers
+(``FOVGroupedSampler``, ``SequentialFOVGroupedSampler``) that preserve
+per-worker numpy-cache locality by emitting same-FOV cells contiguously.
 """
 
 import random
@@ -51,6 +53,90 @@ def compute_sample_weights(dataset, indices):
         weights[i] = ct_weights[ct_label]
 
     return weights
+
+
+def compute_sample_weights_equal(dataset, indices):
+    """Full-inverse-frequency (equal-proportion) per-sample weights.
+
+    Faithful reproduction of the original CellSighter ``define_sampler``
+    (KerenLab/CellSighter ``train.py``): per class, ``weight = total / count``
+    (no sqrt, no minimum-count floor), so under a ``WeightedRandomSampler``
+    every class receives equal *expected* representation per epoch — the paper's
+    "upsample rare cells so major lineages are represented in equal
+    proportions". This is more aggressive than the DCT-wide
+    ``compute_sample_weights`` (sqrt-inverse-frequency with a 1000-count floor).
+
+    Pair with ``subsample_indices_per_class`` to reproduce CellSighter's
+    ``size_data`` cap (``subsample_const_size``): cap the per-class training
+    pool first, then weight the capped pool here.
+
+    Args:
+        dataset: FullImageDataset instance.
+        indices: List of indices to compute weights for.
+
+    Returns:
+        weights: torch.Tensor of per-sample weights.
+    """
+    from collections import defaultdict
+
+    ct_counts = defaultdict(int)
+    for i in indices:
+        ct_counts[dataset.indices[i].ct_label_standard] += 1
+
+    total = sum(ct_counts.values())
+    ct_weights = {ct: total / count for ct, count in ct_counts.items()}
+
+    weights = torch.zeros(len(indices))
+    for i, idx in enumerate(indices):
+        weights[i] = ct_weights[dataset.indices[idx].ct_label_standard]
+
+    return weights
+
+
+def subsample_indices_per_class(dataset, indices, size_data, *, seed=42):
+    """Cap each class's training pool to at most ``size_data`` cells.
+
+    Faithful reproduction of CellSighter's ``subsample_const_size`` (applied to
+    the train crops before sampler construction): classes with more than
+    ``size_data`` cells are randomly subsampled down to ``size_data``; classes
+    at or below the cap keep all their cells. Large, redundant classes thus lose
+    per-epoch diversity while rare classes are untouched — combined with
+    ``compute_sample_weights_equal`` this is the paper's training recipe.
+
+    The subsample is deterministic for a given ``seed`` (independent of global
+    RNG state) and preserves the input ordering so downstream FOV grouping is
+    unaffected.
+
+    Args:
+        dataset: FullImageDataset instance.
+        indices: List of integer indices into ``dataset`` (the train subset).
+        size_data: Per-class cell cap (e.g. 1000, matching CellSighter). If
+            ``None``, the indices are returned unchanged.
+        seed: Base seed for the deterministic per-class subsample.
+
+    Returns:
+        List of indices (a subset of ``indices``), order-preserving.
+    """
+    from collections import defaultdict
+
+    if size_data is None:
+        return list(indices)
+
+    by_class = defaultdict(list)
+    for idx in indices:
+        by_class[dataset.indices[idx].ct_label_standard].append(idx)
+
+    rng = random.Random(int(seed))
+    keep = set()
+    for ct in sorted(by_class):  # sort for seed-stable iteration order
+        idxs = by_class[ct]
+        if len(idxs) > size_data:
+            keep.update(rng.sample(idxs, size_data))
+        else:
+            keep.update(idxs)
+
+    # Preserve original ordering so FOV-group cache locality downstream is kept.
+    return [idx for idx in indices if idx in keep]
 
 
 class FOVGroupedSampler(Sampler):

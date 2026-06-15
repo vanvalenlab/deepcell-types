@@ -435,12 +435,30 @@ def evaluate(
     help="Disable torch.compile optimization",
 )
 @click.option(
+    "--class_balance",
+    type=click.Choice(["equal", "sqrt", "none"]),
+    default="equal",
+    help="Training class-balancing scheme. 'equal' (default, FAITHFUL): "
+    "full-inverse-frequency WeightedRandomSampler (weight=total/count) over a "
+    "per-class pool capped at --size_data, reproducing the original CellSighter "
+    "subsample_const_size + define_sampler. 'sqrt': DCT-wide sqrt-inverse-"
+    "frequency with a 1000-count floor (ablation). 'none': uniform sampling "
+    "(ablation).",
+)
+@click.option(
+    "--size_data",
+    type=int,
+    default=1000,
+    help="Faithful CellSighter per-class training-pool cap (subsample_const_size; "
+    "paper config size_data=1000). Only applied when --class_balance=equal. "
+    "Pass 0 to disable the cap (pure full-inverse-frequency over all cells).",
+)
+@click.option(
     "--no_weighted_sampler",
     is_flag=True,
     default=False,
-    help="Ablation: disable the sqrt-inverse-frequency WeightedRandomSampler on "
-    "the TRAINING loader (uniform sampling instead). Default OFF — faithful "
-    "CellSighter uses the weighted sampler.",
+    help="Deprecated alias for --class_balance none (uniform sampling). When "
+    "passed, overrides --class_balance.",
 )
 @click.option(
     "--per_modality_norm",
@@ -486,6 +504,8 @@ def main(
     val_every_n_epochs: int,
     no_amp: bool,
     no_compile: bool,
+    class_balance: str,
+    size_data: int,
     no_weighted_sampler: bool,
     per_modality_norm: bool,
     max_samples_per_epoch: int,
@@ -530,12 +550,34 @@ def main(
 
     use_cuda = device.type == "cuda"
 
+    # --no_weighted_sampler is a deprecated alias for --class_balance none and
+    # overrides it when passed.
+    if no_weighted_sampler:
+        if class_balance != "none":
+            print(
+                "  [deprecation] --no_weighted_sampler overrides "
+                f"--class_balance {class_balance} -> none"
+            )
+        class_balance = "none"
+    # size_data=0 disables the per-class cap (pure full-inverse-frequency).
+    size_data_cap = size_data if size_data and size_data > 0 else None
+
     # Faithful CellSighter: full crop incl. neighbor intensities (mask_self=False),
-    # 60x60 crops, and the original's geometric augmentation pipeline.
+    # 60x60 crops, the original's geometric augmentation pipeline, and
+    # equal-proportion balancing (subsample_const_size + define_sampler).
+    balance_desc = {
+        "equal": (
+            f"equal-proportion / full-inv-freq, size_data="
+            f"{size_data_cap if size_data_cap else 'off'} (faithful)"
+        ),
+        "sqrt": "sqrt-inv-freq + 1000 floor (ablation)",
+        "none": "uniform (ablation)",
+    }[class_balance]
     print(
         f"Crop: {crop_size}x{crop_size} | "
         f"intensities: {'self-masked (ablation)' if mask_self else 'unmasked (faithful)'} | "
-        f"stem: {'CIFAR (ablation)' if cifar_stem else 'ImageNet (faithful)'}"
+        f"stem: {'CIFAR (ablation)' if cifar_stem else 'ImageNet (faithful)'} | "
+        f"balance: {balance_desc}"
     )
     cs_train_transform = build_cellsighter_train_transform()
 
@@ -568,7 +610,8 @@ def main(
         train_transform=cs_train_transform,
         split_strict=not allow_split_mismatch,
         seed=seed,
-        use_weighted_sampler=not no_weighted_sampler,  # ablation: off -> uniform
+        class_balance=class_balance,  # "equal" (faithful) | "sqrt" | "none"
+        size_data=size_data_cap,  # faithful subsample_const_size cap
     )
     sel_loader = metadata.get("inner_val_loader")
     if sel_loader is None:
