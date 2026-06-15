@@ -51,7 +51,8 @@ automatically:
 from deepcell_types import predict
 
 # raw: numpy (C, H, W); mask: 2D label image; channel_names: list[str]
-labels = predict(raw, mask, channel_names, mpp, device="cuda:0")
+labels = predict(raw, mask, channel_names, mpp,
+                 model_name="deepcell-types_2026-05-17", device="cuda:0")
 ```
 
 For a complete example of the cell-type inference pipeline, check out
