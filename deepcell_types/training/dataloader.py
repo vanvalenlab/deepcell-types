@@ -6,8 +6,11 @@ symbols are re-exported from ``dataset`` for backward compatibility.
 Contains ``create_dataloader`` (the full keyword API), the ``DataLoaderConfig``
 dataclass that bundles its 20+ knobs, and ``create_dataloader_from_config``
 (the dataclass-based wrapper). This module sits at the top of the training-data
-dependency chain: it imports the dataset core, transforms, samplers, and split
-helpers, but nothing imports it back.
+dependency chain: it imports transforms, samplers, and split helpers at module
+scope. ``dataset`` re-exports this module's symbols for back-compat, which would
+make a module-level ``from .dataset import ...`` here a circular import (it broke
+``import deepcell_types.training.dataloader`` when that ran before ``dataset``);
+the dataset core is therefore imported lazily inside ``create_dataloader``.
 """
 
 from dataclasses import dataclass, fields
@@ -17,7 +20,6 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, random_split
 
-from .dataset import FullImageDataset
 from .samplers import (
     FOVGroupedSampler,
     SequentialFOVGroupedSampler,
@@ -93,6 +95,11 @@ def create_dataloader(
         train_loader, val_loader, metadata dict
         (train_loader is None if only_test=True)
     """
+    # Imported lazily to avoid a circular import: ``dataset`` re-exports this
+    # module's symbols at its bottom, so a module-level import here would fail
+    # whenever ``dataloader`` is imported before ``dataset``.
+    from .dataset import FullImageDataset
+
     train_transform = _Compose(
         [
             _RandomHorizontalFlip(),
