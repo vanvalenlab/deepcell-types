@@ -33,6 +33,37 @@ from .transforms import (
 )
 
 
+def _carve_inner_val_fovs(dataset, train_indices, inner_val_ratio, inner_val_seed):
+    """Carve a FOV-grouped inner-validation set out of ``train_indices``.
+
+    Whole FOVs go to inner-train or inner-val (never split), so the inner-val
+    set used for baseline checkpoint selection is disjoint — at FOV
+    granularity — from inner-train (and therefore never selects on a cell that
+    also trained the model). Returns ``(inner_train_indices, inner_val_indices)``;
+    ``inner_val_indices`` is ``None`` when the carve is a no-op
+    (``inner_val_ratio`` <= 0 or no train cells), leaving ``train_indices``
+    unchanged so the main-model path is unaffected.
+    """
+    if not (inner_val_ratio and inner_val_ratio > 0.0 and len(train_indices) > 0):
+        return list(train_indices), None
+    fov_keys = [
+        (dataset.indices[i][6], dataset.indices[i][5]) for i in train_indices
+    ]  # (dataset_name, fov_name)
+    unique_fovs = sorted(set(fov_keys))
+    rng_iv = np.random.default_rng(inner_val_seed)
+    perm = rng_iv.permutation(len(unique_fovs))
+    n_iv = max(1, int(round(len(unique_fovs) * inner_val_ratio)))
+    n_iv = min(n_iv, len(unique_fovs) - 1)  # always keep ≥1 inner-train FOV
+    inner_val_fovs = {unique_fovs[p] for p in perm[:n_iv].tolist()}
+    inner_train_indices = [
+        i for i, k in zip(train_indices, fov_keys) if k not in inner_val_fovs
+    ]
+    inner_val_indices = [
+        i for i, k in zip(train_indices, fov_keys) if k in inner_val_fovs
+    ]
+    return inner_train_indices, inner_val_indices
+
+
 def create_dataloader(
     zarr_dir,
     dct_config,
@@ -169,26 +200,12 @@ def create_dataloader(
         # mirroring the XGBoost baseline's GroupShuffleSplit early-stopping set.
         # Default inner_val_ratio=0.0 is a no-op, so the main-model training
         # path is unchanged.
-        inner_val_indices = None
-        if inner_val_ratio and inner_val_ratio > 0.0 and len(train_indices) > 0:
-            fov_keys = [
-                (dataset.indices[i][6], dataset.indices[i][5]) for i in train_indices
-            ]  # (dataset_name, fov_name)
-            unique_fovs = sorted(set(fov_keys))
-            rng_iv = np.random.default_rng(inner_val_seed)
-            perm = rng_iv.permutation(len(unique_fovs))
-            n_iv = max(1, int(round(len(unique_fovs) * inner_val_ratio)))
-            n_iv = min(n_iv, len(unique_fovs) - 1)  # always keep ≥1 inner-train FOV
-            inner_val_fovs = {unique_fovs[p] for p in perm[:n_iv].tolist()}
-            inner_train_indices = [
-                i for i, k in zip(train_indices, fov_keys) if k not in inner_val_fovs
-            ]
-            inner_val_indices = [
-                i for i, k in zip(train_indices, fov_keys) if k in inner_val_fovs
-            ]
-            # Train only on inner-train; the sampler/loaders below all key off
-            # ``train_indices``, so reassigning here is sufficient.
-            train_indices = inner_train_indices
+        # Train only on inner-train; the sampler/loaders below all key off
+        # ``train_indices``, so reassigning here is sufficient. Default
+        # inner_val_ratio=0.0 is a no-op (returns train_indices unchanged, None).
+        train_indices, inner_val_indices = _carve_inner_val_fovs(
+            dataset, train_indices, inner_val_ratio, inner_val_seed
+        )
 
         train_subset = torch.utils.data.Subset(dataset, train_indices)
 
