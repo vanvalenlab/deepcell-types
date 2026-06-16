@@ -126,6 +126,19 @@ full canonical metadata. **Breaking changes** are noted below.
 - Test infrastructure: `_InferenceResultBuffer` (formerly `PredLogger`)
   is now private to `deepcell_types.predict`, eliminating the name
   collision with the training-side `training.utils.PredLogger`.
+- **NumPy 2.0 compatibility** in the inference path: the per-channel
+  normalization used `np.ptp`, removed as a free function in NumPy 2.0,
+  so a fresh `pip install` (which pulls NumPy 2.x) raised `AttributeError`
+  on the first `predict()`. Replaced with `max - min`.
+- `--resume_path` now validates `n_heads` and `n_celltypes` (in addition
+  to `resnet_channels`/`d_model`) before restoring optimizer state. Neither
+  is recoverable from tensor shapes, so a mismatch previously restored an
+  incompatible architecture silently (or surfaced only as a cryptic
+  `load_state_dict` error).
+- Dropped the experimental `--no_weighted_sampler` training flag: the
+  canonical recipe is the decoupled two-stage `retrain_head.py` (backbone
+  with the weighted sampler on, head retrained sampler-off), and end-to-end
+  sampler-off training erodes the backbone, so the toggle was a dead path.
 
 ### Migration notes
 - Users on `from deepcell_types.model import CellTypeCLIPModel` must

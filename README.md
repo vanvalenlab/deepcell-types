@@ -2,8 +2,10 @@
 
 DeepCell Types is a generalized cell-phenotyping model for spatial
 proteomics. It addresses generalization across datasets with varying
-marker panels by reading the active marker / cell-type registry from a
-TissueNet zarr archive at inference time.
+marker panels via a shared marker / cell-type registry. That registry
+ships with the package as a small `vocab.json` snapshot, so
+`pip install deepcell-types` + `download_model()` is enough to run
+`predict()` — the multi-GB TissueNet zarr archive is **optional**.
 
 > **License notice.** This project is distributed under a *Modified Apache
 > License, Version 2.0* with non-commercial / academic-only carve-outs (see
@@ -37,12 +39,15 @@ from deepcell_types.utils import download_model
 download_model()
 ```
 
-## TissueNet zarr archive
+## Optional: TissueNet zarr archive
 
-Canonical checkpoints do not embed the marker / cell-type registry —
-they read it from a **TissueNet zarr v3 archive** at inference time. You
-must provide one before calling `predict`, either by passing
-`zarr_path=...` directly or by setting the `DEEPCELL_TYPES_ZARR_PATH`
+`predict()` does **not** require the TissueNet zarr archive — the marker /
+cell-type registry it needs ships with the package as a packaged
+`vocab.json` snapshot, and `DCTConfig` falls back to it automatically when
+no archive is found. The archive is only needed for advanced workflows
+(e.g. the tissue→cell-type mapping, re-deriving the registry for a custom
+panel, or batched evaluation via `scripts/predict.py`). To use one, pass
+`zarr_path=...` to `predict` directly or set the `DEEPCELL_TYPES_ZARR_PATH`
 environment variable.
 
 A registered user can download a public TissueNet zarr archive from
