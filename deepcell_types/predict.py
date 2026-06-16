@@ -172,7 +172,14 @@ def _build_model(checkpoint, dct_config, device):
         marker_weight = state_dict["marker_embedder.embed_layer.weight"]
         n_markers = marker_weight.shape[0] - 1
         embedding_dim = marker_weight.shape[1]
-        n_celltypes = state_dict["ct_head.6.weight"].shape[0]
+        # Cell-type count from the head's final layer: "ct_head.out.weight" for
+        # the residual-MLP head (default), "ct_head.6.weight" for the legacy MLP.
+        ct_out_key = (
+            "ct_head.out.weight"
+            if "ct_head.out.weight" in state_dict
+            else "ct_head.6.weight"
+        )
+        n_celltypes = state_dict[ct_out_key].shape[0]
         d_model = state_dict["cls_token"].shape[-1]
         resnet_base_channels = state_dict["channel_encoder.stem.0.weight"].shape[0]
     except KeyError as e:

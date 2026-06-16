@@ -54,6 +54,14 @@ full canonical metadata. **Breaking changes** are noted below.
   `baseline-cellsighter`).
 
 ### Changed
+- **Residual-MLP cell-type head is now the DEFAULT** (`ct_head_arch="resmlp"`)
+  for fresh training, replacing the legacy 3-layer MLP. `scripts/train.py` gains
+  `--ct_head_arch {resmlp,mlp}` (default `resmlp`), records it in the checkpoint
+  config, and validates it on `--resume_path`. Inference is unaffected for
+  existing v0.1.0 checkpoints: `predict()` auto-detects the head from the
+  state_dict, so the released (legacy-MLP) checkpoint still loads unchanged.
+- Default training learning rate raised `3e-4 → 1e-3` in `scripts/train.py`,
+  matching the canonical backbone recipe.
 - **Breaking:** the legacy `CellTypeCLIPModel` class is removed.
   Canonical checkpoints now read marker / cell-type metadata from a
   TissueNet zarr v3 archive at inference time; the active model class

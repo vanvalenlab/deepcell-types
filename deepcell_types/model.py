@@ -328,7 +328,7 @@ class CellTypeAnnotator(nn.Module):
         spatial_pool_size=1,
         resnet_base_channels=48,
         compat_marker0_zero=True,
-        ct_head_arch="mlp",
+        ct_head_arch="resmlp",
     ):
         super().__init__()
         self.d_model = d_model
@@ -375,15 +375,16 @@ class CellTypeAnnotator(nn.Module):
 
         # 6. Task heads
         # Cell type classifier. Two architectures:
-        #   "mlp"    – the legacy 3-layer MLP (kept as default for back-compat:
-        #              old checkpoints have these shapes).
-        #   "resmlp" – residual-MLP head (width 512, depth 4). On the frozen
-        #              backbone, trained on the natural class distribution, this
-        #              lifted full-coverage macro-F1 from 70.8 to 79.1 in our
-        #              experiments (above the XGBoost baseline). It is the
-        #              canonical/recommended head; produced by
-        #              scripts/retrain_head.py and selected via the checkpoint's
-        #              ``ct_head_arch`` config key.
+        #   "resmlp" – residual-MLP head (width 512, depth 4); the canonical
+        #              DEFAULT. On a frozen backbone trained on the natural class
+        #              distribution it lifted full-coverage macro-F1 from 70.8 to
+        #              79.1 in our experiments; it is also the default for
+        #              from-scratch training.
+        #   "mlp"    – the legacy 3-layer MLP, kept for back-compat with v0.1.0
+        #              checkpoints (which have these shapes). Inference auto-
+        #              detects the head from the state_dict, so old checkpoints
+        #              still load regardless of this default; only fresh training
+        #              follows it.
         self.ct_head_arch = ct_head_arch
         if ct_head_arch == "resmlp":
             self.ct_head = ResidualMLPHead(
@@ -673,7 +674,7 @@ def create_model(
     spatial_pool_size=1,
     resnet_base_channels=48,
     compat_marker0_zero=True,
-    ct_head_arch="mlp",
+    ct_head_arch="resmlp",
 ):
     """Factory function to create CellTypeAnnotator from config.
 
