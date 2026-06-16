@@ -298,11 +298,6 @@ def forward_one_batch(
     help="Disable per-class weights in FocalLoss (use when WeightedRandomSampler is active to avoid double-weighting)",
 )
 @click.option(
-    "--no_weighted_sampler",
-    is_flag=True,
-    help="Disable the sqrt-inv-freq WeightedRandomSampler and train on the natural class distribution. EXPERIMENTAL: end-to-end sampler-off training erodes the backbone; the canonical sampler-off recipe is the two-stage scripts/retrain_head.py (frozen backbone + residual-MLP head on the natural distribution).",
-)
-@click.option(
     "--hierarchical_weight",
     type=float,
     default=0.0,
@@ -375,7 +370,6 @@ def main(
     domain_weight,
     marker_pos_weight,
     no_class_weights,
-    no_weighted_sampler,
     hierarchical_weight,
     enable_amp,
     spatial_pool_size,
@@ -417,11 +411,11 @@ def main(
         use_fov_splits=(split_mode == "fov"),
         train_ratio=0.8,
         seed=seed,
-        use_weighted_sampler=not no_weighted_sampler,
-        # With the weighted sampler off, fall back to the cache-local uniform
-        # FOV-grouped sampler (natural class distribution) rather than
-        # shuffle=True, which triggers the cold-zarr I/O storm on this archive.
-        fov_grouped_train=no_weighted_sampler,
+        # Stage-1 (backbone) trains with the sqrt-inv-freq weighted sampler on,
+        # so rare classes get enough exposure to learn good features. The
+        # sampler-off recipe lives in the decoupled stage-2 head retrain
+        # (scripts/retrain_head.py) — end-to-end sampler-off erodes the backbone.
+        use_weighted_sampler=True,
         split_file=split_file,
         skip_distance_transform=skip_distance_transform,
         persistent_workers=num_workers > 0,
@@ -703,9 +697,13 @@ def main(
                 "Loaded %d/%d params (backbone-only).", loaded, len(model.state_dict())
             )
         else:
-            # Full checkpoint: validate config
+            # Full checkpoint: validate config. Include n_heads and n_celltypes:
+            # neither is recoverable from tensor shapes (MultiheadAttention params
+            # are head-count-independent; a vocab-size change only surfaces as a
+            # cryptic load_state_dict shape error), so a silent mismatch would
+            # restore an incompatible architecture and invalidate the run.
             ckpt_config = resume_ckpt.get("config", {})
-            for key in ("resnet_channels", "d_model"):
+            for key in ("resnet_channels", "d_model", "n_heads", "n_celltypes"):
                 want = CKPT_CONFIG[key]
                 have = ckpt_config.get(key)
                 if have is not None and have != want:
