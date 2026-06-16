@@ -243,7 +243,10 @@ def preprocess_fov(
 
 def _normalize_per_channel(image):
     min_vals = np.min(image, axis=(0, 1), keepdims=True)
-    ptp_vals = np.ptp(image, axis=(0, 1), keepdims=True)
+    # ``np.ptp`` is removed as a free function in NumPy 2.0; compute max - min
+    # directly. Same numerical behaviour, and keeps this inference-path call
+    # working on NumPy >= 2.
+    ptp_vals = np.max(image, axis=(0, 1), keepdims=True) - min_vals
     ptp_vals[ptp_vals == 0] = 1.0
     return (image - min_vals) / ptp_vals
 
