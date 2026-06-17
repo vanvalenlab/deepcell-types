@@ -56,6 +56,24 @@ logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
 
+
+def _git_commit():
+    """Git commit of the checkout that owns this script (for self-pinning
+    checkpoints), or 'unknown' if it cannot be determined. When the script runs
+    from a pinned worktree, this returns that worktree's HEAD."""
+    import subprocess
+
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parent,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except Exception:
+        return "unknown"
+
+
 # Default loss weights for multi-task training
 DEFAULT_LOSS_WEIGHTS = {"ct": 1.0, "domain": 0.0, "marker_pos": 1.0}
 
@@ -580,6 +598,10 @@ def main(
         # also auto-detects this from the state_dict, but recording it keeps the
         # checkpoint self-describing and lets --resume_path validate it.
         "ct_head_arch": ct_head_arch,
+        # Self-pinning: the code commit this checkpoint was trained under, so a
+        # result can be traced to an exact code snapshot. "unknown" if the
+        # checkout isn't a git repo.
+        "git_commit": _git_commit(),
         "format_version": "1.1",
         "seed": seed,
         # Data / split provenance — without these, "reproduce this run" is
