@@ -36,8 +36,9 @@ head still loads there because the checkpoint config carries `n_celltypes`.
   (`*_config.json` here) — `ct_head_arch`, `lr`, `focal_gamma`, `domain_weight`,
   `no_class_weights`, `split_file`, `svd_embeddings_path`, `archive_fingerprint`.
 
-## Known gap (for future self-pinning)
-Checkpoints do NOT record the git commit in `CKPT_CONFIG`; the train/eval commits above
-were reconstructed from the pin worktrees' HEADs. Recommend adding a `git_commit` field to
-`CKPT_CONFIG` in `scripts/train.py` (e.g. `git rev-parse HEAD` of the running checkout) so
-future checkpoints are self-pinning. Until then, this manifest is the source of truth.
+## Self-pinning (gap now closed)
+The rows above predate self-pinning, so their train/eval commits were reconstructed from
+the pin worktrees' HEADs (this manifest is their source of truth). Going forward this is
+automatic: `scripts/train.py` now records `CKPT_CONFIG["git_commit"] = git rev-parse HEAD`
+of the running checkout — implemented in **`ef1229f`** (PR #41). Checkpoints trained from
+that commit onward carry their own code commit in `config["git_commit"]`.
