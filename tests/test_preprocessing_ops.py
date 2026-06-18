@@ -60,11 +60,40 @@ def test_all_table_ops_are_implemented():
         {"op": "clip_percentile", "p": 99.0},
         {"op": "log1p"},
         {"op": "background_subtract", "value": 10.0},
+        {"op": "background_subtract_per_channel", "p": 25.0},
         {"op": "gamma", "g": 0.5},
         {"op": "denoise", "kind": "median", "size": 3},
         {"op": "hot_pixel_removal", "z": 5.0},
     ]:
         apply_config(raw, names, [op, {"op": "min_max_normalize"}])  # must not raise
+
+
+def test_background_subtract_per_channel_removes_pedestal():
+    # CD3 sits on a high background pedestal (+2000); CD8 has a low floor.
+    rng = np.random.default_rng(1)
+    x = rng.gamma(2.0, 30.0, size=(2, 32, 32)).astype(np.float32)
+    x[0] += 2000.0  # CD3 pedestal
+    names = ["CD3", "CD8"]
+    out = apply_config(x, names, [{"op": "background_subtract_per_channel", "p": 25.0}])
+    # the pedestal channel loses ~its floor; the clean channel keeps most signal
+    assert out[0].min() == 0.0
+    assert float(out[0].mean()) < float(x[0].mean()) - 1500.0
+    # subtraction is bounded by the channel's own p25, never negative
+    assert out.min() >= 0.0
+
+
+def test_background_subtract_per_channel_can_target_named_channel():
+    rng = np.random.default_rng(2)
+    x = rng.gamma(2.0, 30.0, size=(2, 32, 32)).astype(np.float32)
+    x += 1000.0  # both channels on a pedestal
+    names = ["CD15", "CD8"]
+    out = apply_config(
+        x, names,
+        [{"op": "background_subtract_per_channel", "p": 50.0, "names": ["CD15"]}],
+    )
+    # only CD15 is corrected; CD8 is untouched
+    np.testing.assert_allclose(out[1], x[1])
+    assert float(out[0].mean()) < float(x[0].mean())
 
 
 def test_unknown_op_raises():
