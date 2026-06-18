@@ -93,7 +93,14 @@ class PatchDataset(IterableDataset):
         )  # (C_max, )
         self.channel_names_standard = channel_names_standard
         self.ch_idx = ch_idx
-        self.raw = raw[~np.array(channel_masking), :, :]  # (C, H, W)
+        channel_mask_arr = np.array(channel_masking)
+        if channel_mask_arr.any():
+            self.raw = raw[~channel_mask_arr, :, :]  # (C, H, W) drop masked
+        else:
+            # No channels dropped: alias the float32 array instead of taking a
+            # full (multi-GB) copy. Boolean-row indexing always copies even when
+            # the mask is all-False, which doubled peak RAM on wide FOVs.
+            self.raw = raw
         if self.raw.shape[0] == 0:
             raise ValueError(
                 "No input channels matched the DeepCell Types marker registry."
@@ -138,16 +145,30 @@ class PatchDataset(IterableDataset):
         Patchify the raw and mask data into smaller patches
         """
         worker_info = get_worker_info()
-        for patch_idx, (raw_patch, mask_patch, cell_index, _) in enumerate(
-            patch_generator(
-                self.raw,
-                self.mask,
-                self.mpp,
-                dct_config=self.dct_config,
-                preprocess=self.preprocess,
-                channel_names=self.channel_names_standard,
+        if self.raw is None:
+            raise RuntimeError(
+                "PatchDataset is single-pass: its source array is released "
+                "after the first iteration to free memory. Construct a new "
+                "PatchDataset to iterate again."
             )
-        ):
+        # Release the dataset's reference to the full-resolution source array
+        # before iterating, so it can be freed as soon as patch_generator
+        # rescales it (the rescaled copy is roughly half the size at these MPPs).
+        # This is the single biggest sustained-RAM reduction on multi-GB FOVs.
+        # Safe because the dataset is single-pass: DataLoader iterates it once,
+        # and multiprocessing workers each receive their own unpickled copy.
+        raw = self.raw
+        self.raw = None
+        gen = patch_generator(
+            raw,
+            self.mask,
+            self.mpp,
+            dct_config=self.dct_config,
+            preprocess=self.preprocess,
+            channel_names=self.channel_names_standard,
+        )
+        del raw  # only the generator's frame now pins the full-res source
+        for patch_idx, (raw_patch, mask_patch, cell_index, _) in enumerate(gen):
             if (
                 worker_info is not None
                 and patch_idx % worker_info.num_workers != worker_info.id

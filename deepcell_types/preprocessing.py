@@ -44,7 +44,6 @@ from typing import Dict, List, Sequence
 import numpy as np
 from skimage.measure import regionprops
 from skimage.transform import rescale
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +65,7 @@ clip step. Matches the production-pipeline value recovered from
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(frozen=True)
 class PreprocessedFov:
     """Result of ``preprocess_fov``.
 
@@ -248,7 +247,13 @@ def _normalize_per_channel(image):
     # working on NumPy >= 2.
     ptp_vals = np.max(image, axis=(0, 1), keepdims=True) - min_vals
     ptp_vals[ptp_vals == 0] = 1.0
-    return (image - min_vals) / ptp_vals
+    # In-place to avoid two extra full-array copies (`image - min` then `/ ptp`).
+    # `image` is freshly allocated by the percentile step above and owned solely
+    # here, so mutating it is safe. Elementwise result is bit-identical to
+    # (image - min_vals) / ptp_vals for the float32 input on this path.
+    image -= min_vals
+    image /= ptp_vals
+    return image
 
 
 def _percentile_threshold_nonzero(image, percentile=99.9):
@@ -261,16 +266,19 @@ def _percentile_threshold_nonzero(image, percentile=99.9):
     published checkpoint was trained against — see
     https://github.com/vanvalenlab/deepcell-toolbox/blob/e8c1277/deepcell_toolbox/processing.py#L104
     """
-    processed_image = np.zeros_like(image)
+    # Clip in place per channel instead of allocating a full zeros_like plus a
+    # per-channel copy. For an all-zero channel there is nothing above the
+    # threshold so it stays zero (matching the old zeros_like default); for a
+    # channel with signal, np.minimum(.., img_max) clips values above the
+    # nonzero-pixel percentile, identical to the old boolean-mask assignment
+    # (both store float32(img_max)). Net: one full-array allocation saved.
     for chan in range(image.shape[-1]):
-        current_img = np.copy(image[..., chan])
+        current_img = image[..., chan]
         non_zero_vals = current_img[np.nonzero(current_img)]
         if len(non_zero_vals) > 0:
             img_max = np.percentile(non_zero_vals, percentile)
-            threshold_mask = current_img > img_max
-            current_img[threshold_mask] = img_max
-            processed_image[..., chan] = current_img
-    return processed_image
+            np.minimum(current_img, img_max, out=current_img)
+    return image
 
 
 def _pad_cell(X, y, crop_size):
@@ -347,13 +355,29 @@ def patch_generator(raw, mask, mpp, dct_config, preprocess=None, channel_names=N
                 "preprocess must return a (C, H, W) array matching its input; "
                 f"got {raw_chw.shape} for input {(raw.shape[2], raw.shape[0], raw.shape[1])}."
             )
+        # Enforce the hook's value contract: finite and in [0, 1]. A NaN/inf
+        # would poison the softmax (uniform argmax for every cell) and out-of-
+        # range values feed the model out-of-distribution input — both fail
+        # silently with wrong-but-confident predictions if not caught here.
+        if not np.all(np.isfinite(raw_chw)):
+            raise ValueError(
+                "preprocess returned non-finite values (NaN/inf); the hook must "
+                "return a finite (C, H, W) array in [0, 1]."
+            )
+        lo, hi = float(raw_chw.min()), float(raw_chw.max())
+        if lo < -1e-6 or hi > 1 + 1e-6:
+            raise ValueError(
+                "preprocess must return values in [0, 1] (the model expects "
+                f"normalized input); got range [{lo:.4g}, {hi:.4g}]. Append a "
+                "'min_max_normalize' op (or normalize in your hook)."
+            )
         raw = np.transpose(raw_chw, (1, 2, 0))
     raw, mask = _pad_cell(raw, mask, dct_config.CROP_SIZE)
 
     props = regionprops(mask, cache=False)
     orig_ct = "Unknown"
 
-    for prop in tqdm(props):
+    for prop in props:
         idx = prop.label
         if idx == 0:
             continue

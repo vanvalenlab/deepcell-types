@@ -353,6 +353,12 @@ def predict(
         cell indices, predicted names, and an ``abstained`` boolean
         mask. See :class:`PredictionResult`.
     """
+    if device_num is not None:
+        warnings.warn(
+            "predict(device_num=...) is deprecated; use device=... instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     if device is None:
         device = device_num
     if device is None:
@@ -377,6 +383,11 @@ def predict(
     dataset = PatchDataset(
         raw, mask, channel_names, mpp, dct_config, preprocess=preprocess
     )
+    # The dataset now holds its own working copies (a float32 raw and a float32
+    # mask), so drop the caller-supplied references. When the caller passes the
+    # arrays inline (no other reference), this frees the full-resolution source
+    # for the duration of the inference loop instead of pinning it to the end.
+    del raw, mask
     data_loader = DataLoader(
         dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )

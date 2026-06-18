@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import deepcell_types.dataset as dsmod
 from deepcell_types.preprocessing import patch_generator
 from deepcell_types.config import DCTConfig
@@ -80,3 +81,56 @@ def test_default_config_hook_equals_builtin_in_patch_generator():
     assert len(baseline) == len(hooked) and len(baseline) > 0
     for b, h in zip(baseline, hooked):
         np.testing.assert_allclose(b, h, rtol=1e-5, atol=1e-6)
+
+
+def test_patchdataset_is_single_pass():
+    # The dataset frees its source array after the first iteration to cut peak
+    # RAM; re-iterating must fail loudly, not crash on a None source array.
+    raw, mask = _toy()
+    cfg = DCTConfig()
+    ds = dsmod.PatchDataset(raw, mask, ["CD3", "DAPI"], 0.5, cfg)
+    list(ds)  # first pass exhausts and releases self.raw
+    with pytest.raises(RuntimeError, match="single-pass"):
+        list(ds)
+
+
+def test_preprocess_hook_nonfinite_output_rejected():
+    raw, mask = _toy()
+    cfg = DCTConfig()
+
+    def hook(arr, names):
+        out = np.zeros_like(arr)
+        out[0, 0, 0] = np.nan
+        return out
+
+    with pytest.raises(ValueError, match="non-finite"):
+        list(
+            patch_generator(
+                raw,
+                mask,
+                0.5,
+                dct_config=cfg,
+                preprocess=hook,
+                channel_names=["CD3", "DAPI"],
+            )
+        )
+
+
+def test_preprocess_hook_out_of_range_output_rejected():
+    raw, mask = _toy()
+    cfg = DCTConfig()
+
+    def hook(arr, names):
+        return np.full_like(arr, 5.0)  # outside the required [0, 1] contract
+
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        list(
+            patch_generator(
+                raw,
+                mask,
+                0.5,
+                dct_config=cfg,
+                preprocess=hook,
+                channel_names=["CD3", "DAPI"],
+            )
+        )

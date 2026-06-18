@@ -167,6 +167,8 @@ def extract_cell_annotations(ds, dataset_key, preproc, include_centroids=False):
             centroid_tree, centroid_keys = None, None
             centroid_attempts = 0
             centroid_drops = 0
+            int_attempts = 0
+            int_drops = 0
 
             for ct_name, values in source.items():
                 if ct_name is None or ct_name == "null":
@@ -174,9 +176,15 @@ def extract_cell_annotations(ds, dataset_key, preproc, include_centroids=False):
                 for val in values:
                     if isinstance(val, (int, float)) and not isinstance(val, list):
                         idx = int(val)
+                        int_attempts += 1
                         cent = lookup_centroid(centroids_raw, idx)
                         if cent is not None:
                             _add_label(records, idx, ct_name, cent)
+                        else:
+                            # Annotation references a cell index with no centroid
+                            # in the preprocessed store; dropped. Count it (the
+                            # KDTree path below counts its drops too).
+                            int_drops += 1
                     elif isinstance(val, (list, tuple)) and len(val) == 2:
                         if centroid_tree is None:
                             if not centroids_raw:
@@ -208,6 +216,18 @@ def extract_cell_annotations(ds, dataset_key, preproc, include_centroids=False):
                         centroid_drops,
                         centroid_attempts,
                         drop_pct,
+                    )
+
+            if int_attempts > 0:
+                int_drop_pct = 100.0 * int_drops / int_attempts
+                if int_drop_pct > 5.0:
+                    logger.warning(
+                        "cell-index match drop for %s: %d/%d (%.1f%%) annotations "
+                        "dropped (no centroid for the referenced index)",
+                        dataset_key,
+                        int_drops,
+                        int_attempts,
+                        int_drop_pct,
                     )
 
     if not records:
