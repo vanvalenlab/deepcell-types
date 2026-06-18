@@ -109,7 +109,7 @@ def main(
         pin_memory=True,
     )
 
-    ck = torch.load(pretrained_path, map_location=device, weights_only=True)
+    ck = torch.load(pretrained_path, map_location=device, weights_only=False)  # trusted local ckpt (pretrain.py writes numpy scalars)
     cc = ck.get("config", {}) if isinstance(ck, dict) else {}
     model = create_model(
         cfg,

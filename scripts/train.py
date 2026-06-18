@@ -506,7 +506,7 @@ def main(
     if pretrained_path and Path(pretrained_path).exists():
         print(f"Loading pre-trained weights from {pretrained_path}")
         pretrained_state = torch.load(
-            pretrained_path, map_location=device, weights_only=True
+            pretrained_path, map_location=device, weights_only=False  # trusted local ckpt; pretrain.py saves numpy scalars
         )
         # Accept both the legacy plain-state_dict and the new bundled checkpoint
         # (which stores the backbone under the "model" key).
@@ -711,7 +711,7 @@ def main(
         if not Path(resume_path).exists():
             raise FileNotFoundError(f"--resume_path {resume_path} does not exist")
         logger.info("Resuming from %s", resume_path)
-        resume_ckpt = torch.load(resume_path, map_location=device, weights_only=True)
+        resume_ckpt = torch.load(resume_path, map_location=device, weights_only=False)  # trusted local ckpt
 
         if not isinstance(resume_ckpt, dict) or "optimizer" not in resume_ckpt:
             # Legacy checkpoint (only `model` key, or plain state_dict): fall back to
@@ -930,7 +930,7 @@ def main(
     # test number. It is labeled "val_final" accordingly. The held-out test metric
     # for the paper is produced by `scripts/predict.py` on the split file's
     # `heldout` FOVs (which load_fov_splits excludes from both train and val).
-    checkpoint = torch.load(best_model_path, map_location=device, weights_only=True)
+    checkpoint = torch.load(best_model_path, map_location=device, weights_only=False)  # trusted local ckpt
     model.load_state_dict(checkpoint["model"])
     model.eval()
 
