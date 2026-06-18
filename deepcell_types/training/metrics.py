@@ -384,9 +384,9 @@ class LossesAndMetrics:
                 "(max/min=%.1fx across %d classes). If WeightedRandomSampler "
                 "is also enabled, you are double-weighting rare classes "
                 "(sampler floors counts at 1000 but FocalLoss does not). "
-                "Use --no_class_weights when the "
-                "sampler is on, or match the sampler's floor when computing "
-                "class_weights.",
+                "The canonical backbone recipe (scripts/train.py) sets "
+                "FocalLoss alpha=None and relies on the sampler as the sole "
+                "class balancer; pass alpha=None to avoid double-weighting.",
                 ratio,
                 int(alpha_f.numel()),
             )

@@ -35,8 +35,6 @@ from deepcell_types.training.config import (
 )
 from deepcell_types.training.dataset import (
     create_dataloader,
-    AugmentedDataset,
-    FullImageDataset,
 )
 from deepcell_types.model import create_model
 from deepcell_types.training.losses import FocalLoss
@@ -76,35 +74,6 @@ def _git_commit():
 
 # Default loss weights for multi-task training
 DEFAULT_LOSS_WEIGHTS = {"ct": 1.0, "domain": 0.0, "marker_pos": 1.0}
-
-
-def compute_class_weights(dct_config, dataset, label_remap, train_indices):
-    """Compute sqrt-inverse-frequency class weights for FocalLoss.
-
-    Counts are taken over the TRAIN indices only — never the whole-archive
-    ``dataset.ct_counts``, which includes val/test cells. Using whole-archive
-    counts leaks evaluation-set label frequencies into the training objective
-    (over-weighting classes concentrated in val/test, under-weighting those
-    concentrated in train). Weights are indexed in compact 0-indexed label space.
-    """
-    ct_counts = defaultdict(int)
-    for i in train_indices:
-        ct_counts[dataset.indices[i].ct_label_standard] += 1
-    total = sum(ct_counts.values())
-    n_classes = len(dct_config.ct2idx)
-
-    weights = torch.ones(n_classes)
-    for ct, idx in dct_config.ct2idx.items():
-        compact_idx = label_remap[idx].item()
-        count = ct_counts.get(ct, 0)
-        if count > 0:
-            weights[compact_idx] = np.sqrt(total / count)
-        else:
-            weights[compact_idx] = 1.0
-
-    # Normalize so mean weight = 1
-    weights = weights / weights.mean()
-    return weights
 
 
 def forward_one_batch(
@@ -311,11 +280,6 @@ def forward_one_batch(
     help="Weight for marker positivity auxiliary loss (0 = disabled)",
 )
 @click.option(
-    "--no_class_weights",
-    is_flag=True,
-    help="Disable per-class weights in FocalLoss (use when WeightedRandomSampler is active to avoid double-weighting)",
-)
-@click.option(
     "--hierarchical_weight",
     type=float,
     default=0.0,
@@ -394,7 +358,6 @@ def main(
     val_every,
     domain_weight,
     marker_pos_weight,
-    no_class_weights,
     hierarchical_weight,
     enable_amp,
     spatial_pool_size,
@@ -460,39 +423,6 @@ def main(
     # Move to device once to avoid per-batch CPU→GPU transfer
     label_remap = build_label_remap(dct_config.ct2idx).to(device)
 
-    # Compute class weights from training data (in compact label space)
-    # Defensive layout checks: create_dataloader wraps FullImageDataset in
-    # Subset, then AugmentedDataset. Raise explicitly (not `assert`) so a
-    # silent break under `python -O` (which strips assert statements) can't
-    # produce a cryptic AttributeError several lines later.
-    if not isinstance(train_loader.dataset, AugmentedDataset):
-        raise TypeError(
-            f"Expected train_loader.dataset to be AugmentedDataset, "
-            f"got {type(train_loader.dataset).__name__}. "
-            "create_dataloader wrapping order may have changed."
-        )
-    if not isinstance(train_loader.dataset.dataset, torch.utils.data.Subset):
-        raise TypeError(
-            f"Expected train_loader.dataset.dataset to be torch.utils.data.Subset, "
-            f"got {type(train_loader.dataset.dataset).__name__}. "
-            "create_dataloader wrapping order may have changed."
-        )
-    if not isinstance(train_loader.dataset.dataset.dataset, FullImageDataset):
-        raise TypeError(
-            f"Expected train_loader.dataset.dataset.dataset to be FullImageDataset, "
-            f"got {type(train_loader.dataset.dataset.dataset).__name__}. "
-            "create_dataloader wrapping order may have changed."
-        )
-    train_dataset_ref = (
-        train_loader.dataset.dataset.dataset
-    )  # Augmented -> Subset -> FullImageDataset
-    train_indices = (
-        train_loader.dataset.dataset.indices
-    )  # Subset.indices = the train cells (never val/test)
-    class_weights = compute_class_weights(
-        dct_config, train_dataset_ref, label_remap, train_indices
-    ).to(device)
-
     # Build model
     model = create_model(
         dct_config,
@@ -506,7 +436,7 @@ def main(
     if pretrained_path and Path(pretrained_path).exists():
         print(f"Loading pre-trained weights from {pretrained_path}")
         pretrained_state = torch.load(
-            pretrained_path, map_location=device, weights_only=True
+            pretrained_path, map_location=device, weights_only=False  # trusted local ckpt; pretrain.py saves numpy scalars
         )
         # Accept both the legacy plain-state_dict and the new bundled checkpoint
         # (which stores the backbone under the "model" key).
@@ -620,7 +550,6 @@ def main(
         "domain_weight": domain_weight,
         "marker_pos_weight": marker_pos_weight,
         "hierarchical_weight": hierarchical_weight,
-        "no_class_weights": bool(no_class_weights),
         "num_dropout_channels": num_dropout_channels,
         "spatial_pool_size": spatial_pool_size,
         "val_every": val_every,
@@ -660,9 +589,11 @@ def main(
         }
 
     # Loss and metrics
-    # When WeightedRandomSampler is active, avoid double-weighting by not using
-    # class weights in FocalLoss. Use --no_class_weights to match CellSighter behavior.
-    focal_alpha = None if no_class_weights else class_weights
+    # The WeightedRandomSampler (compute_sample_weights in dataset.py) is the
+    # SOLE rare-class balancer for backbone training, so FocalLoss carries no
+    # per-class alpha weights — making double-weighting impossible. Only the
+    # focal term (gamma) is kept.
+    focal_alpha = None
     # Build compact ct2idx for hierarchical evaluation (maps names to confusion matrix indices)
     compact_ct2idx = {
         name: label_remap[idx].item() for name, idx in dct_config.ct2idx.items()
@@ -711,7 +642,7 @@ def main(
         if not Path(resume_path).exists():
             raise FileNotFoundError(f"--resume_path {resume_path} does not exist")
         logger.info("Resuming from %s", resume_path)
-        resume_ckpt = torch.load(resume_path, map_location=device, weights_only=True)
+        resume_ckpt = torch.load(resume_path, map_location=device, weights_only=False)  # trusted local ckpt
 
         if not isinstance(resume_ckpt, dict) or "optimizer" not in resume_ckpt:
             # Legacy checkpoint (only `model` key, or plain state_dict): fall back to
@@ -930,7 +861,7 @@ def main(
     # test number. It is labeled "val_final" accordingly. The held-out test metric
     # for the paper is produced by `scripts/predict.py` on the split file's
     # `heldout` FOVs (which load_fov_splits excludes from both train and val).
-    checkpoint = torch.load(best_model_path, map_location=device, weights_only=True)
+    checkpoint = torch.load(best_model_path, map_location=device, weights_only=False)  # trusted local ckpt
     model.load_state_dict(checkpoint["model"])
     model.eval()
 

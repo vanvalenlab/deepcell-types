@@ -62,6 +62,16 @@ full canonical metadata. **Breaking changes** are noted below.
   state_dict, so the released (legacy-MLP) checkpoint still loads unchanged.
 - Default training learning rate raised `3e-4 → 1e-3` in `scripts/train.py`,
   matching the canonical backbone recipe.
+- **Breaking (training default):** backbone training no longer applies per-class
+  `FocalLoss` weights. The `WeightedRandomSampler` is now the sole rare-class
+  balancer, so double-weighting is impossible. The `--no_class_weights` flag and
+  the `compute_class_weights` helper are removed, and the checkpoint config no
+  longer records `no_class_weights`. The focal term (`--focal_gamma`) is
+  unchanged. This makes the no-flags default reproduce the released-checkpoint
+  recipe (which was trained with `--no_class_weights`); it changes
+  `scripts/train.py`'s no-flag default versus earlier 0.1.0 development builds.
+  The stage-2 head retrain (`scripts/retrain_head.py`) already used plain
+  `CrossEntropyLoss` and is unaffected.
 - **Breaking:** the legacy `CellTypeCLIPModel` class is removed.
   Canonical checkpoints now read marker / cell-type metadata from a
   TissueNet zarr v3 archive at inference time; the active model class

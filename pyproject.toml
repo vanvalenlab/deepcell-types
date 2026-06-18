@@ -139,7 +139,10 @@ dev = [
 ]
 
 [tool.ruff]
-# maps/ and cellsighter/ are vendored verbatim from upstream and pinned
+# maps/ and cellsighter/ are Caltech (Van Valen Lab) independent
+# reimplementations of the architectures and training procedures described in
+# the respective papers; no code is copied from the upstream repositories (see
+# deepcell_types/baselines/NOTICE). Both are pinned
 # byte-for-byte by tests/baselines/test_maps_cellsighter_equivalence.py
 # (only the `from .model import` relocation rewrite is allowed). Linting them
 # would force edits that break that equivalence contract, so exclude them.
