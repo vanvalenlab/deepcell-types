@@ -6,8 +6,12 @@ Each config is a list of ``{"op": name, ...params}`` dicts applied in order to a
 ``make_preprocessor(config)``.
 
 ``DEFAULT_CONFIG`` reproduces the built-in inference preprocessing
-(per-channel nonzero-pixel p99 clip + min-max), so passing it is equivalent to
+(per-channel nonzero-pixel p99.9 clip + min-max), so passing it is equivalent to
 passing no hook at all.
+
+Note: ``DEFAULT_CONFIG`` (a preprocessing op list) is unrelated to
+:class:`deepcell_types.DCTConfig` (the inference marker / cell-type registry),
+despite the similar name.
 """
 
 from __future__ import annotations
