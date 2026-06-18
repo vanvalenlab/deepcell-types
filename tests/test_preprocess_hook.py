@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import deepcell_types.dataset as dsmod
 from deepcell_types.preprocessing import patch_generator
 from deepcell_types.config import DCTConfig
@@ -80,3 +81,14 @@ def test_default_config_hook_equals_builtin_in_patch_generator():
     assert len(baseline) == len(hooked) and len(baseline) > 0
     for b, h in zip(baseline, hooked):
         np.testing.assert_allclose(b, h, rtol=1e-5, atol=1e-6)
+
+
+def test_patchdataset_is_single_pass():
+    # The dataset frees its source array after the first iteration to cut peak
+    # RAM; re-iterating must fail loudly, not crash on a None source array.
+    raw, mask = _toy()
+    cfg = DCTConfig()
+    ds = dsmod.PatchDataset(raw, mask, ["CD3", "DAPI"], 0.5, cfg)
+    list(ds)  # first pass exhausts and releases self.raw
+    with pytest.raises(RuntimeError, match="single-pass"):
+        list(ds)
