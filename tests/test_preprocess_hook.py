@@ -92,3 +92,45 @@ def test_patchdataset_is_single_pass():
     list(ds)  # first pass exhausts and releases self.raw
     with pytest.raises(RuntimeError, match="single-pass"):
         list(ds)
+
+
+def test_preprocess_hook_nonfinite_output_rejected():
+    raw, mask = _toy()
+    cfg = DCTConfig()
+
+    def hook(arr, names):
+        out = np.zeros_like(arr)
+        out[0, 0, 0] = np.nan
+        return out
+
+    with pytest.raises(ValueError, match="non-finite"):
+        list(
+            patch_generator(
+                raw,
+                mask,
+                0.5,
+                dct_config=cfg,
+                preprocess=hook,
+                channel_names=["CD3", "DAPI"],
+            )
+        )
+
+
+def test_preprocess_hook_out_of_range_output_rejected():
+    raw, mask = _toy()
+    cfg = DCTConfig()
+
+    def hook(arr, names):
+        return np.full_like(arr, 5.0)  # outside the required [0, 1] contract
+
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        list(
+            patch_generator(
+                raw,
+                mask,
+                0.5,
+                dct_config=cfg,
+                preprocess=hook,
+                channel_names=["CD3", "DAPI"],
+            )
+        )

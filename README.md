@@ -2,10 +2,10 @@
 
 DeepCell Types is a generalized cell-phenotyping model for spatial
 proteomics. It addresses generalization across datasets with varying
-marker panels via a shared marker / cell-type registry. That registry
-ships with the package as a small `vocab.json` snapshot, so
-`pip install deepcell-types` + `download_model()` is enough to run
-`predict()` — the multi-GB TissueNet zarr archive is **optional**.
+marker panels by matching each image's channels against a marker /
+cell-type registry, which ships with the package as a `vocab.json`
+snapshot — so inference runs on any in-memory image with no extra data
+download.
 
 > **License notice.** This project is distributed under a *Modified Apache
 > License, Version 2.0* with non-commercial / academic-only carve-outs (see
@@ -39,16 +39,32 @@ from deepcell_types.utils import download_model
 download_model()
 ```
 
-## Optional: TissueNet zarr archive
+## Running inference (no archive required)
 
-`predict()` does **not** require the TissueNet zarr archive — the marker /
-cell-type registry it needs ships with the package as a packaged
-`vocab.json` snapshot, and `DCTConfig` falls back to it automatically when
-no archive is found. The archive is only needed for advanced workflows
-(e.g. the tissue→cell-type mapping, re-deriving the registry for a custom
-panel, or batched evaluation via `scripts/predict.py`). To use one, pass
-`zarr_path=...` to `predict` directly or set the `DEEPCELL_TYPES_ZARR_PATH`
-environment variable.
+Inference needs only the model checkpoint (`download_model()` above) and
+your image as an in-memory array — **no TissueNet archive download is
+required**. The marker / cell-type registry ships inside the package as a
+`vocab.json` snapshot, and `predict` resolves your channels against it
+automatically:
+
+```python
+from deepcell_types import predict
+
+# raw: numpy (C, H, W); mask: 2D label image; channel_names: list[str]
+labels = predict(raw, mask, channel_names, mpp,
+                 model_name="deepcell-types_2026-05-17", device="cuda:0")
+```
+
+For a complete example of the cell-type inference pipeline, check out
+the [tutorial](https://vanvalenlab.github.io/deepcell-types/site/tutorial.html).
+
+## TissueNet zarr archive (optional)
+
+The archive is **only** needed if you want to override the packaged
+registry — e.g. to run against a custom marker panel — or for training (see
+[Training](#training)). When present, `predict` reads the registry from it
+instead of `vocab.json`; pass `zarr_path=...` directly or set the
+`DEEPCELL_TYPES_ZARR_PATH` environment variable.
 
 A registered user can download a public TissueNet zarr archive from
 `https://users.deepcell.org`; see `docs/site/API-key.md` for the access
@@ -74,15 +90,7 @@ It exits non-zero on any marker-order/size drift. (The check's logic is
 unit-tested in CI via `tests/test_archive_contract_validator.py`; this script
 runs it against the actual archive, which CI cannot access.)
 
-## Running
-
-The `deepcell-types` cell-type inference functionality is provided via
-a simple functional interface, `deepcell_types.predict`.
-
-For a complete example of the cell-type inference pipeline, check out
-the [tutorial](https://vanvalenlab.github.io/deepcell-types/site/tutorial.html).
-
-### Custom preprocessing (advanced)
+## Custom preprocessing (advanced)
 
 When a single FOV's predictions look biologically implausible — usually because
 one channel is saturated or has heavy background and is steering the calls — the
@@ -126,15 +134,9 @@ pip install "deepcell-types[train] @ git+https://github.com/vanvalenlab/deepcell
 
 Training entry points live under `scripts/`:
 
-- `scripts/train.py` — main training loop (stage 1: backbone, weighted sampler on).
-- `scripts/retrain_head.py` — stage 2: freeze the backbone, retrain the residual-MLP
-  cell-type head on the natural class distribution (sampler off). This decoupled
-  recipe is the default and produces the best model (`ct_head_arch="resmlp"`).
+- `scripts/train.py` — main training loop.
 - `scripts/pretrain.py` — masked-marker pretraining.
 - `scripts/predict.py` — batched evaluation over a zarr archive.
-- `scripts/evaluate_on_test.sh` — **canonical evaluation on the held-out 129-FOV
-  test split** (`splits/fov_split_test_current.json`). All headline cell-type numbers
-  are reported on this frozen, leakage-free test set; this is the default eval.
 
 All training scripts read configuration from a TissueNet zarr v3 archive.
 Pass `--zarr_dir` (training scripts) or set `DEEPCELL_TYPES_ZARR_PATH`
