@@ -7,8 +7,9 @@ under, and the prediction CSV (sha256) the number was computed from.
 **Common to all rows:** archive `expanded-tissuenet.zarr` fingerprint `f5b6ed52`;
 test split = 129 FOVs / 486,705 cells (`fov_split_test_eval.json`, val=129 test);
 metric = repo `hierarchical_macro_f1` (parent→child credit); full coverage
-(`--ct_abstention_k 0`, no abstention). Both `d13fd54` and `b598710` are ancestors
-of `xuefei/master` (PR #41), so they resolve in repo history.
+(`--ct_abstention_k 0`, no abstention). `d13fd54` is an ancestor of `xuefei/master`
+via PR #41, and `b598710` is a separate `xuefei/master` commit (not in PR #41); both
+resolve in repo history.
 
 | # | Reported (test, hier raw) | Checkpoint (sha256, head, val) | Train commit | Eval commit | Prediction CSV (sha256) |
 |---|---|---|---|---|---|
@@ -40,5 +41,5 @@ head still loads there because the checkpoint config carries `n_celltypes`.
 The rows above predate self-pinning, so their train/eval commits were reconstructed from
 the pin worktrees' HEADs (this manifest is their source of truth). Going forward this is
 automatic: `scripts/train.py` now records `CKPT_CONFIG["git_commit"] = git rev-parse HEAD`
-of the running checkout — implemented in **`ef1229f`** (PR #41). Checkpoints trained from
+of the running checkout — implemented in **`ef1229f`** (a separate `xuefei/master` commit, not in PR #41). Checkpoints trained from
 that commit onward carry their own code commit in `config["git_commit"]`.
