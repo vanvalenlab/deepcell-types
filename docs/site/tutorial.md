@@ -288,7 +288,7 @@ from deepcell_types.utils import download_model
 
 # Downloads to $HOME/.deepcell/models on first call; subsequent calls reuse
 # the cached checkpoint and return its path immediately.
-model = download_model(version="2026-05-17")
+model = download_model(version="2026-06-15")
 ```
 
 ```{code-cell} ipython3

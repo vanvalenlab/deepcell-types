@@ -8,10 +8,19 @@ than one file (e.g. ``maps`` needs its ``_stats.npz`` companion;
 entry is a list of ``(filename, md5)`` tuples.
 """
 
-_latest = "2026-05-17"
+_latest = "2026-06-15"
 
 # Main model checkpoints. Values are ``(asset_filename, md5)``.
+# The headline release is the two-stage residual-MLP model
+# (``2026-06-15``): a sampler-trained backbone, frozen, with a residual-MLP
+# cell-type head retrained on the natural class distribution. It loads via
+# stock ``predict.py`` (the resMLP head is auto-detected). The prior
+# Frozen-CLS headline (``2026-05-17``) is kept for reproducibility.
 _model_registry = {
+    "2026-06-15": (
+        "deepcell-types_2026-06-15_resmlp.pt",
+        "704616a1cfeb6f4718ffdb8d7ea64d65",
+    ),
     "2026-05-17": (
         "deepcell-types_2026-05-17.pt",
         "6089cf35a0ab7357f94dc3030156dc33",
