@@ -51,3 +51,18 @@ python -m deepcell_types.baselines xgboost-tune ...   # Optuna hyperparameter se
   `xgboost-tune` (`tuning.py`), which searches `n_estimators` 100–1500,
   `max_depth` 3–12, `learning_rate` 0.005–0.3 (log), `min_child_weight` 1–10,
   and `subsample`/`colsample_bytree` 0.5–1.0.
+
+## Fairness notes vs the neural baselines
+
+- **No `cellSize` feature.** XGBoost uses the per-marker mean intensities only;
+  MAPS additionally appends `cellSize` (`maps/run.py`). XGBoost also uses **no**
+  class weighting or balanced sampler, whereas MAPS uses a full-inverse-frequency
+  sampler and CellSighter a sqrt-inverse-frequency one. On rare-class macro
+  metrics these make the XGBoost number *conservative* relative to the neural
+  baselines, not advantaged.
+- **Tuning budget is not matched.** Only XGBoost has an automated hyperparameter
+  search (`tuning.py`, ~100 Optuna trials); MAPS and CellSighter run at fixed
+  configurations. When comparing the tuned XGBoost number head-to-head with the
+  neural baselines, either report the default-config XGBoost (`n_estimators=100`,
+  `max_depth=6`) alongside it or note that the neural baselines were not tuned to
+  a comparable budget.

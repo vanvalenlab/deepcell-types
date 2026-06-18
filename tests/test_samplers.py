@@ -9,6 +9,8 @@ from deepcell_types.training.dataset import (
     CellIndexRecord,
     FOVGroupedSampler,
     SequentialFOVGroupedSampler,
+    compute_sample_weights_equal,
+    subsample_indices_per_class,
 )
 
 
@@ -162,9 +164,7 @@ class TestSequentialFOVGroupedSampler:
         # would emit values >= len(train_indices) and fail this assertion.
         dataset_indices = self._build([3, 5, 2, 4])  # 14 cells across 4 FOVs
         train_indices = [0, 1, 2, 3, 4, 8, 9, 10, 11]  # drops FOV1 and FOV3 tails
-        sampler = SequentialFOVGroupedSampler(
-            dataset_indices, train_indices, seed=1
-        )
+        sampler = SequentialFOVGroupedSampler(dataset_indices, train_indices, seed=1)
         yielded = list(sampler)
         n = len(train_indices)
         assert sorted(yielded) == list(range(n)), (
@@ -201,9 +201,7 @@ class TestSequentialFOVGroupedSampler:
         dataset = _FakeDataset(dataset_indices)
         train_indices = [0, 1, 2, 3, 4, 8, 9, 10, 11]
         subset = Subset(dataset, train_indices)
-        sampler = SequentialFOVGroupedSampler(
-            dataset_indices, train_indices, seed=42
-        )
+        sampler = SequentialFOVGroupedSampler(dataset_indices, train_indices, seed=42)
 
         seen = []
         for pos in sampler:
@@ -213,9 +211,7 @@ class TestSequentialFOVGroupedSampler:
     def test_each_fov_emitted_contiguously(self):
         dataset_indices = self._build([3, 5, 2, 4])
         train_indices = list(range(len(dataset_indices)))
-        sampler = SequentialFOVGroupedSampler(
-            dataset_indices, train_indices, seed=1
-        )
+        sampler = SequentialFOVGroupedSampler(dataset_indices, train_indices, seed=1)
 
         yielded = list(sampler)
         seen_blocks = []
@@ -257,9 +253,7 @@ class TestSequentialFOVGroupedSampler:
         dataset_indices = self._build([3, 5, 2, 4])
         train_indices = list(range(0, len(dataset_indices), 2))
 
-        sampler = SequentialFOVGroupedSampler(
-            dataset_indices, train_indices, seed=0
-        )
+        sampler = SequentialFOVGroupedSampler(dataset_indices, train_indices, seed=0)
         yielded = list(sampler)
         n = len(train_indices)
         assert sorted(yielded) == list(range(n))
@@ -268,9 +262,7 @@ class TestSequentialFOVGroupedSampler:
 
     def test_empty_train_indices(self):
         dataset_indices = self._build([3, 5])
-        sampler = SequentialFOVGroupedSampler(
-            dataset_indices, [], seed=0
-        )
+        sampler = SequentialFOVGroupedSampler(dataset_indices, [], seed=0)
         assert list(sampler) == []
         assert len(sampler) == 0
 
@@ -423,3 +415,83 @@ class TestLazyMarkerPositivityDict:
         pickle.dumps(lazy)
 
         assert stub.calls == []
+
+
+# =============================================================================
+# Faithful CellSighter equal-proportion balancing:
+#   compute_sample_weights_equal  (full-inverse-frequency `define_sampler`)
+#   subsample_indices_per_class   (`subsample_const_size` size_data cap)
+# =============================================================================
+
+
+class TestEqualProportionBalancing:
+    def _make_dataset(self, labels):
+        """Mock dataset whose ``.indices[i].ct_label_standard`` is ``labels[i]``."""
+
+        class _MockDataset:
+            def __init__(self, labels):
+                self.indices = [
+                    CellIndexRecord(
+                        ds_idx=i,
+                        ct_label="x",
+                        ct_label_standard=lab,
+                        domain="CODEX",
+                        cell_idx=i,
+                        fov_name="F",
+                        dataset_name="D",
+                        centroid=(0.0, 0.0),
+                    )
+                    for i, lab in enumerate(labels)
+                ]
+
+        return _MockDataset(labels)
+
+    def test_full_inverse_frequency_weights(self):
+        """weight = total/count → ratio equals the inverse count ratio (no sqrt)."""
+        labels = ["A"] * 100 + ["B"] * 900
+        ds = self._make_dataset(labels)
+        weights = compute_sample_weights_equal(ds, list(range(1000)))
+        assert len(weights) == 1000
+        # w_A/w_B = (1000/100)/(1000/900) = 900/100 = 9.0  (sqrt scheme would give 3.0)
+        assert abs(weights[0].item() / weights[100].item() - 9.0) < 1e-4
+
+    def test_no_minimum_count_floor(self):
+        """Unlike the sqrt scheme, a singleton class gets full total/1 weight."""
+        labels = ["common"] * 1000 + ["rare"] * 1
+        ds = self._make_dataset(labels)
+        weights = compute_sample_weights_equal(ds, list(range(1001)))
+        # w_rare/w_common = (1001/1)/(1001/1000) = 1000  (sqrt+floor caps this ~3.16)
+        assert abs(weights[-1].item() / weights[0].item() - 1000.0) < 1e-2
+
+    def test_single_class_uniform(self):
+        ds = self._make_dataset(["A"] * 20)
+        weights = compute_sample_weights_equal(ds, list(range(20)))
+        assert len(set(weights.tolist())) == 1
+
+    def test_subsample_caps_large_classes_only(self):
+        labels = ["A"] * 5000 + ["B"] * 200
+        ds = self._make_dataset(labels)
+        idx = list(range(5200))
+        kept = subsample_indices_per_class(ds, idx, size_data=1000, seed=42)
+        from collections import Counter
+
+        counts = Counter(ds.indices[i].ct_label_standard for i in kept)
+        assert counts["A"] == 1000  # over-cap class subsampled down
+        assert counts["B"] == 200  # below-cap class untouched
+        assert set(kept).issubset(set(idx))
+        assert kept == sorted(kept)  # input order preserved (ascending here)
+
+    def test_subsample_deterministic_per_seed(self):
+        ds = self._make_dataset(["A"] * 3000)
+        idx = list(range(3000))
+        a = subsample_indices_per_class(ds, idx, 1000, seed=7)
+        b = subsample_indices_per_class(ds, idx, 1000, seed=7)
+        c = subsample_indices_per_class(ds, idx, 1000, seed=8)
+        assert a == b  # same seed → identical subset
+        assert a != c  # different seed → different subset (w.h.p.)
+        assert len(a) == 1000
+
+    def test_subsample_none_is_identity(self):
+        ds = self._make_dataset(["A"] * 10 + ["B"] * 5)
+        idx = list(range(15))
+        assert subsample_indices_per_class(ds, idx, None) == idx

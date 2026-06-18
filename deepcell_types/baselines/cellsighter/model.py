@@ -25,8 +25,14 @@ class CellSighterModel(nn.Module):
     Reference: https://github.com/KerenLab/CellSighter
     """
 
-    def __init__(self, input_channels: int, num_classes: int, pretrained: bool = False,
-                 model_size: str = "resnet50"):
+    def __init__(
+        self,
+        input_channels: int,
+        num_classes: int,
+        pretrained: bool = False,
+        model_size: str = "resnet50",
+        cifar_stem: bool = False,
+    ):
         """
         Initialize CellSighter model.
 
@@ -36,26 +42,51 @@ class CellSighterModel(nn.Module):
             pretrained: Whether to use ImageNet pretrained weights (default False
                         to match original CellSighter implementation)
             model_size: ResNet variant ('resnet18' or 'resnet50', default 'resnet50')
+            cifar_stem: If False (default), use the original CellSighter's
+                ImageNet ResNet50 stem (7×7 stride-2 conv + maxpool), which is
+                designed for the paper's 60×60 crops. If True, use the CIFAR-style
+                3×3 stride-1 stem with no maxpool — only appropriate for 32×32
+                crops (kept for the small-crop self-masked ablation).
         """
         super().__init__()
 
         # Load ResNet backbone
         if model_size == "resnet18":
-            weights = torchvision.models.ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
-            self.model = torchvision.models.resnet18(weights=weights, num_classes=num_classes)
+            weights = (
+                torchvision.models.ResNet18_Weights.IMAGENET1K_V1
+                if pretrained
+                else None
+            )
+            self.model = torchvision.models.resnet18(
+                weights=weights, num_classes=num_classes
+            )
         else:
-            weights = torchvision.models.ResNet50_Weights.IMAGENET1K_V1 if pretrained else None
-            self.model = torchvision.models.resnet50(weights=weights, num_classes=num_classes)
+            weights = (
+                torchvision.models.ResNet50_Weights.IMAGENET1K_V1
+                if pretrained
+                else None
+            )
+            self.model = torchvision.models.resnet50(
+                weights=weights, num_classes=num_classes
+            )
 
-        # CIFAR-style stem: 3×3 stride-1 conv + no maxpool.
-        # The standard ImageNet stem (7×7 stride-2 + maxpool) collapses 32×32
-        # inputs to 1×1 by layer4, producing degenerate features.
-        # With this stem: 32→32→32→16→8→4→1 (adaptive avg pool).
-        self.model.conv1 = nn.Conv2d(
-            input_channels, 64, kernel_size=3, stride=1, padding=1, bias=False
+        if cifar_stem:
+            # CIFAR-style stem: 3×3 stride-1 conv + no maxpool, for 32×32 crops.
+            # The ImageNet stem collapses 32×32 inputs to 1×1 by layer4.
+            self.model.conv1 = nn.Conv2d(
+                input_channels, 64, kernel_size=3, stride=1, padding=1, bias=False
+            )
+            self.model.maxpool = nn.Identity()
+        else:
+            # Faithful CellSighter: standard ImageNet ResNet50 stem (7×7 s2 +
+            # maxpool), the published architecture for 60×60 crops.
+            # 60→30 (conv1 s2)→15 (maxpool)→...→2 (layer4)→1 (adaptive avg pool).
+            self.model.conv1 = nn.Conv2d(
+                input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False
+            )
+        nn.init.kaiming_normal_(
+            self.model.conv1.weight, mode="fan_out", nonlinearity="relu"
         )
-        self.model.maxpool = nn.Identity()
-        nn.init.kaiming_normal_(self.model.conv1.weight, mode="fan_out", nonlinearity="relu")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -105,7 +136,9 @@ def convert_batch_for_cellsighter(
     valid = ch_idx >= 0  # (B, C_max)
 
     global_patches = raw_patches.new_zeros(B, num_markers, H, W)
-    ch_idx_clamped = ch_idx.clamp(min=0)  # clamp -1 to 0 for scatter (masked out anyway)
+    ch_idx_clamped = ch_idx.clamp(
+        min=0
+    )  # clamp -1 to 0 for scatter (masked out anyway)
     ch_idx_expanded = ch_idx_clamped.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, H, W)
     valid_expanded = valid.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, H, W)
     global_patches.scatter_(1, ch_idx_expanded, raw_patches * valid_expanded.float())

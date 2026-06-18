@@ -41,6 +41,28 @@ python -m deepcell_types.baselines cellsighter ...
   repo constructs an `ExponentialLR` scheduler but never calls
   `scheduler.step()`, so it trains at constant LR; we reproduce that exactly and
   do not step a scheduler (`run.py:389-393`).
-- **Best epoch selected on validation macro-accuracy** (`run.py:399`,
-  `run.py:460-461`); validation runs every `val_every_n_epochs` (default 10) plus
-  the final epoch, matching the upstream cadence.
+- **Best epoch selected on a held-out inner-validation set by macro-F1**;
+  validation runs every `val_every_n_epochs` (default 10) plus the final epoch,
+  matching the upstream cadence.
+  - **Deviation from upstream:** the original CellSighter selects the best epoch
+    on the same set it reports. We instead carve a FOV-grouped inner-validation
+    set (10%, via `create_dataloader(inner_val_ratio=0.1)`) out of the training
+    FOVs and select on it, so the reported test set never drives checkpoint
+    selection (selection-on-the-reported-set is leakage). This mirrors the
+    XGBoost baseline's FOV-grouped early-stopping set. As a consequence the
+    model now trains on ~90% of the training cells (the inner-val FOVs are held
+    out). Selection uses macro-F1 — the headline metric, matching the main
+    model (`scripts/train.py` selects on `val_macro_f1`) and the other
+    baselines; upstream CellSighter selected on macro-accuracy.
+- **Class balancing — faithful equal-proportion (default).** `--class_balance
+  equal` (default) reproduces the upstream training recipe: the train pool is
+  first capped to `--size_data` cells/class (default 1000, matching the paper's
+  `size_data` / `subsample_const_size`), then a `WeightedRandomSampler` draws
+  with full-inverse-frequency weights `weight = total / count`
+  (`samplers.py:compute_sample_weights_equal`, matching upstream `define_sampler`
+  with `sample_batch: true`). Two ablation schemes are selectable: `--class_balance
+  sqrt` (the DCT-wide sqrt-inverse-frequency sampler with a 1000-count floor) and
+  `--class_balance none` (uniform; also reachable via the deprecated
+  `--no_weighted_sampler`). Remaining deviation: upstream's `hierarchy_match`
+  balances at the lineage level, whereas balancing here is computed on the
+  fine-grained standardized cell-type label.

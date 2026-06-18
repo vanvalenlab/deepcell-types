@@ -35,3 +35,21 @@ python -m deepcell_types.baselines nimbus ...
 - **Ambiguous-coded ground truth is dropped** to match the canonical Nimbus
   evaluation: GT values of `0.5` or `2` are excluded and only strict `0/1`
   labels are scored (`run.py:157-173`).
+- **Prediction resize uses bilinear, not nearest-neighbor.** When resizing the
+  model output back to mask resolution for per-cell aggregation we use
+  `cv2.INTER_LINEAR` (`run.py:573-577`); upstream `nimbus-inference==0.0.5` uses
+  `cv2.INTER_NEAREST` (`utils.py:661`). The binary-mask and marker-image resizes
+  match upstream (nearest / bilinear respectively).
+- **mpp-based rescale parameterization.** We compute the scale factor from
+  microns-per-pixel (`scale = img_mpp / target_mpp`, `run.py:397,522`) rather than
+  upstream's magnification ratio (`model_magnification / dataset.magnification`,
+  `utils.py:636`). These coincide when `mpp = 10 / magnification`; they can differ
+  for archive FOVs whose stored `mpp` is not the reciprocal of the acquisition
+  magnification.
+
+Verified against the installed `nimbus-inference==0.0.5` wheel. The library's
+core primitives are used directly, so they are faithful by construction: the
+UNet's own `torch.sigmoid` output is used as-is with no double activation, and
+boundary erosion calls upstream `prepare_binary_mask` (`run.py:329,489`).
+Normalization reproduces upstream's cross-FOV averaged 99.9th-percentile
+foreground statistics (`quantile=0.999`, `n_subset=10`).

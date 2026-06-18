@@ -27,6 +27,11 @@ MAPS_OPTS = {
     "max_epochs",
     "seed",
 }
+# Re-frozen for the faithful CellSighter reimplementation (feat/faithful-cellsighter):
+# added crop_size, mask_self, cifar_stem, test_split_file, allow_split_mismatch,
+# and seed. These expose the paper-faithful training path (unmasked neighbor
+# intensities, 60x60 crops, ImageNet stem) plus its self-masked/CIFAR ablations,
+# a held-out test-split eval hook, and per-member seeding for ensembling.
 CELLSIGHTER_OPTS = {
     "model_name",
     "device_num",
@@ -34,15 +39,29 @@ CELLSIGHTER_OPTS = {
     "skip_datasets",
     "keep_datasets",
     "split_file",
+    "test_split_file",
     "split_mode",
     "batch_size",
     "epochs",
     "learning_rate",
     "model_size",
+    "crop_size",
+    "mask_self",
+    "cifar_stem",
+    "allow_split_mismatch",
+    "seed",
     "no_amp",
     "no_compile",
     "pretrained",
     "val_every_n_epochs",
+    # Ablation / faithfulness knobs added by the faithful-CellSighter work.
+    "max_samples_per_epoch",
+    "num_workers",
+    "per_modality_norm",
+    # Class-balancing scheme (faithful equal-proportion default + ablations).
+    "class_balance",
+    "size_data",
+    "no_weighted_sampler",
 }
 
 

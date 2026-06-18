@@ -18,6 +18,7 @@ from typing import Tuple, Optional
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset, WeightedRandomSampler
+from sklearn.model_selection import GroupShuffleSplit
 
 from .model import MAPSModel
 
@@ -290,6 +291,7 @@ def main(
     )
 
     X_train, y_train = data["X_train"], data["y_train"]
+    train_fov_names = data["train_fov_names"]
     X_test, y_test = data["X_val"], data["y_val"]
     test_dataset_names = data["val_dataset_names"]
     test_fov_names = data["val_fov_names"]
@@ -335,19 +337,43 @@ def main(
         f"and will receive no loss gradient."
     )
 
-    # Z-score normalization (compute stats from training set only)
+    # Carve a FOV-grouped inner-validation set out of the training data for
+    # model selection. The reported (test) set MUST NOT drive checkpoint
+    # selection — selecting the best epoch on the set you then report on is
+    # selection on the evaluation set. This mirrors the XGBoost baseline
+    # (xgb/run.py), which carves an identical FOV-grouped inner-val for early
+    # stopping. Deviates from canonical mahmoodlab/MAPS trainer.py (which
+    # selects on the eval set); documented in baselines/maps/README.
+    train_fov_array = np.asarray(train_fov_names)
+    gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=seed)
+    inner_train_idx, inner_val_idx = next(
+        gss.split(X_train, y_train, groups=train_fov_array)
+    )
+    X_inner_train, y_inner_train = X_train[inner_train_idx], y_train[inner_train_idx]
+    X_inner_val, y_inner_val = X_train[inner_val_idx], y_train[inner_val_idx]
+    print(
+        f"Inner-val (FOV-grouped, disjoint from test): {len(inner_val_idx)} samples "
+        f"from {len(np.unique(train_fov_array[inner_val_idx]))} FOVs; "
+        f"inner-train: {len(inner_train_idx)} samples"
+    )
+
+    # Z-score normalization (compute stats from the inner-train set only)
     print("\nNormalizing features (Z-score)...")
-    X_train_norm, train_mean, train_std = normalize_features(X_train)
+    X_inner_train_norm, train_mean, train_std = normalize_features(X_inner_train)
+    X_inner_val_norm, _, _ = normalize_features(
+        X_inner_val, mean=train_mean, std=train_std
+    )
     X_test_norm, _, _ = normalize_features(X_test, mean=train_mean, std=train_std)
 
     # Convert to tensors (float64 to match canonical mahmoodlab/MAPS trainer.py:133)
-    X_train_tensor = torch.from_numpy(X_train_norm.astype(np.float64))
-    y_train_tensor = torch.from_numpy(y_train.astype(np.int64))
+    X_inner_train_tensor = torch.from_numpy(X_inner_train_norm.astype(np.float64))
+    y_inner_train_tensor = torch.from_numpy(y_inner_train.astype(np.int64))
+    X_inner_val_tensor = torch.from_numpy(X_inner_val_norm.astype(np.float64))
     X_test_tensor = torch.from_numpy(X_test_norm.astype(np.float64))
 
-    # Compute class weights for WeightedRandomSampler
+    # Compute class weights for WeightedRandomSampler (inner-train only)
     print("Computing class weights for balanced sampling...")
-    sample_weights = compute_class_weights(y_train)
+    sample_weights = compute_class_weights(y_inner_train)
     sampler = WeightedRandomSampler(
         weights=sample_weights,
         num_samples=len(sample_weights),
@@ -356,7 +382,7 @@ def main(
 
     # Create training dataloader with balanced sampling
     # drop_last=True matches original MAPS implementation
-    train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+    train_dataset = TensorDataset(X_inner_train_tensor, y_inner_train_tensor)
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=batch_size,
@@ -384,7 +410,7 @@ def main(
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # Training loop — runs the full max_epochs (no early stopping); the best
-    # epoch is selected on validation loss.
+    # epoch is selected on inner-validation loss (FOV-grouped, disjoint from test).
     print(f"\nTraining MAPS model for {max_epochs} epochs (best-by-val-loss)...")
     print(f"  LR schedule: constant lr={learning_rate}")
     best_val_loss = float("inf")
@@ -400,10 +426,12 @@ def main(
             model, train_dataloader, criterion, optimizer, device
         )
 
-        # Evaluate with shared hierarchy collapse (Tcell + Stromal) — matches
-        # the main model's LossesAndMetrics.compute() exactly, so the reported
-        # numbers are directly comparable.
-        y_true, y_pred, y_prob = evaluate(model, X_test_tensor, y_test, device)
+        # Evaluate on the inner-val set (selection signal only — never the
+        # reported test set). Shared hierarchy collapse (Tcell + Stromal)
+        # matches the main model's LossesAndMetrics.compute() exactly.
+        y_true, y_pred, y_prob = evaluate(
+            model, X_inner_val_tensor, y_inner_val, device
+        )
         metrics = compute_baseline_metrics(
             y_true,
             y_pred,
@@ -426,13 +454,13 @@ def main(
         except ValueError:
             metrics["auroc"] = float("nan")
 
-        # Compute validation loss
+        # Compute inner-validation loss (drives checkpoint selection)
         model.eval()
         with torch.no_grad():
-            X_test_dev = X_test_tensor.to(device)
-            y_test_dev = torch.from_numpy(y_test.astype(np.int64)).to(device)
-            val_logits, _ = model(X_test_dev)
-            val_loss = criterion(val_logits, y_test_dev).item()
+            X_inner_val_dev = X_inner_val_tensor.to(device)
+            y_inner_val_dev = torch.from_numpy(y_inner_val.astype(np.int64)).to(device)
+            val_logits, _ = model(X_inner_val_dev)
+            val_loss = criterion(val_logits, y_inner_val_dev).item()
 
         # Print progress every 10 epochs
         if (epoch + 1) % 10 == 0 or epoch == 0:
@@ -443,8 +471,9 @@ def main(
                 f"AUROC={metrics['auroc']:.4f}"
             )
 
-        # Model selection — keep the checkpoint with the lowest val loss
-        # (canonical mahmoodlab/MAPS trainer.py:236-242).
+        # Model selection — keep the checkpoint with the lowest inner-val loss.
+        # Canonical mahmoodlab/MAPS trainer.py:236-242 selects on the eval set;
+        # we deviate to a held-out inner-val to avoid selection on the reported set.
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_macro_acc = metrics["macro_accuracy"]
