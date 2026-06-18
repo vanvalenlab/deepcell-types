@@ -36,7 +36,7 @@ The model can be downloaded for local use:
 A specific version can be requested:
 
 ```python
-download_model(version="2026-05-17")
+download_model(version="2026-06-15")
 ```
 
 A listing of available pre-trained model versions is available from
