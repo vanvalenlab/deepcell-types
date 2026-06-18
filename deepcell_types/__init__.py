@@ -17,6 +17,10 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
+# Importing deepcell_types must not pull in torch (a ~1.4s import). None of the
+# modules below import torch at module scope — in particular .predict defers its
+# torch / model / dataset imports into the functions that need them — so
+# `import deepcell_types` stays torch-free until predict() is actually called.
 from .abstention import ABSTENTION_LABEL as ABSTENTION_LABEL
 from .config import DCTConfig as DCTConfig
 from .predict import predict as predict
