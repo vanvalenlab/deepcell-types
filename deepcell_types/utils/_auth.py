@@ -85,7 +85,12 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
     # Request download URL
     headers = {"X-Api-Key": access_token}
     logger.info("Making request to server")
-    resp = requests.post(_api_endpoint, headers=headers, data={"s3_key": asset_key})
+    resp = requests.post(
+        _api_endpoint,
+        headers=headers,
+        data={"s3_key": asset_key},
+        timeout=(30, 300),
+    )
 
     def _safe_json(r):
         # Gateways/proxies often return HTML or empty error bodies; don't let a
@@ -135,7 +140,10 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
 
     logger.info(f"Downloading {asset_key} with size {file_size} to {download_location}")
     data_req = requests.get(
-        download_url, headers={"user-agent": "Wget/1.20 (linux-gnu)"}, stream=True
+        download_url,
+        headers={"user-agent": "Wget/1.20 (linux-gnu)"},
+        stream=True,
+        timeout=(30, 300),
     )
     data_req.raise_for_status()
 

@@ -44,7 +44,6 @@ from typing import Dict, List, Sequence
 import numpy as np
 from skimage.measure import regionprops
 from skimage.transform import rescale
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -378,7 +377,7 @@ def patch_generator(raw, mask, mpp, dct_config, preprocess=None, channel_names=N
     props = regionprops(mask, cache=False)
     orig_ct = "Unknown"
 
-    for prop in tqdm(props):
+    for prop in props:
         idx = prop.label
         if idx == 0:
             continue

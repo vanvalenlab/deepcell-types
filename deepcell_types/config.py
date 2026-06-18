@@ -14,6 +14,13 @@ def _read_json(path):
 
 
 def _archive_candidate_paths(explicit_path):
+    # Resolution precedence: an explicit zarr_path wins, then the
+    # DEEPCELL_TYPES_ZARR_PATH env var, and finally a DATA_DIR fallback that
+    # auto-discovers a tissuenet-v*.zarr inside DATA_DIR (a convenience for the
+    # training/repro pipeline). If none yield an archive, the caller falls back
+    # to the packaged vocab.json. Note the DATA_DIR probe can silently activate
+    # archive mode when DATA_DIR is set for unrelated reasons and happens to
+    # contain a candidate archive.
     if explicit_path is not None:
         yield Path(explicit_path).expanduser()
 
@@ -66,6 +73,11 @@ def _load_packaged_vocab():
     return _read_json(vocab_path)
 
 
+# These metadata readers are cached unbounded by path string. They assume the
+# archive is immutable for the lifetime of the process — a second DCTConfig over
+# the same path after the archive changed on disk returns the cached (stale)
+# result. Inference processes are short-lived and archives are published
+# read-only, so this holds in practice.
 @lru_cache(maxsize=None)
 def _archive_root_attrs(zarr_path_str):
     zarr_path = Path(zarr_path_str)

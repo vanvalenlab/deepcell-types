@@ -353,6 +353,12 @@ def predict(
         cell indices, predicted names, and an ``abstained`` boolean
         mask. See :class:`PredictionResult`.
     """
+    if device_num is not None:
+        warnings.warn(
+            "predict(device_num=...) is deprecated; use device=... instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     if device is None:
         device = device_num
     if device is None:

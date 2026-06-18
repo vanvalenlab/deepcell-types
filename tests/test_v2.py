@@ -50,9 +50,7 @@ class MockTissueNetConfig:
         self.ct2idx = {"T_cell": 0, "B_cell": 1, "Macrophage": 2}
         self.marker2idx = {"CD3": 0, "CD4": 1, "CD8": 2, "CD45": 3}
         self.domain2idx = {"CODEX": 0, "MIBI": 1}
-        self.dataset_celltypes = {
-            "TestDataset": ["B_cell", "Macrophage", "T_cell"]
-        }
+        self.dataset_celltypes = {"TestDataset": ["B_cell", "Macrophage", "T_cell"]}
         self.domain_mapping = {"TestDataset": "CODEX"}
         self.marker_positivity_labels = self._create_mock_mpi()
         self.tissue_celltype_mapping = {}
@@ -96,6 +94,7 @@ class TestCellTypeAnnotator:
 
     def test_output_shapes(self, marker_embeddings):
         """Verify output shapes match specification."""
+        torch.manual_seed(42)
         B, C_max, H, W = 4, 10, 32, 32
         n_celltypes, n_domains = 3, 2
 
@@ -149,6 +148,7 @@ class TestCellTypeAnnotator:
 
     def test_train_eval_consistency(self, marker_embeddings):
         """Marker embeddings should be normalized in BOTH train and eval."""
+        torch.manual_seed(42)
         model = CellTypeAnnotator(
             d_model=64,
             n_heads=4,
