@@ -55,3 +55,31 @@ def test_predict_import_does_not_pull_training_deps():
         """
     )
     subprocess.run([sys.executable, "-c", probe], check=True)
+
+
+def test_importing_package_does_not_pull_torch():
+    """``import deepcell_types`` (and accessing the ``predict`` symbol) must not
+    import torch — predict.py defers torch / model / dataset imports into the
+    functions that use them, so a user who only `import`s the package pays the
+    ~1.4s torch import only once they actually call ``predict()``.
+
+    Subprocess-isolated so pytest's own torch import does not mask a regression.
+    """
+    probe = textwrap.dedent(
+        """
+        import sys
+        import deepcell_types  # noqa: F401
+        from deepcell_types import predict  # noqa: F401
+        from deepcell_types.predict import (  # noqa: F401
+            predict,
+            validate_checkpoint_vocabulary,
+        )
+
+        if "torch" in sys.modules:
+            raise SystemExit(
+                "torch leaked into the bare-import path; keep torch imports "
+                "function-local in deepcell_types/predict.py."
+            )
+        """
+    )
+    subprocess.run([sys.executable, "-c", probe], check=True)

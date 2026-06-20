@@ -22,6 +22,7 @@ from torchmetrics.classification import (
 from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
 from deepcell_types.training.dataset import create_dataloader
 from deepcell_types.model import create_model
+from deepcell_types.predict import validate_checkpoint_vocabulary
 from deepcell_types.training.losses import FocalLoss
 from deepcell_types.training.utils import (
     BatchData,
@@ -196,6 +197,12 @@ def main(
     # used as the fallback when a key (or the whole config) is absent, which
     # keeps the current released checkpoint loading unchanged.
     ckpt_config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
+
+    # Guard the cell-type / marker ORDERING before the strict load. A strict
+    # load_state_dict only catches shape (count) mismatches; a permuted ct2idx
+    # of the right size would load cleanly and silently mislabel every cell in
+    # the eval CSV. Same check the Python API runs.
+    validate_checkpoint_vocabulary(checkpoint, dct_config.ct2idx, dct_config.marker2idx)
 
     # Build model
     model = create_model(

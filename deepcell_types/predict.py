@@ -1,18 +1,102 @@
+import hashlib
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
 import numpy as np
-import torch
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from .abstention import ABSTENTION_LABEL, compute_iqr_fence
-from .model import create_model
-from .dataset import PatchDataset
 from .config import DCTConfig
+
+# NOTE: torch (and the torch-importing .model / .dataset modules) are imported
+# lazily inside the functions that use them, NOT at module scope, so that
+# `import deepcell_types` stays torch-free until predict() is actually called
+# (torch is a ~1.4s import). Keep it that way — do not add a top-level
+# `import torch` here.
+
+# Canonical cell-type ordering of the released v0.1.0 checkpoint
+# (deepcell-types_2026-05-17.pt), as SHA-256 of the ordered ``name:index``
+# pairs. The released checkpoint predates self-describing checkpoints and does
+# NOT bundle its own ``ct2idx`` (only ``canonical_channels`` for the marker
+# side), so the bundled-ct2idx guard in ``_build_model`` has nothing in the
+# checkpoint to compare against. We anchor it here instead: a vocab.json (or
+# archive) that permutes the cell-type ordering would pass the count check and
+# silently mislabel every cell, so we reject any legacy checkpoint paired with
+# a vocabulary whose ordering does not hash to this value. Checkpoints that
+# bundle their own ``ct2idx`` are validated against that instead.
+_CANONICAL_CT2IDX_SHA256 = (
+    "113687d06699fd4b4dc08e2601fba880e3a0d92e20c4b1418eef5ae3fef5bc78"
+)
+
+
+def _names_ordered_by_index(mapping):
+    return [name for name, _ in sorted(mapping.items(), key=lambda item: int(item[1]))]
+
+
+def _ct2idx_ordering_sha256(ct2idx):
+    """SHA-256 of a cell-type mapping's index-ordered ``name:index`` pairs."""
+    ordered = sorted(ct2idx.items(), key=lambda item: int(item[1]))
+    payload = "\n".join(f"{name}:{int(idx)}" for name, idx in ordered)
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def validate_checkpoint_vocabulary(checkpoint, ct2idx, marker2idx):
+    """Reject a checkpoint/vocabulary pairing whose ORDERING would mislabel cells.
+
+    The count check in :func:`_build_model` only catches a wrong *number* of
+    cell types or markers; a permuted mapping of the right size passes it and
+    then silently mislabels every prediction. This guards ordering for both the
+    cell-type and marker sides, and is shared by the Python API
+    (:func:`_build_model`) and the evaluation CLI (``scripts/predict.py``) so
+    they cannot drift apart.
+
+    - If the checkpoint bundles its own ``ct2idx`` it must match ``ct2idx``
+      (name -> index mapping, order-independent).
+    - If it does not (legacy / released v0.1.0 checkpoint), ``ct2idx`` must hash
+      to the frozen canonical ordering, since there is nothing in the checkpoint
+      to compare against.
+    - If the checkpoint bundles ``canonical_channels`` it must match the marker
+      ordering (compared by numeric marker index, not dict insertion order).
+
+    Raises ``ValueError`` on any mismatch.
+    """
+    ckpt_ct2idx = checkpoint.get("ct2idx") if isinstance(checkpoint, dict) else None
+    if ckpt_ct2idx is not None:
+        if dict(ckpt_ct2idx) != dict(ct2idx):
+            raise ValueError(
+                "Checkpoint ct2idx ordering does not match the inference "
+                "vocabulary's. The model would mislabel cell types; use the "
+                "archive the checkpoint was trained against."
+            )
+    else:
+        # Legacy / released checkpoint with no bundled ct2idx: nothing in the
+        # checkpoint to compare against, so anchor on the frozen canonical
+        # ordering. This makes the cell-type side symmetric with the marker-side
+        # protection (canonical_channels) for the shipped checkpoint.
+        ordering_sha = _ct2idx_ordering_sha256(ct2idx)
+        if ordering_sha != _CANONICAL_CT2IDX_SHA256:
+            raise ValueError(
+                "This checkpoint does not bundle a ct2idx, so the cell-type "
+                "ordering is taken from the inference vocabulary — but that "
+                "ordering does not match the canonical v0.1.0 ordering "
+                f"(got {ordering_sha[:12]}…, expected "
+                f"{_CANONICAL_CT2IDX_SHA256[:12]}…). A permuted vocabulary would "
+                "silently mislabel every cell. Use the packaged vocab.json (or "
+                "the archive the checkpoint was trained against), or supply a "
+                "checkpoint that bundles its own ct2idx."
+            )
+
+    ckpt_channels = (
+        checkpoint.get("canonical_channels") if isinstance(checkpoint, dict) else None
+    )
+    marker_order = _names_ordered_by_index(marker2idx)
+    if ckpt_channels is not None and list(ckpt_channels) != marker_order:
+        raise ValueError(
+            "Checkpoint marker ordering (canonical_channels) does not match the "
+            "inference vocabulary's marker2idx ordering."
+        )
 
 
 @dataclass(frozen=True)
@@ -104,6 +188,8 @@ def _torch_load_weights(path, device):
     the kwarg, and emits a loud warning. Older torch installs should be
     upgraded rather than silently bypassing the safety check.
     """
+    import torch
+
     try:
         return torch.load(path, map_location=device, weights_only=True)
     except TypeError as e:
@@ -165,6 +251,8 @@ def _infer_n_domains(state_dict):
 
 
 def _build_model(checkpoint, dct_config, device):
+    from .model import create_model
+
     state_dict = _state_dict(checkpoint)
     config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
 
@@ -199,28 +287,13 @@ def _build_model(checkpoint, dct_config, device):
             f"config has {len(dct_config.ct2idx)}."
         )
 
-    # When the checkpoint records its own vocabulary, require the inference
-    # archive to agree on ORDERING, not just counts. A permuted ct2idx (or marker
-    # list) passes the count checks above but would silently mislabel every
-    # prediction. These keys are absent on pre-self-describing checkpoints, in
-    # which case we fall back to trusting the archive (legacy behaviour).
-    ckpt_ct2idx = checkpoint.get("ct2idx") if isinstance(checkpoint, dict) else None
-    if ckpt_ct2idx is not None and dict(ckpt_ct2idx) != dict(dct_config.ct2idx):
-        raise ValueError(
-            "Checkpoint ct2idx ordering does not match the inference archive's. "
-            "The model would mislabel cell types; use the archive the checkpoint "
-            "was trained against."
-        )
-    ckpt_channels = (
-        checkpoint.get("canonical_channels") if isinstance(checkpoint, dict) else None
-    )
-    if ckpt_channels is not None and list(ckpt_channels) != list(
-        dct_config.marker2idx.keys()
-    ):
-        raise ValueError(
-            "Checkpoint marker ordering (canonical_channels) does not match the "
-            "inference archive's marker2idx ordering."
-        )
+    # Require the inference vocabulary to agree on ORDERING, not just counts
+    # (a permuted mapping of the right size passes the count checks above but
+    # silently mislabels every prediction). Self-describing checkpoints are
+    # validated against their own bundled ct2idx / canonical_channels; the
+    # legacy released checkpoint (no bundled ct2idx) is anchored to the frozen
+    # canonical ordering. Shared with scripts/predict.py.
+    validate_checkpoint_vocabulary(checkpoint, dct_config.ct2idx, dct_config.marker2idx)
 
     marker_embeddings = np.zeros((n_markers, embedding_dim), dtype=np.float32)
     use_conditioned_mp_head = "marker_pos_head.film_scale.weight" in state_dict
@@ -228,7 +301,23 @@ def _build_model(checkpoint, dct_config, device):
     # n_heads and compat_marker0_zero are NOT recoverable from tensor shapes
     # (MultiheadAttention params are head-count-independent; compat_marker0_zero
     # is a pure-Python numerics flag). Read them from the checkpoint's saved
-    # config when present, else fall back to the v0.1.0 canonical defaults.
+    # config when present, else fall back to the v0.1.0 canonical defaults. A
+    # wrong head count loads without error (d_model is divisible by several head
+    # counts) but changes the numerics, so warn loudly when we are guessing
+    # rather than reading the value the checkpoint was trained with.
+    missing_arch_keys = [
+        k for k in ("n_heads", "compat_marker0_zero") if k not in config
+    ]
+    if missing_arch_keys:
+        warnings.warn(
+            "Checkpoint config does not record "
+            f"{', '.join(missing_arch_keys)}; falling back to the v0.1.0 "
+            "canonical defaults (n_heads=8, compat_marker0_zero=True). These "
+            "are not recoverable from the weights, so a checkpoint trained with "
+            "different values would load silently with wrong numerics. This is "
+            "expected for the released v0.1.0 checkpoint.",
+            stacklevel=3,
+        )
     n_heads = int(config.get("n_heads", 8))
     compat_marker0_zero = bool(config.get("compat_marker0_zero", True))
 
@@ -353,6 +442,12 @@ def predict(
         cell indices, predicted names, and an ``abstained`` boolean
         mask. See :class:`PredictionResult`.
     """
+    import torch
+    import torch.nn.functional as F
+    from torch.utils.data import DataLoader
+
+    from .dataset import PatchDataset
+
     if device_num is not None:
         warnings.warn(
             "predict(device_num=...) is deprecated; use device=... instead.",

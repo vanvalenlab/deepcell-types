@@ -1,4 +1,5 @@
 import json
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -11,10 +12,13 @@ from deepcell_types.model import create_model
 from deepcell_types.dataset import PatchDataset
 from deepcell_types.config import DCTConfig
 from deepcell_types.predict import (
+    _CANONICAL_CT2IDX_SHA256,
     _InferenceResultBuffer,
     _build_model,
+    _ct2idx_ordering_sha256,
     _model_path,
     predict,
+    validate_checkpoint_vocabulary,
 )
 
 
@@ -196,26 +200,43 @@ def test_predict_accepts_archive_backed_canonical_checkpoint_path(tmp_path):
         resnet_base_channels=4,
     )
     checkpoint_path = tmp_path / "canonical.pt"
-    torch.save({"model": model.state_dict()}, checkpoint_path)
+    # Self-describing checkpoint (matches scripts/train.py): bundle the
+    # vocabulary so the ordering guard validates against it.
+    torch.save(
+        {
+            "model": model.state_dict(),
+            "ct2idx": dict(config.ct2idx),
+            "canonical_channels": list(config.marker2idx.keys()),
+        },
+        checkpoint_path,
+    )
 
     raw = np.ones((1, 40, 40), dtype=np.float32)
     mask = np.zeros((40, 40), dtype=np.int32)
     mask[12:28, 12:28] = 1
 
-    cell_types = predict(
-        raw,
-        mask,
-        ["CD45"],
-        0.5,
-        model_name=str(checkpoint_path),
-        device="cpu",
-        batch_size=1,
-        num_workers=0,
-        zarr_path=archive_path,
-    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        cell_types = predict(
+            raw,
+            mask,
+            ["CD45"],
+            0.5,
+            model_name=str(checkpoint_path),
+            device="cpu",
+            batch_size=1,
+            num_workers=0,
+            zarr_path=archive_path,
+        )
 
     assert len(cell_types) == 1
     assert cell_types[0] in config.ct2idx
+    # The checkpoint records no n_heads / compat_marker0_zero, so the fallback
+    # warning fires and (stacklevel=3) points at this caller, not predict.py.
+    fallback_warning = next(
+        rec for rec in caught if "Checkpoint config does not record" in str(rec.message)
+    )
+    assert Path(fallback_warning.filename).name == Path(__file__).name
 
 
 def _build_checkpoint(config, tmp_path, **overrides):
@@ -230,7 +251,16 @@ def _build_checkpoint(config, tmp_path, **overrides):
         **overrides,
     )
     ckpt_path = tmp_path / "ckpt.pt"
-    torch.save({"model": model.state_dict()}, ckpt_path)
+    # Self-describing checkpoint (matches scripts/train.py): bundle the
+    # vocabulary so the ordering guard validates against it.
+    torch.save(
+        {
+            "model": model.state_dict(),
+            "ct2idx": dict(config.ct2idx),
+            "canonical_channels": list(config.marker2idx.keys()),
+        },
+        ckpt_path,
+    )
     return ckpt_path
 
 
@@ -501,3 +531,60 @@ def test_predict_empty_mask_returns_empty(tmp_path):
     )
     assert len(res.cell_types) == 0
     assert res.probabilities.shape == (0, len(config.ct2idx))
+
+
+# --- Vocabulary ordering guard (validate_checkpoint_vocabulary) -------------
+
+
+def test_legacy_checkpoint_requires_canonical_ordering():
+    """A checkpoint without a bundled ct2idx (the released v0.1.0 artifact)
+    must be paired with the canonical cell-type ordering; a permuted vocabulary
+    is rejected rather than silently mislabeling cells."""
+    config = DCTConfig()  # packaged vocab.json -> canonical 51-class ordering
+    legacy_ckpt = {"canonical_channels": list(config.marker2idx.keys())}
+
+    # Canonical ordering passes; the hash is order-independent (sorted by index).
+    validate_checkpoint_vocabulary(legacy_ckpt, config.ct2idx, config.marker2idx)
+    assert _ct2idx_ordering_sha256(config.ct2idx) == _CANONICAL_CT2IDX_SHA256
+    assert (
+        _ct2idx_ordering_sha256(dict(reversed(list(config.ct2idx.items()))))
+        == _CANONICAL_CT2IDX_SHA256
+    )
+
+    # Swapping two cell types' indices (same count) is rejected.
+    permuted = dict(config.ct2idx)
+    names = list(permuted)
+    permuted[names[0]], permuted[names[1]] = permuted[names[1]], permuted[names[0]]
+    with pytest.raises(ValueError, match="canonical v0.1.0 ordering"):
+        validate_checkpoint_vocabulary(legacy_ckpt, permuted, config.marker2idx)
+
+
+def test_bundled_ct2idx_mismatch_is_rejected():
+    """A self-describing checkpoint whose bundled ct2idx disagrees with the
+    inference vocabulary is rejected (ordering, not just count)."""
+    config = DCTConfig()
+    permuted = dict(config.ct2idx)
+    names = list(permuted)
+    permuted[names[0]], permuted[names[1]] = permuted[names[1]], permuted[names[0]]
+    ckpt = {"ct2idx": permuted}
+    with pytest.raises(ValueError, match="ct2idx ordering does not match"):
+        validate_checkpoint_vocabulary(ckpt, config.ct2idx, config.marker2idx)
+
+
+def test_marker_ordering_uses_indices_not_dict_insertion():
+    checkpoint = {"ct2idx": {"A": 0, "B": 1}, "canonical_channels": ["M1", "M2"]}
+
+    # marker2idx is compared by numeric index, so dict insertion order does not
+    # matter — only the index a name maps to.
+    validate_checkpoint_vocabulary(
+        checkpoint,
+        {"A": 0, "B": 1},
+        {"M2": 1, "M1": 0},
+    )
+
+    with pytest.raises(ValueError, match="marker ordering"):
+        validate_checkpoint_vocabulary(
+            checkpoint,
+            {"A": 0, "B": 1},
+            {"M1": 1, "M2": 0},
+        )

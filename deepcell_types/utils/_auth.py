@@ -5,7 +5,7 @@ import tarfile
 import zipfile
 import requests
 from pathlib import Path
-from hashlib import md5
+from hashlib import md5, sha256
 from tqdm import tqdm
 import logging
 
@@ -14,6 +14,31 @@ logger = logging.getLogger(__name__)
 
 _api_endpoint = "https://users.deepcell.org/api/getData/"
 _asset_location = Path.home() / ".deepcell"
+
+# Hash algorithm is selected by digest length so existing md5-pinned assets keep
+# working while new assets can pin the stronger sha256. SHA-256 is preferred for
+# new entries (md5 is collision-weak).
+_HASH_BY_HEXLEN = {32: ("md5", md5), 64: ("sha256", sha256)}
+
+
+def _hash_file(fpath, file_hash):
+    """Return ``(algo_name, hexdigest)`` for ``fpath`` using the algorithm
+    implied by the length of ``file_hash`` (32 hex → md5, 64 hex → sha256).
+
+    Hashes in chunks so multi-GB assets are not read fully into memory.
+    """
+    try:
+        algo_name, algo = _HASH_BY_HEXLEN[len(file_hash)]
+    except KeyError:
+        raise ValueError(
+            f"Unrecognized file_hash length {len(file_hash)}; expected an md5 "
+            "(32 hex chars) or sha256 (64 hex chars) digest."
+        )
+    hasher = algo()
+    with open(fpath, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            hasher.update(chunk)
+    return algo_name, hasher.hexdigest()
 
 
 def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
@@ -38,10 +63,11 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
         `~/.deepcell` where downloaded data will be cached. The default is
         `None`, which means cache the data in `~/.deepcell`.
 
-        :param file_hash: `str` representing the md5 checksum of datafile. The
-        checksum is used to perform data caching. If no checksum is provided or
-        the checksum differs from that found in the data cache, the data will
-        be (re)-downloaded.
+        :param file_hash: `str` representing the md5 (32 hex chars) or sha256
+        (64 hex chars) checksum of datafile; the algorithm is auto-detected from
+        the length. The checksum is used to perform data caching. If no checksum
+        is provided or the checksum differs from that found in the data cache,
+        the data will be (re)-downloaded.
     """
     download_location = _asset_location
     if cache_subdir is not None:
@@ -56,11 +82,9 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
     if file_hash is not None:
         logger.info("Checking for cached data")
         try:
-            with open(fpath, "rb") as fh:
-                hasher = md5(fh.read())
             logger.info(f"Checking {fname} against provided file_hash...")
-            md5sum = hasher.hexdigest()
-            if md5sum == file_hash:
+            _, digest = _hash_file(fpath, file_hash)
+            if digest == file_hash:
                 logger.info(f"{fname} with hash {file_hash} already available.")
                 return fpath
             logger.info(
@@ -169,13 +193,12 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
     # This catches truncated downloads that completed without raising and
     # protects against tampered intermediaries.
     if file_hash is not None:
-        with open(fpath, "rb") as fh:
-            actual = md5(fh.read()).hexdigest()
+        algo_name, actual = _hash_file(fpath, file_hash)
         if actual != file_hash:
             fpath.unlink(missing_ok=True)
             raise ValueError(
                 f"Integrity check failed for {fname}: "
-                f"expected md5={file_hash}, got md5={actual}. "
+                f"expected {algo_name}={file_hash}, got {algo_name}={actual}. "
                 "The downloaded file has been removed; please retry."
             )
 

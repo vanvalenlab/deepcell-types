@@ -1,11 +1,13 @@
 """Utilities for model / data access.
 
-The registries below pin the MD5 checksums of the paper-release
-checkpoints; uploads to ``users.deepcell.org`` use the asset paths
-constructed below (``models/<filename>``). Some baselines ship more
-than one file (e.g. ``maps`` needs its ``_stats.npz`` companion;
-``xgboost`` needs its ``.remap.json`` label-remap), so each baseline
-entry is a list of ``(filename, md5)`` tuples.
+The registries below pin checksums of the paper-release checkpoints;
+uploads to ``users.deepcell.org`` use the asset paths constructed below
+(``models/<filename>``). The hash algorithm is auto-detected from the
+digest length (32 hex → md5, 64 hex → sha256), so entries can be migrated
+to the stronger sha256 individually; new entries should pin sha256. Some
+baselines ship more than one file (e.g. ``maps`` needs its ``_stats.npz``
+companion; ``xgboost`` needs its ``.remap.json`` label-remap), so each
+baseline entry is a list of ``(filename, hash)`` tuples.
 """
 
 _latest = "2026-06-15"
