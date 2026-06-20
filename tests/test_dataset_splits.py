@@ -328,6 +328,35 @@ class TestFovSplitRoundTrip:
         assert len(loaded_train) + len(loaded_val) == len(dataset.indices)
         assert any("advisory mismatch" in rec.getMessage() for rec in caplog.records)
 
+    def test_load_allows_archive_fingerprint_metadata_mismatch(self, tmp_path, caplog):
+        """Additive archive growth must not block reuse of an intact split.
+
+        ``archive_fingerprint`` is a whole-archive metadata hash, so appending
+        new datasets changes it even when every FOV in the split is byte-for-byte
+        unchanged. The per-FOV roster checks above already raise on destructive
+        drift (a split FOV missing from the archive), so the fingerprint is kept
+        as an advisory provenance field rather than a strict guard.
+        """
+        import logging
+
+        dataset = self._build_dataset()
+        dataset.max_channels = 80
+        dataset.marker2idx = {"CD3": 0}
+        dataset.ct2idx = {"CD4T": 0, "CD8T": 1, "Tumor": 2}
+        dataset._zarr_path = "/archive/original.zarr"
+        dataset.archive_fingerprint = "9f8cc9d682d2e760"
+        split_file = tmp_path / "splits.json"
+        save_fov_splits(dataset, str(split_file), train_ratio=0.7, seed=42)
+
+        # Simulate additive drift: same FOVs, grown archive -> new fingerprint.
+        dataset.archive_fingerprint = "f5b6ed52fdcaf830"
+
+        with caplog.at_level(logging.WARNING, logger="deepcell_types.training.dataset"):
+            loaded_train, loaded_val = load_fov_splits(dataset, str(split_file))
+
+        assert len(loaded_train) + len(loaded_val) == len(dataset.indices)
+        assert any("advisory mismatch" in rec.getMessage() for rec in caplog.records)
+
     def test_load_fails_when_required_metadata_missing(self, tmp_path):
         """Strict split loading rejects missing provenance fields."""
         dataset = self._build_dataset()
