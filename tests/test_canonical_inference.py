@@ -288,6 +288,26 @@ def test_build_model_raises_on_celltype_count_mismatch(tmp_path):
         _build_model(checkpoint, config, torch.device("cpu"))
 
 
+def test_build_model_infers_configless_resmlp_head_shape(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(
+        config,
+        tmp_path,
+        ct_head_arch="resmlp",
+        ct_head_width=64,
+        ct_head_depth=2,
+    )
+
+    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    model = _build_model(checkpoint, config, torch.device("cpu"))
+
+    assert model.ct_head_arch == "resmlp"
+    assert model.ct_head_width == 64
+    assert model.ct_head_depth == 2
+    assert len(model.ct_head.blocks) == 2
+
+
 def test_patch_dataset_rejects_only_unknown_channel_names(tmp_path):
     archive_path = _make_archive(tmp_path)
     config = DCTConfig(zarr_path=archive_path)

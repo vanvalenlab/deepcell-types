@@ -329,6 +329,8 @@ class CellTypeAnnotator(nn.Module):
         resnet_base_channels=48,
         compat_marker0_zero=True,
         ct_head_arch="resmlp",
+        ct_head_width=512,
+        ct_head_depth=4,
     ):
         super().__init__()
         self.d_model = d_model
@@ -386,9 +388,15 @@ class CellTypeAnnotator(nn.Module):
         #              still load regardless of this default; only fresh training
         #              follows it.
         self.ct_head_arch = ct_head_arch
+        self.ct_head_width = int(ct_head_width)
+        self.ct_head_depth = int(ct_head_depth)
         if ct_head_arch == "resmlp":
             self.ct_head = ResidualMLPHead(
-                d_model, width=512, depth=4, n_out=n_celltypes, dropout=dropout
+                d_model,
+                width=self.ct_head_width,
+                depth=self.ct_head_depth,
+                n_out=n_celltypes,
+                dropout=dropout,
             )
         else:
             self.ct_head = nn.Sequential(
@@ -675,6 +683,8 @@ def create_model(
     resnet_base_channels=48,
     compat_marker0_zero=True,
     ct_head_arch="resmlp",
+    ct_head_width=512,
+    ct_head_depth=4,
 ):
     """Factory function to create CellTypeAnnotator from config.
 
@@ -697,6 +707,11 @@ def create_model(
         resnet_base_channels: per-channel ResNet stem width
         compat_marker0_zero: zero marker-0 mean intensity for v0.1.0 checkpoint
             parity (see CellTypeAnnotator)
+        ct_head_arch: "mlp" for the legacy classifier or "resmlp" for the
+            residual-MLP classifier head.
+        ct_head_width: Hidden width for the residual-MLP classifier head.
+        ct_head_depth: Number of residual blocks for the residual-MLP classifier
+            head.
 
     Returns:
         CellTypeAnnotator instance
@@ -717,6 +732,8 @@ def create_model(
         resnet_base_channels=resnet_base_channels,
         compat_marker0_zero=compat_marker0_zero,
         ct_head_arch=ct_head_arch,
+        ct_head_width=ct_head_width,
+        ct_head_depth=ct_head_depth,
     )
 
     if use_conditioned_mp_head and model.marker_embedder is not None:

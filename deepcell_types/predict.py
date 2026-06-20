@@ -250,6 +250,29 @@ def _infer_n_domains(state_dict):
     return state_dict["domain_head.8.weight"].shape[0]
 
 
+def _infer_ct_head_params(state_dict, config):
+    """Infer CT-head construction params from a checkpoint state dict."""
+    if "ct_head.inp.0.weight" in state_dict or config.get("ct_head_arch") == "resmlp":
+        block_ids = {
+            int(key.split(".")[2])
+            for key in state_dict
+            if key.startswith("ct_head.blocks.") and key.endswith(".0.weight")
+        }
+        return {
+            "ct_head_arch": "resmlp",
+            "ct_head_width": int(state_dict["ct_head.inp.0.weight"].shape[0]),
+            "ct_head_depth": len(block_ids),
+            "n_celltypes": int(state_dict["ct_head.out.weight"].shape[0]),
+        }
+
+    return {
+        "ct_head_arch": config.get("ct_head_arch", "mlp"),
+        "ct_head_width": int(config.get("ct_head_width", 512)),
+        "ct_head_depth": int(config.get("ct_head_depth", 4)),
+        "n_celltypes": int(state_dict["ct_head.6.weight"].shape[0]),
+    }
+
+
 def _build_model(checkpoint, dct_config, device):
     from .model import create_model
 
@@ -260,14 +283,8 @@ def _build_model(checkpoint, dct_config, device):
         marker_weight = state_dict["marker_embedder.embed_layer.weight"]
         n_markers = marker_weight.shape[0] - 1
         embedding_dim = marker_weight.shape[1]
-        # Cell-type count from the head's final layer: "ct_head.out.weight" for
-        # the residual-MLP head (default), "ct_head.6.weight" for the legacy MLP.
-        ct_out_key = (
-            "ct_head.out.weight"
-            if "ct_head.out.weight" in state_dict
-            else "ct_head.6.weight"
-        )
-        n_celltypes = state_dict[ct_out_key].shape[0]
+        ct_head_params = _infer_ct_head_params(state_dict, config)
+        n_celltypes = ct_head_params["n_celltypes"]
         d_model = state_dict["cls_token"].shape[-1]
         resnet_base_channels = state_dict["channel_encoder.stem.0.weight"].shape[0]
     except KeyError as e:
@@ -321,15 +338,6 @@ def _build_model(checkpoint, dct_config, device):
     n_heads = int(config.get("n_heads", 8))
     compat_marker0_zero = bool(config.get("compat_marker0_zero", True))
 
-    # Cell-type head architecture: auto-detect from the state_dict (the residual
-    # MLP head has a distinctive ``ct_head.inp.0.weight``), falling back to the
-    # saved config, then to the legacy "mlp". This makes resMLP checkpoints load
-    # without any caller change.
-    if "ct_head.inp.0.weight" in state_dict:
-        ct_head_arch = "resmlp"
-    else:
-        ct_head_arch = config.get("ct_head_arch", "mlp")
-
     model = create_model(
         dct_config,
         marker_embeddings,
@@ -341,7 +349,9 @@ def _build_model(checkpoint, dct_config, device):
         spatial_pool_size=_infer_spatial_pool_size(state_dict),
         use_conditioned_mp_head=use_conditioned_mp_head,
         compat_marker0_zero=compat_marker0_zero,
-        ct_head_arch=ct_head_arch,
+        ct_head_arch=ct_head_params["ct_head_arch"],
+        ct_head_width=ct_head_params["ct_head_width"],
+        ct_head_depth=ct_head_params["ct_head_depth"],
     )
     model.load_state_dict(state_dict)
     return model.to(device)
