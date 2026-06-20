@@ -17,22 +17,21 @@ python -m deepcell_types.baselines cellsighter ...
 
 ## Shared interface (identical to DeepCell Types)
 
-- Consumes the same 32×32 multi-channel patches, the same train/validation/test
-  split, and is scored with the same hierarchical accuracy and macro/weighted
-  metrics as the other baselines.
+- Consumes multi-channel image patches (`--crop_size`, default **60×60**) from
+  the same train/validation/test split, and is scored with the same hierarchical
+  accuracy and macro/weighted metrics as the other baselines.
 - For zero-shot evaluation, panels are aligned to the global marker vocabulary
   by scattering each dataset's channels to their global `marker2idx` positions;
-  absent markers are zero-padded (`model.py:94-111`).
+  absent markers are zero-padded (`model.py`, `convert_batch_for_cellsighter`).
 
 ## Deviations / adaptations (recorded for reproducibility)
 
 - **Backbone: torchvision ResNet-50** (`model.py:46-48`), default
   `model_size="resnet50"`.
-- **Custom CIFAR-style stem sized to 32×32 patches**: the ImageNet stem
-  (7×7 stride-2 conv + max-pool) collapses a 32×32 input to 1×1 by `layer4`, so
-  it is replaced by a single **3×3 stride-1 conv with no max-pool**
-  (`model.py:54-57`); the spatial path becomes 32→32→16→8→4→1. This matches the
-  small-patch adaptation in the upstream CellSighter recipe.
+- **Original ImageNet ResNet-50 stem on 60×60 patches** (7×7 stride-2 conv +
+  max-pool, `model.py`, `cifar_stem=False` default), matching upstream
+  CellSighter's `crop_input_size: 60`. A `--cifar_stem` ablation flag swaps in a
+  3×3 stride-1 / no-max-pool stem appropriate only for 32×32 crops.
 - **Input channels = `NUM_MARKERS + 2`** — the globally aligned marker channels
   plus the cell mask and neighbor mask.
 - **Trained from random initialization** (`pretrained=False`, `weights=None`,
@@ -42,8 +41,8 @@ python -m deepcell_types.baselines cellsighter ...
   `scheduler.step()`, so it trains at constant LR; we reproduce that exactly and
   do not step a scheduler (`run.py:389-393`).
 - **Best epoch selected on a held-out inner-validation set by macro-F1**;
-  validation runs every `val_every_n_epochs` (default 10) plus the final epoch,
-  matching the upstream cadence.
+  validation runs every `val_every_n_epochs` (default 10) plus the final epoch.
+  (Upstream CellSighter validates every epoch; we deviate to every-N for cost.)
   - **Deviation from upstream:** the original CellSighter selects the best epoch
     on the same set it reports. We instead carve a FOV-grouped inner-validation
     set (10%, via `create_dataloader(inner_val_ratio=0.1)`) out of the training
@@ -53,13 +52,13 @@ python -m deepcell_types.baselines cellsighter ...
     model now trains on ~90% of the training cells (the inner-val FOVs are held
     out). Selection uses macro-F1 — the headline metric, matching the main
     model (`scripts/train.py` selects on `val_macro_f1`) and the other
-    baselines; upstream CellSighter selected on macro-accuracy.
+    baselines; upstream CellSighter instead selects on validation loss.
 - **Class balancing — faithful equal-proportion (default).** `--class_balance
   equal` (default) reproduces the upstream training recipe: the train pool is
   first capped to `--size_data` cells/class (default 1000, matching the paper's
   `size_data` / `subsample_const_size`), then a `WeightedRandomSampler` draws
   with full-inverse-frequency weights `weight = total / count`
-  (`samplers.py:compute_sample_weights_equal`, matching upstream `define_sampler`
+  (`deepcell_types/training/samplers.py:compute_sample_weights_equal`, matching upstream `define_sampler`
   with `sample_batch: true`). Two ablation schemes are selectable: `--class_balance
   sqrt` (the DCT-wide sqrt-inverse-frequency sampler with a 1000-count floor) and
   `--class_balance none` (uniform; also reachable via the deprecated

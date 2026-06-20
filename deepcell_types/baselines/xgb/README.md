@@ -56,8 +56,9 @@ python -m deepcell_types.baselines xgboost-tune ...   # Optuna hyperparameter se
 
 - **No `cellSize` feature.** XGBoost uses the per-marker mean intensities only;
   MAPS additionally appends `cellSize` (`maps/run.py`). XGBoost also uses **no**
-  class weighting or balanced sampler, whereas MAPS uses a full-inverse-frequency
-  sampler and CellSighter a sqrt-inverse-frequency one. On rare-class macro
+  class weighting or balanced sampler, whereas MAPS and CellSighter both use
+  full-inverse-frequency samplers (CellSighter's default is `--class_balance
+  equal`). On rare-class macro
   metrics these make the XGBoost number *conservative* relative to the neural
   baselines, not advantaged.
 - **Tuning budget is not matched.** Only XGBoost has an automated hyperparameter

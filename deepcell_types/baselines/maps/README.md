@@ -33,8 +33,8 @@ python -m deepcell_types.baselines maps ...
   the test set.
 - **Optimizer: Adam, constant learning rate `1e-3`, no scheduler**
   (`run.py:407`), matching the upstream default.
-- **Model: single hidden layer of width 512, dropout 0.25** (`model.py:28-29`),
-  matching the upstream MAPS MLP.
+- **Model: four 512-wide hidden layers, dropout 0.25** (`model.py:42-56`),
+  matching the upstream MAPS MLP (`networks.py:22-36`).
 - **50 epochs, best epoch selected on a held-out inner-validation set**
   (`run.py:216-219`, the inner-val carve and selection loop in `run.py`). The
   full epoch count is run (no early stopping); the lowest-inner-val-loss
