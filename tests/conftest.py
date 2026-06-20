@@ -28,10 +28,12 @@ _REQUIRES = {
     "test_embeddings_load.py": ("pandas",),
     "test_hierarchical_eval.py": ("pandas",),
     "test_hierarchy_one_way.py": ("pandas",),
+    "test_inner_val_carve.py": ("zarr",),
     "test_losses.py": ("pandas",),
     "test_predlogger_dataframe.py": ("pandas",),
     "test_samplers.py": ("zarr",),
     "test_stratified_splits.py": ("zarr",),
+    "test_training_import_order.py": ("zarr",),
     "test_v2.py": ("zarr",),
 }
 
