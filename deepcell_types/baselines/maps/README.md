@@ -27,10 +27,12 @@ python -m deepcell_types.baselines maps ...
   (`run.py:289`, `run.py:321-326`). The cell-size feature is part of the
   canonical mahmoodlab/MAPS recipe (its `data_preprocessing/*.py` emits
   `N markers + cellSize`), not a DeepCell Types addition.
-- **Feature normalization `((x - μ) / σ) / 255`** (`run.py:86`). The `1/255`
-  factor is part of the canonical mahmoodlab/MAPS pipeline and is required to
-  reproduce the published accuracy; train statistics (`μ`, `σ`) are applied to
-  the test set.
+- **Feature normalization `((x - mu) / sigma) / 255`** (`run.py:86`). The
+  current DeepCell Types MAPS adapter applies train-set z-score statistics before
+  the `/255` scaling and reuses those train statistics on the reported set. This
+  is a DCT implementation choice to keep the preprocessed `[0, 1]` marker means
+  and appended `cellSize` feature on a controlled scale; normalization-provenance
+  variants should be reported explicitly with the exact command/config.
 - **Optimizer: Adam, constant learning rate `1e-3`, no scheduler**
   (`run.py:407`), matching the upstream default.
 - **Model: four 512-wide hidden layers, dropout 0.25** (`model.py:42-56`),

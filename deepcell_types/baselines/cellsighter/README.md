@@ -53,6 +53,10 @@ python -m deepcell_types.baselines cellsighter ...
     out). Selection uses macro-F1 — the headline metric, matching the main
     model (`scripts/train.py` selects on `val_macro_f1`) and the other
     baselines; upstream CellSighter instead selects on validation loss.
+  - For a held-out published number, pass `--test_split_file` so final evaluation
+    runs on an evaluation split disjoint from both training and inner-validation
+    FOVs. Without it, the CLI emits a warning because the final number reuses the
+    validation loader used for checkpoint selection.
 - **Class balancing — faithful equal-proportion (default).** `--class_balance
   equal` (default) reproduces the upstream training recipe: the train pool is
   first capped to `--size_data` cells/class (default 1000, matching the paper's
