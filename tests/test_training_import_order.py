@@ -10,6 +10,13 @@ circular ImportError. Each import is checked in its own subprocess because
 import subprocess
 import sys
 
+import pytest
+
+# The subprocesses below import deepcell_types.training.* (-> zarr), but that
+# dependency is hidden inside string literals, so the conftest import-autodetect
+# cannot see it. Guard the module explicitly for inference-only checkouts.
+pytest.importorskip("zarr")
+
 
 def _import_ok(statement):
     result = subprocess.run(

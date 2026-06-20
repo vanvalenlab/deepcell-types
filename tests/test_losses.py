@@ -192,6 +192,9 @@ class TestHierarchicalLoss:
     def test_smoke_project_hierarchy(self):
         """Forward pass with the project's CELL_TYPE_HIERARCHY and
         combined_celltypes.yaml returns a finite scalar on random inputs."""
+        # training.config pulls pandas (a [train] extra); only this test needs
+        # it, so guard here rather than skipping the whole module.
+        pytest.importorskip("pandas")
         from deepcell_types.training.config import CELL_TYPE_HIERARCHY, CONFIG_DIR  # noqa: F401
 
         yaml_path = CONFIG_DIR / "combined_celltypes.yaml"
