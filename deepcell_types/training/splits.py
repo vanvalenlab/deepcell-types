@@ -23,9 +23,15 @@ logger = logging.getLogger(__name__)
 # Provenance fields that are *not* treated as strict invariants when
 # loading a split file. ``zarr_path`` is intentionally portable across
 # mount points and symlinks; mismatches are reported but never raise.
+# ``archive_fingerprint`` is a whole-archive metadata hash, so purely additive
+# growth (appending new datasets/FOVs) changes it even when every FOV named in
+# the split is byte-for-byte unchanged. The per-FOV roster checks in
+# ``load_fov_splits`` already raise on destructive drift (a split FOV missing
+# from the live archive), so the fingerprint is advisory rather than strict.
 # Every other field in ``_split_metadata_for_dataset`` is strict.
 _ADVISORY_SPLIT_METADATA_KEYS = {
     "zarr_path",
+    "archive_fingerprint",
 }
 
 
@@ -233,6 +239,8 @@ def _split_metadata_for_dataset(dataset):
         # mount points and symlinks, so load_fov_splits never treats this as
         # strict provenance.
         "zarr_path": str(zarr_path) if zarr_path is not None else None,
+        # Advisory: a whole-archive hash that drifts under additive growth even
+        # when the split's FOVs are unchanged (see _ADVISORY_SPLIT_METADATA_KEYS).
         "archive_fingerprint": getattr(dataset, "archive_fingerprint", None),
     }
 
