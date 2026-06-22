@@ -22,7 +22,10 @@ from torchmetrics.classification import (
 from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
 from deepcell_types.training.dataset import create_dataloader
 from deepcell_types.model import create_model
-from deepcell_types.predict import validate_checkpoint_vocabulary
+from deepcell_types.predict import (
+    validate_checkpoint_vocabulary,
+    _infer_ct_head_params,
+)
 from deepcell_types.training.losses import FocalLoss
 from deepcell_types.training.utils import (
     BatchData,
@@ -38,6 +41,12 @@ from deepcell_types.training.utils import (
 logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
+
+
+def _checkpoint_state_dict(checkpoint):
+    if isinstance(checkpoint, dict) and "model" in checkpoint:
+        return checkpoint["model"]
+    return checkpoint
 
 
 @click.command()
@@ -197,6 +206,14 @@ def main(
     # used as the fallback when a key (or the whole config) is absent, which
     # keeps the current released checkpoint loading unchanged.
     ckpt_config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
+    state_dict = _checkpoint_state_dict(checkpoint)
+    try:
+        ct_head_params = _infer_ct_head_params(state_dict, ckpt_config)
+    except KeyError as e:
+        raise ValueError(
+            f"Checkpoint is missing the expected key {e}; this does not look "
+            "like a deepcell-types CellTypeAnnotator checkpoint."
+        ) from e
 
     # Guard the cell-type / marker ORDERING before the strict load. A strict
     # load_state_dict only catches shape (count) mismatches; a permuted ct2idx
@@ -214,7 +231,9 @@ def main(
         n_heads=ckpt_config.get("n_heads", 8),
         use_conditioned_mp_head=ckpt_config.get("use_conditioned_mp_head", True),
         compat_marker0_zero=ckpt_config.get("compat_marker0_zero", True),
-        ct_head_arch=ckpt_config.get("ct_head_arch", "mlp"),
+        ct_head_arch=ct_head_params["ct_head_arch"],
+        ct_head_width=ct_head_params["ct_head_width"],
+        ct_head_depth=ct_head_params["ct_head_depth"],
     )
 
     if isinstance(checkpoint, dict) and "model" in checkpoint:
@@ -231,6 +250,9 @@ def main(
                 d_model=d_model,
                 resnet_base_channels=resnet_channels,
                 use_conditioned_mp_head=False,
+                ct_head_arch=ct_head_params["ct_head_arch"],
+                ct_head_width=ct_head_params["ct_head_width"],
+                ct_head_depth=ct_head_params["ct_head_depth"],
             ).to(device)
         model.load_state_dict(checkpoint)
         print("Legacy checkpoint")

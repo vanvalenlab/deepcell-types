@@ -13,9 +13,10 @@ the frozen representation lifts full-coverage macro-F1 from ~70.8 to ~79.1, beat
 the XGBoost baseline (76.6). End-to-end sampler-off training instead *erodes* the
 backbone, so the two stages must stay separate.
 
-Output: a deployable checkpoint whose `config["ct_head_arch"] = "resmlp"` (so
-`predict.py` reconstructs the residual-MLP head), with the feature standardization
-folded into the head's first layer so it consumes the raw CLS embedding.
+Output: a deployable checkpoint whose config records the residual-MLP head
+architecture and dimensions (so `predict.py` reconstructs the head), with the
+feature standardization folded into the head's first layer so it consumes the
+raw CLS embedding.
 
 Usage:
   python scripts/retrain_head.py --pretrained_path models/model_<backbone>_best.pt \
@@ -182,7 +183,18 @@ def main(
     # Assemble + save the deployable resMLP model.
     model.ct_head = head.to(device)
     model.ct_head_arch = "resmlp"
-    out_config = {**cc, "ct_head_arch": "resmlp"}
+    out_config = {
+        **cc,
+        "ct_head_arch": "resmlp",
+        "ct_head_width": int(width),
+        "ct_head_depth": int(depth),
+        "stage2_epochs": int(epochs),
+        "stage2_lr": float(lr),
+        "stage2_seed": int(seed),
+        "stage2_split_file": split_file,
+        "stage2_pretrained_path": pretrained_path,
+        "stage2_svd_embeddings_path": svd_embeddings_path,
+    }
     torch.save({"model": model.state_dict(), "config": out_config}, output)
     print(f"Saved deployable resMLP checkpoint to {output}", flush=True)
 
