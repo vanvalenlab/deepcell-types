@@ -25,7 +25,16 @@ MAPS_OPTS = {
     "hidden_dim",
     "learning_rate",
     "max_epochs",
+    "min_epochs",
+    "patience",
     "seed",
+    "znorm",
+}
+MAPS_DEFAULTS = {
+    "max_epochs": 500,
+    "min_epochs": 250,
+    "patience": 100,
+    "znorm": True,
 }
 # Re-frozen for the faithful CellSighter reimplementation (feat/faithful-cellsighter):
 # added crop_size, mask_self, cifar_stem, test_split_file, allow_split_mismatch,
@@ -69,6 +78,10 @@ def _param_names(cmd):
     return {p.name for p in cmd.params}
 
 
+def _param_defaults(cmd):
+    return {p.name: p.default for p in cmd.params}
+
+
 def test_registry_has_maps():
     assert REGISTRY["maps"] == "deepcell_types.baselines.maps.run:main"
 
@@ -78,6 +91,9 @@ def test_maps_subcommand_options_frozen():
     cmd = cli.get_command(ctx, "maps")
     assert isinstance(cmd, click.Command)
     assert _param_names(cmd) == MAPS_OPTS
+    defaults = _param_defaults(cmd)
+    for name, expected in MAPS_DEFAULTS.items():
+        assert defaults[name] == expected
 
 
 def test_registry_has_cellsighter():

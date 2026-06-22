@@ -62,14 +62,23 @@ def normalize_features(
     X: np.ndarray,
     mean: Optional[np.ndarray] = None,
     std: Optional[np.ndarray] = None,
+    znorm: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Z-score normalize then divide by 255 (canonical mahmoodlab/MAPS datasets.py:70).
+    Normalize per-cell features for the MAPS MLP.
+
+    DeepCell Types stores preprocessed marker intensities in ``[0, 1]`` and
+    appends raw pixel-count ``cellSize`` as the final MAPS feature. The default
+    DCT adapter therefore applies train-set z-score statistics before the
+    ``/255`` scaling so marker means and cell size remain on a controlled
+    relative scale. ``znorm=False`` keeps the `/255`-only path available as an
+    upstream-provenance ablation, but it is not the DCT-safe default.
 
     Args:
         X: (N, D) feature matrix
         mean: Optional pre-computed mean (for test set normalization)
         std: Optional pre-computed std (for test set normalization)
+        znorm: If True, z-score with train stats before dividing by 255.
 
     Returns:
         X_norm: (N, D) normalized features
@@ -84,7 +93,10 @@ def normalize_features(
     # Avoid division by zero
     std = np.where(std == 0, 1.0, std)
 
-    X_norm = ((X - mean) / std) / 255.0
+    if znorm:
+        X_norm = ((X - mean) / std) / 255.0
+    else:
+        X_norm = X / 255.0
     return X_norm, mean, std
 
 
@@ -215,8 +227,30 @@ def evaluate(
 @click.option(
     "--max_epochs",
     type=int,
-    default=50,
-    help="Number of training epochs (default 50; runs the full count, best epoch selected on validation loss)",
+    default=500,
+    help="Max training epochs (canonical mahmoodlab/MAPS trainer.py max_epochs=500). "
+    "Best epoch selected on inner-validation loss; early-stops per --min_epochs/--patience.",
+)
+@click.option(
+    "--min_epochs",
+    type=int,
+    default=250,
+    help="Minimum epochs before early stopping may trigger "
+    "(canonical mahmoodlab/MAPS trainer.py min_epochs=250).",
+)
+@click.option(
+    "--patience",
+    type=int,
+    default=100,
+    help="Early-stopping patience on inner-validation loss "
+    "(canonical mahmoodlab/MAPS trainer.py patience=100).",
+)
+@click.option(
+    "--znorm/--no_znorm",
+    default=True,
+    help="Apply a train-set z-score ((x-mu)/sigma) before the /255 (default on). "
+    "On is the DCT-safe default for [0,1] marker means plus raw cellSize; "
+    "--no_znorm keeps a /255-only provenance ablation available.",
 )
 @click.option(
     "--seed",
@@ -247,6 +281,9 @@ def main(
     learning_rate: float,
     batch_size: int,
     max_epochs: int,
+    min_epochs: int,
+    patience: int,
+    znorm: bool,
     seed: int,
     split_file: str,
     features_cache: str,
@@ -357,13 +394,18 @@ def main(
         f"inner-train: {len(inner_train_idx)} samples"
     )
 
-    # Z-score normalization (compute stats from the inner-train set only)
-    print("\nNormalizing features (Z-score)...")
-    X_inner_train_norm, train_mean, train_std = normalize_features(X_inner_train)
-    X_inner_val_norm, _, _ = normalize_features(
-        X_inner_val, mean=train_mean, std=train_std
+    # Feature normalization (stats computed from the inner-train set only).
+    # Default: train-set z-score then /255 (DCT-safe); --no_znorm for /255-only.
+    print(f"\nNormalizing features ({'z-score + /255' if znorm else '/255 only'})...")
+    X_inner_train_norm, train_mean, train_std = normalize_features(
+        X_inner_train, znorm=znorm
     )
-    X_test_norm, _, _ = normalize_features(X_test, mean=train_mean, std=train_std)
+    X_inner_val_norm, _, _ = normalize_features(
+        X_inner_val, mean=train_mean, std=train_std, znorm=znorm
+    )
+    X_test_norm, _, _ = normalize_features(
+        X_test, mean=train_mean, std=train_std, znorm=znorm
+    )
 
     # Convert to tensors (float64 to match canonical mahmoodlab/MAPS trainer.py:133)
     X_inner_train_tensor = torch.from_numpy(X_inner_train_norm.astype(np.float64))
@@ -408,14 +450,31 @@ def main(
     # Loss and optimizer (canonical mahmoodlab/MAPS uses constant LR; no scheduler)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    run_config = {
+        "normalization": "zscore_then_div255" if znorm else "div255_only",
+        "znorm": bool(znorm),
+        "max_epochs": int(max_epochs),
+        "min_epochs": int(min_epochs),
+        "patience": int(patience),
+        "learning_rate": float(learning_rate),
+        "batch_size": int(batch_size),
+        "seed": int(seed),
+    }
 
-    # Training loop — runs the full max_epochs (no early stopping); the best
-    # epoch is selected on inner-validation loss (FOV-grouped, disjoint from test).
-    print(f"\nTraining MAPS model for {max_epochs} epochs (best-by-val-loss)...")
+    # Training loop — up to max_epochs with early stopping on inner-validation
+    # loss (FOV-grouped, disjoint from test), which also drives checkpoint
+    # selection. Schedule (max=500/min=250/patience=100) matches canonical
+    # mahmoodlab/MAPS trainer.py; upstream early-stops on *train* loss, we use
+    # the held-out inner-val loss to avoid touching the reported set.
+    print(
+        f"\nTraining MAPS model for up to {max_epochs} epochs "
+        f"(early stop: min_epochs={min_epochs}, patience={patience}, best-by-inner-val-loss)..."
+    )
     print(f"  LR schedule: constant lr={learning_rate}")
     best_val_loss = float("inf")
     best_macro_acc = 0.0
     best_epoch = 0
+    patience_counter = 0
     # Pre-define so torch.load(model_path) is reachable even if no improvement ever happens.
     model_path = Path(f"models/maps_{model_name}.pth")
     model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -478,6 +537,7 @@ def main(
             best_val_loss = val_loss
             best_macro_acc = metrics["macro_accuracy"]
             best_epoch = epoch + 1
+            patience_counter = 0
 
             # Save best model with canonical key names (mahmoodlab/MAPS trainer.py:165-166)
             torch.save(
@@ -488,9 +548,21 @@ def main(
                     "train_data_std": train_std,
                     "val_loss": best_val_loss,
                     "macro_accuracy": best_macro_acc,
+                    "run_config": run_config,
                 },
                 model_path,
             )
+        else:
+            patience_counter += 1
+
+        # Early stopping — only after min_epochs, mirroring canonical
+        # mahmoodlab/MAPS trainer.py (counter > patience and epoch >= min_epochs).
+        if patience_counter > patience and (epoch + 1) >= min_epochs:
+            print(
+                f"Early stopping at epoch {epoch + 1} "
+                f"(no inner-val improvement for {patience_counter} epochs; best epoch {best_epoch})."
+            )
+            break
 
     # Load best model for final evaluation
     print(f"\nLoading best model from epoch {best_epoch}...")
@@ -561,7 +633,7 @@ def main(
 
     # Save normalization stats for inference
     stats_path = Path(f"models/maps_{model_name}_stats.npz")
-    np.savez(stats_path, mean=train_mean, std=train_std)
+    np.savez(stats_path, mean=train_mean, std=train_std, **run_config)
     print(f"Normalization stats saved to {stats_path}")
 
     print("\nDone!")
