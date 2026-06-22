@@ -26,20 +26,21 @@ python -m deepcell_types.baselines cellsighter ...
 
 ## Deviations / adaptations (recorded for reproducibility)
 
-- **Backbone: torchvision ResNet-50** (`model.py:46-48`), default
-  `model_size="resnet50"`.
+- **Backbone: torchvision ResNet-50** (`model.py:69-71`), default
+  `model_size="resnet50"` (`model.py:33`).
 - **Original ImageNet ResNet-50 stem on 60×60 patches** (7×7 stride-2 conv +
   max-pool, `model.py`, `cifar_stem=False` default), matching upstream
   CellSighter's `crop_input_size: 60`. A `--cifar_stem` ablation flag swaps in a
   3×3 stride-1 / no-max-pool stem appropriate only for 32×32 crops.
 - **Input channels = `NUM_MARKERS + 2`** — the globally aligned marker channels
   plus the cell mask and neighbor mask.
-- **Trained from random initialization** (`pretrained=False`, `weights=None`,
-  `model.py:36-47`), matching upstream (no ImageNet weights).
+- **Trained from random initialization** (`pretrained=False` default
+  `model.py:32`; `weights=None` `model.py:64-71`), matching upstream (no
+  ImageNet weights).
 - **50 epochs, Adam, constant learning rate `1e-3`, no scheduler.** The upstream
   repo constructs an `ExponentialLR` scheduler but never calls
   `scheduler.step()`, so it trains at constant LR; we reproduce that exactly and
-  do not step a scheduler (`run.py:389-393`).
+  do not step a scheduler (`run.py:650-651`).
 - **Best epoch selected on a held-out inner-validation set by macro-F1**;
   validation runs every `val_every_n_epochs` (default 10) plus the final epoch.
   (Upstream CellSighter validates every epoch; we deviate to every-N for cost.)
