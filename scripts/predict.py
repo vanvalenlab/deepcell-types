@@ -22,7 +22,10 @@ from torchmetrics.classification import (
 from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
 from deepcell_types.training.dataset import create_dataloader
 from deepcell_types.model import create_model
-from deepcell_types.predict import validate_checkpoint_vocabulary
+from deepcell_types.predict import (
+    validate_checkpoint_vocabulary,
+    _infer_ct_head_params,
+)
 from deepcell_types.training.losses import FocalLoss
 from deepcell_types.training.utils import (
     BatchData,
@@ -44,29 +47,6 @@ def _checkpoint_state_dict(checkpoint):
     if isinstance(checkpoint, dict) and "model" in checkpoint:
         return checkpoint["model"]
     return checkpoint
-
-
-def _infer_ct_head_params(state_dict, config):
-    if (
-        "ct_head.inp.0.weight" in state_dict
-        or config.get("ct_head_arch") == "resmlp"
-    ):
-        block_ids = {
-            int(key.split(".")[2])
-            for key in state_dict
-            if key.startswith("ct_head.blocks.") and key.endswith(".0.weight")
-        }
-        return {
-            "ct_head_arch": "resmlp",
-            "ct_head_width": int(state_dict["ct_head.inp.0.weight"].shape[0]),
-            "ct_head_depth": len(block_ids),
-        }
-
-    return {
-        "ct_head_arch": config.get("ct_head_arch", "mlp"),
-        "ct_head_width": int(config.get("ct_head_width", 512)),
-        "ct_head_depth": int(config.get("ct_head_depth", 4)),
-    }
 
 
 @click.command()
@@ -227,7 +207,13 @@ def main(
     # keeps the current released checkpoint loading unchanged.
     ckpt_config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
     state_dict = _checkpoint_state_dict(checkpoint)
-    ct_head_params = _infer_ct_head_params(state_dict, ckpt_config)
+    try:
+        ct_head_params = _infer_ct_head_params(state_dict, ckpt_config)
+    except KeyError as e:
+        raise ValueError(
+            f"Checkpoint is missing the expected key {e}; this does not look "
+            "like a deepcell-types CellTypeAnnotator checkpoint."
+        ) from e
 
     # Guard the cell-type / marker ORDERING before the strict load. A strict
     # load_state_dict only catches shape (count) mismatches; a permuted ct2idx
