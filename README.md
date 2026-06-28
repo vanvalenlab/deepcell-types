@@ -34,9 +34,20 @@ pip install git+https://github.com/vanvalenlab/deepcell-types@master
 ```
 
 ## Download the model
+
+Downloading the checkpoint requires a free access token; register at
+[`https://users.deepcell.org`](https://users.deepcell.org) and set it in your
+environment (see [`docs/site/API-key.md`](docs/site/API-key.md)):
+
+```bash
+export DEEPCELL_ACCESS_TOKEN=<your token>
+```
+
 ```python
 from deepcell_types.utils import download_model
-download_model()
+
+# Downloads the latest checkpoint into ~/.deepcell/models and returns its path.
+model_path = download_model()
 ```
 
 ## Running inference (no archive required)
@@ -51,8 +62,10 @@ automatically:
 from deepcell_types import predict
 
 # raw: numpy (C, H, W); mask: 2D label image; channel_names: list[str]
+# Pass the path returned by download_model() straight through to predict();
+# predict() also accepts a version stem or a filesystem path to a .pt file.
 labels = predict(raw, mask, channel_names, mpp,
-                 model_name="deepcell-types_2026-05-17", device="cuda:0")
+                 model_name=model_path, device="cuda:0")
 ```
 
 For a complete example of the cell-type inference pipeline, check out
