@@ -105,9 +105,10 @@ class PredictionResult:
 
     cell_types : list[str]
         Predicted cell-type name for each unique cell index in ``mask``,
-        ordered by ascending cell index. Cells flagged as abstained by the
-        IQR-fence post-hoc abstention (default ``ct_abstention_k=0.2``) carry
-        the sentinel ``"Unknown"`` here; their original argmax label is in
+        ordered by ascending cell index. When the opt-in IQR-fence abstention
+        is enabled (``ct_abstention_k`` set to a float), cells it flags carry
+        the sentinel ``"Unknown"`` here and their original argmax label is in
+        ``cell_types_raw``; with abstention off (the default) this equals
         ``cell_types_raw``.
     probabilities : np.ndarray, shape (n_cells, n_celltypes)
         Per-cell softmax probabilities across all cell-type classes (same
@@ -370,7 +371,7 @@ def predict(
     num_workers=0,
     zarr_path=None,
     return_probabilities=False,
-    ct_abstention_k=0.2,
+    ct_abstention_k=None,
     preprocess=None,
 ):
     """Run the cell-type prediction pipeline.
@@ -422,14 +423,16 @@ def predict(
         If False (default, back-compat), returns a list of cell-type names.
         If True, returns a :class:`PredictionResult` with the full per-cell
         softmax probability matrix and the cell indices.
-    ct_abstention_k : float or None, default=0.2
-        IQR-fence post-hoc abstention multiplier. The default ``k=0.2`` is
-        the paper headline operating point. For each FOV, the fence is
-        ``Q1 - k*IQR`` on the cell-wise max-softmax distribution; cells
-        below it are relabelled to ``"Unknown"``. Pass ``k=0`` or
-        ``k=None`` to disable abstention and get the raw argmax label for
-        every cell. Has no effect on FOVs with fewer than 4 cells (the
-        IQR is undefined).
+    ct_abstention_k : float or None, default=None
+        IQR-fence post-hoc abstention multiplier. Abstention is **opt-in**:
+        the default ``None`` returns the raw argmax cell-type label for every
+        cell and never relabels to ``"Unknown"``. When set to a float, the
+        fence is ``Q1 - k*IQR`` on the per-FOV cell-wise max-softmax
+        distribution and cells below it are relabelled to ``"Unknown"``
+        (``k=0.2`` reproduces the paper headline operating point; pass
+        ``return_probabilities=True`` to recover the pre-abstention labels and
+        the ``abstained`` mask). Has no effect on FOVs with fewer than 4 cells
+        (the IQR is undefined).
     preprocess : callable, optional, default=None
         Custom per-FOV preprocessing hook. Called as
         ``preprocess(raw, channel_names) -> raw`` where ``raw`` is a
