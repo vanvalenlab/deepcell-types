@@ -687,6 +687,122 @@ def test_channel_padding_is_numerically_inert(tmp_path):
     assert torch.allclose(real.ct_logits, padded.ct_logits, atol=1e-5)
 
 
+def test_compat_marker0_zero_zeros_the_marker0_intensity_column(tmp_path):
+    """The v0.1.0 checkpoint-parity flag must zero marker-0's mean-intensity
+    column before it enters the intensity CLS branch. We assert the contract
+    directly on the branch input (the branch's final layer is zero-initialized,
+    so a fresh untrained model shows no output change — but the released
+    *trained* checkpoint's column-0 weights only ever saw zero, so the flag is
+    load-bearing for it). A refactor that flips the default, drops the zeroing,
+    or changes the column index would break this."""
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+
+    torch.manual_seed(0)
+    n_markers = len(config.marker2idx)
+    marker_embeddings = np.zeros((n_markers, 8), dtype=np.float32)
+    model = create_model(
+        config,
+        marker_embeddings,
+        d_model=32,
+        n_heads=8,
+        n_layers=1,
+        resnet_base_channels=4,
+    )
+    model.eval()
+    assert model.compat_marker0_zero is True  # canonical v0.1.0 default
+
+    # Capture the per-marker intensity vector fed to the CLS intensity branch.
+    captured = {}
+    handle = model.intensity_cls_branch.register_forward_pre_hook(
+        lambda _m, inp: captured.__setitem__("vec", inp[0].detach().clone())
+    )
+
+    B, C, H, W = 1, 2, 8, 8
+    sample = torch.zeros(B, C, 1, H, W)
+    sample[:, 0] = 2.0  # channel 0 -> marker index 0, clearly nonzero intensity
+    sample[:, 1] = 1.0
+    spatial = torch.zeros(B, 3, H, W)
+    spatial[:, 0] = 1.0  # full self-mask -> mean intensity == the constant value
+    ch_idx = torch.tensor([[0, 1]])
+    pad = torch.zeros(B, C, dtype=torch.bool)
+
+    with torch.no_grad():
+        model(sample, spatial, ch_idx, pad)
+    assert captured["vec"][0, 0].item() == 0.0  # marker-0 column zeroed (compat)
+    assert captured["vec"][0, 1].item() == pytest.approx(1.0)  # marker-1 untouched
+
+    model.compat_marker0_zero = False
+    with torch.no_grad():
+        model(sample, spatial, ch_idx, pad)
+    assert captured["vec"][0, 0].item() == pytest.approx(2.0)  # now carries signal
+    handle.remove()
+
+
+def test_predict_output_is_pinned_for_a_fixed_checkpoint(tmp_path):
+    """End-to-end numeric regression guard. A fixed-seed checkpoint on a fixed
+    FOV must reproduce a known label sequence, and repeat calls must be
+    deterministic. This is the CI-resident pin the suite otherwise lacks:
+    preprocessing drift or a forward-path numerics change that mislabels cells
+    would flip these labels instead of shipping green. (The labels are a golden
+    captured under seed=0; if you change preprocessing or the forward path on
+    purpose, regenerate them deliberately.)"""
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    torch.manual_seed(0)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+
+    rng = np.random.default_rng(0)
+    raw = rng.random((2, 80, 80), dtype=np.float64).astype(np.float32)
+    mask = _four_cell_mask()
+    channels = ["CD45", "Pan-Cytokeratin"]
+
+    def _run():
+        return predict(
+            raw,
+            mask,
+            channels,
+            0.5,
+            model_name=str(ckpt_path),
+            device="cpu",
+            zarr_path=archive_path,
+            return_probabilities=True,
+            num_workers=0,
+        )
+
+    res, res2 = _run(), _run()
+
+    # Determinism: identical labels and argmax across two calls.
+    assert res.cell_types == res2.cell_types
+    np.testing.assert_array_equal(
+        res.probabilities.argmax(1), res2.probabilities.argmax(1)
+    )
+    # Valid, finite probability simplex.
+    assert res.probabilities.shape == (4, len(config.ct2idx))
+    assert np.all(np.isfinite(res.probabilities))
+    np.testing.assert_allclose(res.probabilities.sum(axis=1), 1.0, atol=1e-5)
+    # Golden probability fingerprint (seed=0). Pinning the softmax matrix (not
+    # just the discrete labels) catches numerics drift even when it does not
+    # cross an argmax boundary. Regenerate deliberately if preprocessing or the
+    # forward path changes on purpose.
+    np.testing.assert_allclose(
+        res.probabilities, _PINNED_PROBS_SEED0, atol=1e-4
+    )
+
+
+# Golden softmax matrix for test_predict_output_is_pinned_for_a_fixed_checkpoint
+# (seed=0, CPU). See that test for how to regenerate.
+_PINNED_PROBS_SEED0 = np.array(
+    [
+        [0.5292611, 0.4707388],
+        [0.52884567, 0.4711543],
+        [0.5277883, 0.47221172],
+        [0.5295882, 0.47041175],
+    ],
+    dtype=np.float32,
+)
+
+
 # --- Vocabulary ordering guard (validate_checkpoint_vocabulary) -------------
 
 
