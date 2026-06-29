@@ -3,9 +3,9 @@
 Extracted from ``deepcell_types.training.dataset`` for modularity. These
 symbols are re-exported from ``dataset`` for backward compatibility.
 
-Contains ``create_dataloader`` (the full keyword API), the ``DataLoaderConfig``
-dataclass that bundles its 20+ knobs, and ``create_dataloader_from_config``
-(the dataclass-based wrapper). This module sits at the top of the training-data
+Contains ``create_dataloader`` (the full keyword API) and the
+``DataLoaderConfig`` dataclass that bundles its 20+ knobs. This module sits at
+the top of the training-data
 dependency chain: it imports transforms, samplers, and split helpers at module
 scope. ``dataset`` re-exports this module's symbols for back-compat, which would
 make a module-level ``from .dataset import ...`` here a circular import (it broke
@@ -13,7 +13,7 @@ make a module-level ``from .dataset import ...`` here a circular import (it brok
 the dataset core is therefore imported lazily inside ``create_dataloader``.
 """
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from typing import Any, List, Optional
 
 import numpy as np
@@ -446,10 +446,9 @@ def create_dataloader(
 class DataLoaderConfig:
     """Bundle the 20+ knobs ``create_dataloader`` accepts into a single object.
 
-    Use ``create_dataloader_from_config(zarr_dir, dct_config, cfg)`` when a
-    caller has many parameters to set — it's more readable than 20+ keyword
-    arguments at the call site, and it gives the IDE / type checker a
-    discoverable home for new options.
+    Grouping them in one object is more readable than 20+ keyword arguments at
+    the call site, and gives the IDE / type checker a discoverable home for new
+    options.
 
     Field defaults exactly mirror ``create_dataloader``'s defaults; passing a
     bare ``DataLoaderConfig()`` is equivalent to calling ``create_dataloader``
@@ -478,18 +477,3 @@ class DataLoaderConfig:
     numpy_cache_max_bytes: Optional[int] = None
     class_balance: Optional[str] = None
     size_data: Optional[int] = None
-
-
-def create_dataloader_from_config(zarr_dir, dct_config, config: DataLoaderConfig):
-    """Dataclass-based wrapper around :func:`create_dataloader`.
-
-    Identical behaviour; the keyword forms exist side-by-side so existing
-    callers do not need to be touched. New code is encouraged to use this
-    entry point — the dataclass makes the 20+ knobs greppable and
-    refactor-safe.
-    """
-    return create_dataloader(
-        zarr_dir=zarr_dir,
-        dct_config=dct_config,
-        **{f.name: getattr(config, f.name) for f in fields(config)},
-    )
