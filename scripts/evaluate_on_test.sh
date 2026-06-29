@@ -7,8 +7,10 @@
 #   splits/fov_split_test_current.json  -- current-archive (f5b6ed52) test split:
 #       current train + the frozen 129 test FOVs as `val`. The 129 test FOVs are
 #       bit-identical to the prior-archive splits/fov_split_test.json (verified:
-#       486,705 cells, 100% ground-truth match), so results compare directly to
-#       the baseline test CSVs in dct-final-ckpt/.
+#       486,705 cells, 100% ground-truth match). To compare against the
+#       other methods, generate each baseline's predictions on this same
+#       split (see the deepcell_types.baselines subpackage) and score the
+#       per-cell prediction CSVs yourself.
 #
 # Usage:
 #   DATA_DIR=/path/to/archive bash scripts/evaluate_on_test.sh [MODEL_CKPT] [EMB]

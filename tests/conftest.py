@@ -32,8 +32,8 @@ import ast
 import importlib
 from pathlib import Path
 
-# Import names provided ONLY by optional extras ([train] / [baselines] /
-# [analysis] in pyproject.toml), never by the core inference install. A test
+# Import names provided ONLY by optional extras ([train] / [baselines]
+# in pyproject.toml), never by the core inference install. A test
 # file that fails to import because one of these is missing gets skipped; a
 # missing core dependency is deliberately absent here, so it still errors loudly.
 _OPTIONAL_PACKAGES = frozenset(

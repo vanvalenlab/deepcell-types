@@ -74,7 +74,7 @@ def _git_commit():
 
 
 # Default loss weights for multi-task training
-DEFAULT_LOSS_WEIGHTS = {"ct": 1.0, "domain": 0.0, "marker_pos": 1.0}
+DEFAULT_LOSS_WEIGHTS = {"ct": 1.0, "domain": 0.1, "marker_pos": 1.0}
 
 
 def forward_one_batch(
