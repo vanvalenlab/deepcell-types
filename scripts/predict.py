@@ -49,6 +49,30 @@ def _checkpoint_state_dict(checkpoint):
     return checkpoint
 
 
+def _resolve_marker_embeddings(dct_config, state_dict, svd_path):
+    """Return the marker-embedding array passed to ``create_model``.
+
+    When ``svd_path`` is given, load the SVD-reduced embeddings aligned to the
+    config's ``marker2idx``. When it is ``None``, return a correctly-shaped
+    zeros placeholder: the model's ``marker_embedder`` weights are restored from
+    the checkpoint by ``load_state_dict`` downstream, so the placeholder's
+    *values* are never used — only its shape must match. This lets the canonical
+    evaluation run without regenerating the OpenAI-derived ``svd_512.npz``
+    (whose contents the checkpoint overwrites anyway).
+    """
+    if svd_path is not None:
+        return dct_config.load_marker_embeddings_array(svd_path=svd_path)
+    try:
+        embed_dim = int(state_dict["marker_embedder.embed_layer.weight"].shape[1])
+    except KeyError as e:
+        raise ValueError(
+            f"Checkpoint is missing {e}; cannot infer the marker-embedding "
+            "dimension for the zeros placeholder. Pass --svd_embeddings_path "
+            "explicitly."
+        ) from e
+    return np.zeros((dct_config.NUM_MARKERS, embed_dim), dtype=np.float32)
+
+
 @click.command()
 @click.option("--model_name", type=str, default="deepcell-types")
 @click.option("--device_num", type=str, default="cuda:0")
@@ -112,7 +136,9 @@ def _checkpoint_state_dict(checkpoint):
     default=0.2,
     help=(
         "Per-FOV IQR-fence abstention on max-softmax confidence. "
-        "Default k=0.2 is the published headline operating point. "
+        "Default k=0.2 is the published headline operating point. (Note: this "
+        "batch CLI deliberately defaults abstention ON for paper reproduction; "
+        "the deepcell_types.predict() library API defaults it OFF / opt-in.) "
         "Cells whose max-softmax falls below Q1 - k*IQR within their "
         "(dataset_name, fov_name) group are flagged as abstained "
         "(predicted_ct = 'Unknown', original kept in predicted_ct_raw). "
@@ -145,9 +171,21 @@ def main(
     dct_config = TissueNetConfig(zarr_dir)
     d_model = 256
 
-    # Load marker embeddings
-    marker_embeddings = dct_config.load_marker_embeddings_array(
-        svd_path=svd_embeddings_path
+    # Load the checkpoint up front: the marker-embedding placeholder is sized
+    # from it when no SVD embeddings file is supplied (see below). Supports both
+    # the old plain state_dict and the new bundled checkpoint format.
+    if model_path is None:
+        model_path = f"models/model_{model_name}_best.pt"
+    checkpoint = torch.load(model_path, map_location=device, weights_only=True)
+    ckpt_config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
+    state_dict = _checkpoint_state_dict(checkpoint)
+
+    # Marker embeddings. With --svd_embeddings_path, load the SVD-reduced array;
+    # without it, build a zeros placeholder of the right shape — load_state_dict
+    # below restores the real marker_embedder weights from the checkpoint, so the
+    # placeholder values are overwritten and the eval needs no svd_512.npz.
+    marker_embeddings = _resolve_marker_embeddings(
+        dct_config, state_dict, svd_embeddings_path
     )
 
     use_cuda = device.type == "cuda"
@@ -191,22 +229,15 @@ def main(
             pin_memory=use_cuda,
         )
 
-    # Load weights (supports both old plain state_dict and new bundled checkpoint)
-    if model_path is None:
-        model_path = f"models/model_{model_name}_best.pt"
-    checkpoint = torch.load(model_path, map_location=device, weights_only=True)
-
-    # Self-describing inference: when the checkpoint bundles a "config" dict,
-    # read the model-construction params from it so a future retrain with
-    # different settings (e.g. compat_marker0_zero=False, a different
-    # resnet_base_channels, or the legacy Linear MP head) reconstructs the
-    # right architecture. compat_marker0_zero in particular is a pure-Python
+    # Self-describing inference: when the checkpoint bundles a "config" dict
+    # (loaded above), read the model-construction params from it so a future
+    # retrain with different settings (e.g. compat_marker0_zero=False, a
+    # different resnet_base_channels, or the legacy Linear MP head) reconstructs
+    # the right architecture. compat_marker0_zero in particular is a pure-Python
     # numerics flag — NOT a state_dict tensor — so strict load can't catch a
     # mismatch; it would silently mis-infer. CLI flags / canonical defaults are
     # used as the fallback when a key (or the whole config) is absent, which
     # keeps the current released checkpoint loading unchanged.
-    ckpt_config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
-    state_dict = _checkpoint_state_dict(checkpoint)
     try:
         ct_head_params = _infer_ct_head_params(state_dict, ckpt_config)
     except KeyError as e:

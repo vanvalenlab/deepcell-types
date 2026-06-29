@@ -41,6 +41,19 @@ class PatchDataset(IterableDataset):
                 f"mpp must be a positive, finite resolution in microns/pixel; "
                 f"got {mpp!r}."
             )
+        # Reject non-finite input up front. A NaN/inf in ``raw`` propagates
+        # through the default per-channel normalization into the model, makes
+        # ``F.softmax`` return a uniform/NaN distribution, and ``np.argmax``
+        # then labels EVERY cell as class 0 — confident, uniform, wrong, and
+        # un-abstained (the IQR fence collapses on a constant max-softmax).
+        # Fail loudly here instead. (The custom-``preprocess`` hook output is
+        # checked separately in preprocessing.py; this guards the raw input,
+        # which the default path does not otherwise validate.)
+        if not np.isfinite(raw).all():
+            raise ValueError(
+                "raw contains non-finite values (NaN/inf); predict() requires a "
+                "finite (C, H, W) array."
+            )
 
         self.n_cells = int(np.count_nonzero(np.unique(mask.astype(np.int64))))
 
@@ -49,16 +62,28 @@ class PatchDataset(IterableDataset):
         self.mask = mask.astype(np.float32)
 
         self.dct_config = dct_config
-        self.max_channels = dct_config.MAX_NUM_CHANNELS
         self.paddings = -1.0
         self.mpp = mpp
         self.marker2idx = dct_config.marker2idx
         self.channel_mapping = dct_config.channel_mapping
 
+        # A channel is masked out (dropped) when it (a) does not resolve to a
+        # registry marker, (b) duplicates a marker an earlier channel already
+        # provided, or (c) carries no positive signal (max == 0) across the
+        # whole FOV. Case (c) uses the same ``max(axis=1) == 0`` criterion as the
+        # training dataloader (deepcell_types/training/dataset.py), which
+        # attention-masks such channels (acquisition gaps cover ~3.4% of valid
+        # channels per MIBI/IMC FOV) so the model never attends to a constant
+        # token carrying a real marker embedding. Dropping the channel here is
+        # equivalent to that attention mask: model.forward() makes padding/masked
+        # channels inert for the CLS embedding (key-padding-masked in attention
+        # and zeroed in the mean-intensity scatter), so a dropped channel and a
+        # kept-but-masked channel produce the same cell-type logits.
+        channel_all_zero = raw.reshape(raw.shape[0], -1).max(axis=1) == 0
         channel_names_standard = []
         channel_masking = []
         seen_markers = set()
-        for ch_name in channel_names:
+        for i, ch_name in enumerate(channel_names):
             ch_name_standard = self.dct_config.resolve_channel_name(ch_name)
             if ch_name_standard is None or ch_name_standard not in self.marker2idx:
                 channel_masking.append(True)
@@ -76,16 +101,33 @@ class PatchDataset(IterableDataset):
                     "already provided by an earlier channel; the duplicate will "
                     "be masked out."
                 )
+            elif channel_all_zero[i]:
+                # All-zero on this FOV: mask it out to match training, where the
+                # model is trained to never attend to a constant-zero channel.
+                channel_masking.append(True)
+                warnings.warn(
+                    f"Channel {ch_name} (marker {ch_name_standard!r}) is all-zero "
+                    "across this FOV; it will be masked out to match training, "
+                    "where all-zero channels are attention-masked."
+                )
             else:
                 seen_markers.add(ch_name_standard)
                 channel_masking.append(False)
                 channel_names_standard.append(ch_name_standard)
 
-        if len(channel_names_standard) > self.max_channels:
+        if len(channel_names_standard) > dct_config.MAX_NUM_CHANNELS:
             raise ValueError(
                 f"{len(channel_names_standard)} mapped channels exceeds "
-                f"MAX_NUM_CHANNELS={self.max_channels}."
+                f"MAX_NUM_CHANNELS={dct_config.MAX_NUM_CHANNELS}."
             )
+        # Pad only to the channels actually present in THIS FOV, not to the
+        # global MAX_NUM_CHANNELS. Padding tokens are inert in model.forward()
+        # (see the channel-masking note above), so sizing the per-channel ResNet
+        # and the (channel-quadratic) transformer to the real channel count is
+        # numerically identical to padding to MAX_NUM_CHANNELS while avoiding the
+        # wasted work over padding. Verified by
+        # test_channel_padding_is_numerically_inert in tests/test_canonical_inference.py.
+        self.max_channels = len(channel_names_standard)
 
         ch_idx = torch.as_tensor(
             [self.marker2idx[ch_name] for ch_name in channel_names_standard]
@@ -103,7 +145,9 @@ class PatchDataset(IterableDataset):
             self.raw = raw
         if self.raw.shape[0] == 0:
             raise ValueError(
-                "No input channels matched the DeepCell Types marker registry."
+                "No usable input channels remain: every channel was masked out "
+                "for not matching the DeepCell Types marker registry, duplicating "
+                "another channel's marker, or being all-zero across this FOV."
             )
 
     def _create_attn_mask(self, sample):

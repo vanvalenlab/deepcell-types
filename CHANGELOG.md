@@ -96,18 +96,32 @@ full canonical metadata. **Breaking changes** are noted below.
   previously passed the count-only check and silently mislabeled cells).
 - Duplicate input channels that resolve to the same canonical marker are now
   de-duplicated (the per-marker scatter is last-write-wins).
+- **All-zero channels are now masked at inference**, matching the training
+  dataloader. A marker listed in `channel_names` but all-zero on a given FOV was
+  previously fed to the model as a present zero token carrying a real marker
+  embedding — an input the model was trained never to see; it is now dropped
+  (with a warning), aligning the `predict()` channel handling with the
+  evaluation path. This can change predictions for FOVs that contain all-zero
+  marker channels.
+- `predict()` now rejects non-finite (`NaN`/`inf`) `raw` with a clear
+  `ValueError` instead of silently labelling every cell as a single class via a
+  poisoned softmax.
+- Inference now sizes its per-cell tensors to the number of channels actually
+  present in the FOV instead of the global `MAX_NUM_CHANNELS`. Padding tokens are
+  inert in the model, so predictions are unchanged; the per-channel ResNet and
+  the (channel-quadratic) transformer simply skip the wasted work over padding.
 - **Breaking:** `predict(num_workers=...)` default is now `0` (was
   `24`). The `IterableDataset` patch generator held the whole FOV in
   memory; 24 workers reliably OOM'd machines with <64 GB RAM.
-- **Breaking:** post-hoc cell-type abstention is now **on by default**
-  (`predict(ct_abstention_k=0.2)`). Cells whose top-class probability
-  falls below an IQR fence on the field-of-view's confidence
-  distribution are relabeled to the sentinel `"Unknown"` (the
-  pre-abstention argmax label is available via `cell_types_raw` when
-  `return_probabilities=True`). This changes the returned labels for the
-  same inputs relative to the unfiltered argmax behaviour of prior
-  releases. Pass `ct_abstention_k=0` to recover the raw argmax label for
-  every cell.
+- Post-hoc cell-type abstention is **opt-in**: `predict(ct_abstention_k=...)`
+  defaults to `None`, returning the raw argmax label for every cell. When set to
+  a float, cells whose top-class probability falls below an IQR fence on the
+  field-of-view's confidence distribution are relabeled to the sentinel
+  `"Unknown"` — `ct_abstention_k=0.2` reproduces the paper headline operating
+  point, and the pre-abstention argmax label is available via `cell_types_raw`
+  when `return_probabilities=True`. (The default is `None` rather than on-by-
+  default so the plain `list[str]` return is never silently rewritten at a
+  benchmark-tuned threshold.)
 - `TissueNetConfig(zarr_path=...)` defaults to `None` (was a hard-coded
   filesystem path that only resolved in one environment). When `None`,
   falls back to the `DEEPCELL_TYPES_ZARR_PATH` environment variable.

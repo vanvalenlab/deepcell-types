@@ -107,12 +107,15 @@ and select `Open with -> Jupytext notebook`.
 
 2. **Recognized channels**
 
-   The model reads its registry of natively-supported channels and cell types
-   from the TissueNet zarr archive provided at inference time via `zarr_path=...`
-   or the `DEEPCELL_TYPES_ZARR_PATH` environment variable. In practice the
+   By default the model reads its registry of natively-supported channels and
+   cell types from the `vocab.json` snapshot shipped with the package, so
+   inference needs no archive download. The recognized channels are the markers
+   listed in that snapshot. You can override it by pointing inference at a
+   TissueNet zarr archive (pass `zarr_path=...` or set the
+   `DEEPCELL_TYPES_ZARR_PATH` environment variable), in which case the
    recognized channels are whatever the selected archive exposes in its root
-   `attrs.all_standardized_channels`. Markers not found in this listing are
-   ignored at inference time.
+   `attrs.all_standardized_channels`. Either way, markers not found in the
+   active registry are ignored at inference time.
    There are two ways to add support for additional channels:
 
    - To add a new alias for a marker name that is currently supported, add the

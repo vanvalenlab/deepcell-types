@@ -13,21 +13,28 @@
 # Usage:
 #   DATA_DIR=/path/to/archive bash scripts/evaluate_on_test.sh [MODEL_CKPT] [EMB]
 #
-# Defaults to the NEW BEST resMLP-head checkpoint. predict.py auto-detects the
-# residual-MLP head (config ct_head_arch="resmlp") and prints hierarchical macro/
-# weighted F1 on the test split.
+# Defaults to the NEW BEST resMLP-head checkpoint in the download_model() cache
+# (~/.deepcell/models). predict.py auto-detects the residual-MLP head (config
+# ct_head_arch="resmlp") and prints hierarchical macro/weighted F1 on the test
+# split. EMB (the SVD marker embeddings) is OPTIONAL: the checkpoint already
+# carries the marker embeddings, so predict.py builds a placeholder when it is
+# unset — pass a path only to override with a specific embeddings file.
 set -euo pipefail
 
-MODEL_CKPT="${1:-$HOME/dct-final-ckpt/deepcell-types_2026-06-15_resmlp.pt}"
-EMB="${2:-embeddings/svd_512.npz}"
+MODEL_CKPT="${1:-$HOME/.deepcell/models/deepcell-types_2026-06-15_resmlp.pt}"
+EMB="${2:-}"
 SPLIT="${SPLIT:-splits/fov_split_test_current.json}"
 : "${DATA_DIR:?set DATA_DIR to the zarr archive}"
 
 echo "Evaluating $MODEL_CKPT on the held-out test split ($SPLIT)"
+# Only pass --svd_embeddings_path when EMB is set (empty-array expansion is
+# written to stay safe under `set -u` on older bash, e.g. macOS bash 3.2).
+svd_args=()
+[ -n "$EMB" ] && svd_args=(--svd_embeddings_path "$EMB")
 python scripts/predict.py \
   --model_name eval_test \
   --model_path "$MODEL_CKPT" \
-  --svd_embeddings_path "$EMB" \
+  ${svd_args[@]+"${svd_args[@]}"} \
   --split_file "$SPLIT" \
   --ct_abstention_k 0
 

@@ -128,14 +128,18 @@ def test_patch_dataset_can_emit_archive_backed_canonical_batch(tmp_path):
     dataset = PatchDataset(raw, mask, ["cd45", "Pan-Cytokeratin"], 0.5, config)
     sample, spatial_context, ch_idx, attn_mask, cell_index = next(iter(dataset))
 
-    assert sample.shape == (80, 1, 32, 32)
+    # Tensors are sized to the real channel count (2 here), not the global
+    # MAX_NUM_CHANNELS — padding tokens are inert in the model, so this is
+    # numerically identical while avoiding wasted work over padding.
+    assert sample.shape == (2, 1, 32, 32)
     assert spatial_context.shape == (3, 32, 32)
-    assert ch_idx.shape == (80,)
-    assert attn_mask.shape == (80,)
+    assert ch_idx.shape == (2,)
+    assert attn_mask.shape == (2,)
     assert ch_idx[0].item() == config.marker2idx["CD45"]
     assert ch_idx[1].item() == config.marker2idx["PanCK"]
+    # Both channels are real, so no position is attention-masked as padding.
     assert attn_mask[0].item() is False
-    assert attn_mask[2:].all().item() is True
+    assert attn_mask.any().item() is False
     assert cell_index == 1
 
 
@@ -314,7 +318,7 @@ def test_patch_dataset_rejects_only_unknown_channel_names(tmp_path):
     raw = np.ones((1, 40, 40), dtype=np.float32)
     mask = np.zeros((40, 40), dtype=np.int32)
     mask[12:28, 12:28] = 1
-    with pytest.raises(ValueError, match="No input channels matched"):
+    with pytest.raises(ValueError, match="No usable input channels remain"):
         PatchDataset(raw, mask, ["FAKE_MARKER_XYZ_000"], 0.5, config)
 
 
@@ -355,6 +359,7 @@ def test_dct_and_tissuenet_config_agree_on_shared_constants(tmp_path):
     """
     zarr = pytest.importorskip("zarr")  # noqa: F841 — training extra gate
     from deepcell_types.training.config import TissueNetConfig
+    from deepcell_types import preprocessing
 
     archive_path = _make_archive(tmp_path)
     dct = DCTConfig(zarr_path=archive_path)
@@ -365,6 +370,12 @@ def test_dct_and_tissuenet_config_agree_on_shared_constants(tmp_path):
     assert dct.STANDARD_MPP_RESOLUTION == tnc.STANDARD_MPP_RESOLUTION
     assert dct.marker2idx == tnc.marker2idx
     assert dct.ct2idx == tnc.ct2idx
+    # preprocessing.py re-declares the resample MPP and the percentile as module
+    # constants with a "must equal" comment but no import enforcing it; pin the
+    # equality here so a future edit to one and not the other (a silent
+    # train/inference parity break) fails loudly.
+    assert preprocessing.TARGET_MPP == dct.STANDARD_MPP_RESOLUTION
+    assert preprocessing.DEFAULT_PERCENTILE == dct.PERCENTILE_THRESHOLD
 
 
 # ---------------------------------------------------------------------------
@@ -551,6 +562,253 @@ def test_predict_empty_mask_returns_empty(tmp_path):
     )
     assert len(res.cell_types) == 0
     assert res.probabilities.shape == (0, len(config.ct2idx))
+
+
+def test_predict_default_does_not_abstain(tmp_path):
+    """Abstention is opt-in: with the default ``ct_abstention_k=None`` no cell
+    is relabelled to the sentinel and the returned labels equal the raw argmax
+    labels. Guards against silently re-enabling the benchmark-tuned default."""
+    import inspect
+
+    from deepcell_types.abstention import ABSTENTION_LABEL
+
+    # Pin the opt-in default directly: the behavioural assertions below use a
+    # uniform input whose max-softmax distribution never trips the IQR fence
+    # (so they hold for any ``k``), so this signature check is what actually
+    # catches a regression back to the old benchmark-tuned ``ct_abstention_k=0.2``.
+    assert inspect.signature(predict).parameters["ct_abstention_k"].default is None
+
+    torch.manual_seed(0)
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+    raw = np.ones((1, 80, 80), dtype=np.float32)
+
+    res = predict(
+        raw,
+        _four_cell_mask(),
+        ["CD45"],
+        0.5,
+        model_name=str(ckpt_path),
+        device="cpu",
+        zarr_path=archive_path,
+        return_probabilities=True,
+        num_workers=0,
+    )  # NB: ct_abstention_k not passed -> default
+
+    assert not res.abstained.any()
+    assert res.cell_types == res.cell_types_raw
+    assert ABSTENTION_LABEL not in res.cell_types
+
+
+def test_predict_rejects_non_finite_raw(tmp_path):
+    """A NaN/inf in raw is rejected up front rather than silently labelling
+    every cell as class 0 via a poisoned softmax."""
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+    mask = np.zeros((40, 40), dtype=np.int32)
+    mask[12:28, 12:28] = 1
+
+    for bad in (np.nan, np.inf):
+        raw = np.ones((1, 40, 40), dtype=np.float32)
+        raw[0, 0, 0] = bad
+        with pytest.raises(ValueError, match="non-finite"):
+            predict(
+                raw,
+                mask,
+                ["CD45"],
+                0.5,
+                model_name=str(ckpt_path),
+                device="cpu",
+                zarr_path=archive_path,
+                num_workers=0,
+            )
+
+
+def test_patch_dataset_masks_all_zero_channel(tmp_path):
+    """An input channel that is all-zero across the FOV is masked out (dropped),
+    matching the training dataloader, which attention-masks all-zero channels so
+    the model never attends to a constant-zero token with a real marker prior."""
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    mask = np.zeros((40, 40), dtype=np.int32)
+    mask[12:28, 12:28] = 1
+
+    # CD45 carries signal; PanCK is all-zero on this FOV.
+    raw = np.stack(
+        [np.ones((40, 40), dtype=np.float32), np.zeros((40, 40), dtype=np.float32)]
+    )
+    with pytest.warns(UserWarning, match="all-zero"):
+        dataset = PatchDataset(raw, mask, ["CD45", "Pan-Cytokeratin"], 0.5, config)
+
+    # The all-zero PanCK channel is dropped; only CD45 survives, and tensors are
+    # sized to that single real channel.
+    assert dataset.channel_names_standard == ["CD45"]
+    assert dataset.max_channels == 1
+    assert dataset.ch_idx.tolist() == [config.marker2idx["CD45"]]
+
+
+def test_channel_padding_is_numerically_inert(tmp_path):
+    """Padding channels do not change cell-type logits: forwarding at the real
+    channel width and forwarding the same input padded to a larger width with
+    attention-masked padding tokens produce identical ct_logits. This is the
+    invariant that lets PatchDataset size tensors to the real channel count."""
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+
+    torch.manual_seed(0)
+    rng = np.random.default_rng(0)
+    n_markers = len(config.marker2idx)
+    # Non-zero marker embeddings so a mishandled padding token WOULD change the
+    # output if it leaked into the CLS.
+    marker_embeddings = rng.standard_normal((n_markers, 8)).astype(np.float32)
+    model = create_model(
+        config,
+        marker_embeddings,
+        d_model=32,
+        n_heads=8,
+        n_layers=1,
+        resnet_base_channels=4,
+    )
+    model.eval()
+
+    B, C_real, H, W = 2, 3, 8, 8
+    sample = torch.randn(B, C_real, 1, H, W)
+    spatial = torch.rand(B, 3, H, W)
+    ch_idx = torch.randint(0, n_markers, (B, C_real))
+    pad_mask = torch.zeros(B, C_real, dtype=torch.bool)
+
+    # Pad to a wider C_max with inert padding: paddings=-1.0, ch_idx=-1, mask=True.
+    C_max = 12
+    sample_p = torch.full((B, C_max, 1, H, W), -1.0)
+    sample_p[:, :C_real] = sample
+    ch_idx_p = torch.full((B, C_max), -1, dtype=torch.long)
+    ch_idx_p[:, :C_real] = ch_idx
+    pad_mask_p = torch.ones(B, C_max, dtype=torch.bool)
+    pad_mask_p[:, :C_real] = False
+
+    with torch.no_grad():
+        real = model(sample, spatial, ch_idx, pad_mask)
+        padded = model(sample_p, spatial, ch_idx_p, pad_mask_p)
+
+    assert torch.allclose(real.ct_logits, padded.ct_logits, atol=1e-5)
+
+
+def test_compat_marker0_zero_zeros_the_marker0_intensity_column(tmp_path):
+    """The v0.1.0 checkpoint-parity flag must zero marker-0's mean-intensity
+    column before it enters the intensity CLS branch. We assert the contract
+    directly on the branch input (the branch's final layer is zero-initialized,
+    so a fresh untrained model shows no output change — but the released
+    *trained* checkpoint's column-0 weights only ever saw zero, so the flag is
+    load-bearing for it). A refactor that flips the default, drops the zeroing,
+    or changes the column index would break this."""
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+
+    torch.manual_seed(0)
+    n_markers = len(config.marker2idx)
+    marker_embeddings = np.zeros((n_markers, 8), dtype=np.float32)
+    model = create_model(
+        config,
+        marker_embeddings,
+        d_model=32,
+        n_heads=8,
+        n_layers=1,
+        resnet_base_channels=4,
+    )
+    model.eval()
+    assert model.compat_marker0_zero is True  # canonical v0.1.0 default
+
+    # Capture the per-marker intensity vector fed to the CLS intensity branch.
+    captured = {}
+    handle = model.intensity_cls_branch.register_forward_pre_hook(
+        lambda _m, inp: captured.__setitem__("vec", inp[0].detach().clone())
+    )
+
+    B, C, H, W = 1, 2, 8, 8
+    sample = torch.zeros(B, C, 1, H, W)
+    sample[:, 0] = 2.0  # channel 0 -> marker index 0, clearly nonzero intensity
+    sample[:, 1] = 1.0
+    spatial = torch.zeros(B, 3, H, W)
+    spatial[:, 0] = 1.0  # full self-mask -> mean intensity == the constant value
+    ch_idx = torch.tensor([[0, 1]])
+    pad = torch.zeros(B, C, dtype=torch.bool)
+
+    with torch.no_grad():
+        model(sample, spatial, ch_idx, pad)
+    assert captured["vec"][0, 0].item() == 0.0  # marker-0 column zeroed (compat)
+    assert captured["vec"][0, 1].item() == pytest.approx(1.0)  # marker-1 untouched
+
+    model.compat_marker0_zero = False
+    with torch.no_grad():
+        model(sample, spatial, ch_idx, pad)
+    assert captured["vec"][0, 0].item() == pytest.approx(2.0)  # now carries signal
+    handle.remove()
+
+
+def test_predict_output_is_pinned_for_a_fixed_checkpoint(tmp_path):
+    """End-to-end numeric regression guard. A fixed-seed checkpoint on a fixed
+    FOV must reproduce a known label sequence, and repeat calls must be
+    deterministic. This is the CI-resident pin the suite otherwise lacks:
+    preprocessing drift or a forward-path numerics change that mislabels cells
+    would flip these labels instead of shipping green. (The labels are a golden
+    captured under seed=0; if you change preprocessing or the forward path on
+    purpose, regenerate them deliberately.)"""
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    torch.manual_seed(0)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+
+    rng = np.random.default_rng(0)
+    raw = rng.random((2, 80, 80), dtype=np.float64).astype(np.float32)
+    mask = _four_cell_mask()
+    channels = ["CD45", "Pan-Cytokeratin"]
+
+    def _run():
+        return predict(
+            raw,
+            mask,
+            channels,
+            0.5,
+            model_name=str(ckpt_path),
+            device="cpu",
+            zarr_path=archive_path,
+            return_probabilities=True,
+            num_workers=0,
+        )
+
+    res, res2 = _run(), _run()
+
+    # Determinism: identical labels and argmax across two calls.
+    assert res.cell_types == res2.cell_types
+    np.testing.assert_array_equal(
+        res.probabilities.argmax(1), res2.probabilities.argmax(1)
+    )
+    # Valid, finite probability simplex.
+    assert res.probabilities.shape == (4, len(config.ct2idx))
+    assert np.all(np.isfinite(res.probabilities))
+    np.testing.assert_allclose(res.probabilities.sum(axis=1), 1.0, atol=1e-5)
+    # Golden probability fingerprint (seed=0). Pinning the softmax matrix (not
+    # just the discrete labels) catches numerics drift even when it does not
+    # cross an argmax boundary. Regenerate deliberately if preprocessing or the
+    # forward path changes on purpose.
+    np.testing.assert_allclose(
+        res.probabilities, _PINNED_PROBS_SEED0, atol=1e-4
+    )
+
+
+# Golden softmax matrix for test_predict_output_is_pinned_for_a_fixed_checkpoint
+# (seed=0, CPU). See that test for how to regenerate.
+_PINNED_PROBS_SEED0 = np.array(
+    [
+        [0.5292611, 0.4707388],
+        [0.52884567, 0.4711543],
+        [0.5277883, 0.47221172],
+        [0.5295882, 0.47041175],
+    ],
+    dtype=np.float32,
+)
 
 
 # --- Vocabulary ordering guard (validate_checkpoint_vocabulary) -------------

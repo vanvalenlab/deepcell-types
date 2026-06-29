@@ -30,3 +30,8 @@ if not _have("pandas"):
 # does not pull pandas, so guarding on torchvision alone is insufficient.
 if not (_have("torchvision") and _have("pandas")):
     collect_ignore.append("test_cellsighter_convert_batch_characterization.py")
+# maps.run does `import click` (the CLI) at module top, so importing
+# normalize_features from it errors rather than skips on an inference-only
+# install (no [train] / baseline-maps extra). Gate on click.
+if not _have("click"):
+    collect_ignore.append("test_maps_normalization.py")
