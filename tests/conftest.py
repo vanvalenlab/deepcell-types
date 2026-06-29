@@ -55,9 +55,6 @@ _OPTIONAL_PACKAGES = frozenset(
         "torchvision",
         "nimbus_inference",  # nimbus-inference
         "cv2",  # opencv-python-headless
-        # [analysis]
-        "seaborn",
-        "openpyxl",
     }
 )
 

@@ -88,11 +88,7 @@ baseline-nimbus = [
 baseline-maps = ["deepcell-types[train]"]
 baseline-cellsighter = ["deepcell-types[train]", "torchvision"]
 baselines = ["deepcell-types[baseline-xgboost,baseline-nimbus,baseline-maps,baseline-cellsighter]"]
-# Plotting / analysis stack used by the research-workspace figure scripts
-# (plot_tsne.py, plot_experiment_results.py, ...). seaborn + openpyxl are the
-# only deps not already pulled in by [train] (which carries plotly + kaleido).
-analysis = ["deepcell-types[train]", "seaborn", "openpyxl"]
-all = ["deepcell-types[train,baselines,analysis]"]
+all = ["deepcell-types[train,baselines]"]
 
 [project.urls]
 "Source Code" = "https://github.com/vanvalenlab/deepcell-types"
@@ -119,7 +115,7 @@ deepcell_types = [
     # archive is found.
     "vocab.json",
     # Training-side YAMLs (e.g. combined_celltypes.yaml used by
-    # TissueNetConfig.combined_celltype_mapping) — must ship with
+    # HierarchicalLoss) — must ship with
     # the wheel since training/config.py resolves them relative to
     # __file__, not via repo-root paths.
     "training/config/*.yaml",
