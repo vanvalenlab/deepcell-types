@@ -243,10 +243,15 @@ def main(
 
     print(f"  Early stopping: {early_stopping_rounds} rounds (inner-val FOV-grouped)")
     # 'dct' balancing: weight each training row by the DCT sampler scheme
-    # (sqrt-inverse-frequency, 1000-count floor) — the tree analog of the
-    # WeightedRandomSampler the neural baselines use. 'none' = faithful XGBoost.
+    # (sqrt-inverse-frequency, 1000-count floor) — the tree analog (per-row
+    # gradient weighting) of the WeightedRandomSampler the neural baselines use,
+    # equivalent in expectation but not identical. normalize=True rescales to
+    # mean 1 so the balancing does not also alter effective regularization (see
+    # compute_sample_weights_dct). 'none' = faithful unweighted XGBoost.
     sample_weight = (
-        compute_sample_weights_dct(y_inner_train) if class_balance == "dct" else None
+        compute_sample_weights_dct(y_inner_train, normalize=True)
+        if class_balance == "dct"
+        else None
     )
     print(f"  Class balancing: {class_balance}")
     model.fit(
@@ -333,6 +338,7 @@ def main(
         test_fov_names,
         dct_config.ct2idx,
         output_path,
+        run_metadata={"method": "xgboost", "class_balance": class_balance},
     )
 
     print("\nDone!")

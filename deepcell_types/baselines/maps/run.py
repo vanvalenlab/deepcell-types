@@ -654,6 +654,7 @@ def main(
         test_fov_names,
         dct_config.ct2idx,
         output_path,
+        run_metadata={"method": "maps", "class_balance": class_balance},
     )
 
     # Save normalization stats for inference

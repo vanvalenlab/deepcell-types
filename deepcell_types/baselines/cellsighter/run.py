@@ -560,6 +560,14 @@ def main(
         class_balance = "none"
     # size_data=0 disables the per-class cap (pure full-inverse-frequency).
     size_data_cap = size_data if size_data and size_data > 0 else None
+    # The --size_data cap is only applied for the faithful 'equal' scheme
+    # (subsample_const_size); warn if it was set under another scheme so it is
+    # not silently inert.
+    if size_data_cap is not None and class_balance != "equal":
+        print(
+            f"  [warning] --size_data {size_data_cap} is ignored under "
+            f"--class_balance {class_balance} (only applied for 'equal')"
+        )
 
     # Faithful CellSighter: full crop incl. neighbor intensities (mask_self=False),
     # 60x60 crops, the original's geometric augmentation pipeline, and
@@ -898,6 +906,11 @@ def main(
         test_fov_names,
         dct_config.ct2idx,
         output_path,
+        run_metadata={
+            "method": "cellsighter",
+            "class_balance": class_balance,
+            "size_data": size_data_cap,
+        },
     )
 
     print("\nDone!")

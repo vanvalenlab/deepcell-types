@@ -18,25 +18,41 @@ import torch
 from torch.utils.data import Sampler
 
 
-def compute_sample_weights_dct(labels, *, floor: int = 1000):
+def compute_sample_weights_dct(labels, *, floor: int = 1000, normalize: bool = False):
     """DCT sampler weights as a pure label-array helper (one source of truth).
 
     Sqrt-inverse-frequency with a minimum effective-count ``floor``:
-    ``weight(class) = sqrt(total / max(count, floor))``. This is the exact
-    balancing the main DeepCell-Types model uses (via ``compute_sample_weights``
-    over a dataset) and that CellSighter selects with ``--class_balance sqrt``.
-    Exposed as a label-array helper so the MAPS and XGBoost baselines — which
-    operate on numpy ``y`` arrays rather than a ``dataset`` — can share the
-    identical formula, giving every method the same sampler.
+    ``weight(class) = sqrt(total / max(count, floor))``. This is the same
+    weighting formula the main DeepCell-Types model uses (via
+    ``compute_sample_weights`` over a dataset) and that CellSighter selects with
+    ``--class_balance sqrt``. Exposed as a label-array helper so the MAPS and
+    XGBoost baselines — which operate on numpy ``y`` arrays rather than a
+    ``dataset`` — can share the identical formula, giving every method the same
+    sampler.
 
     The ``floor`` treats any class as having at least ``floor`` samples for
-    weighting, preventing rare single-FOV classes (e.g. Myofibroblast with 236
-    cells) from receiving extreme weights that corrupt common classes'
-    representations.
+    weighting, preventing rare single-FOV classes (e.g. a rare class with only a
+    few hundred cells) from receiving extreme weights that corrupt common
+    classes' representations. Note: every class whose count is below ``floor``
+    collapses to one identical weight, so the rare tail is effectively
+    unbalanced — the scheme mainly rebalances the head.
+
+    ``normalize`` rescales the returned weights to mean 1. A
+    ``WeightedRandomSampler`` is scale-invariant (it normalises weights into a
+    probability distribution), so the neural baselines never need this. XGBoost
+    consumes the array as an *absolute* per-row ``sample_weight`` that scales the
+    summed gradient/hessian per leaf — so passing the raw (mean ≈ several×)
+    weights would inflate hessian mass and weaken ``reg_lambda`` /
+    ``min_child_weight`` relative to the unweighted run, confounding class
+    balance with reduced regularization. ``normalize=True`` keeps the relative
+    class balance while holding total hessian mass ≈ the unweighted run.
 
     Args:
         labels: 1-D array-like of per-sample class labels.
         floor: Minimum effective per-class count (default 1000).
+        normalize: If True, rescale weights to mean 1 (for XGBoost
+            ``sample_weight``). Default False preserves the resampling-sampler
+            and main-model behaviour bit-for-bit.
 
     Returns:
         weights: np.ndarray (float64) of per-sample weights, aligned to ``labels``.
@@ -48,7 +64,10 @@ def compute_sample_weights_dct(labels, *, floor: int = 1000):
         cls: float(np.sqrt(total / max(int(count), floor)))
         for cls, count in zip(uniq.tolist(), counts.tolist())
     }
-    return np.array([cls_weight[c] for c in labels.tolist()], dtype=np.float64)
+    weights = np.array([cls_weight[c] for c in labels.tolist()], dtype=np.float64)
+    if normalize and weights.size and weights.sum() > 0:
+        weights = weights * (len(weights) / weights.sum())
+    return weights
 
 
 def compute_sample_weights(dataset, indices):

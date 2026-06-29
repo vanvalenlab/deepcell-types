@@ -58,9 +58,12 @@ class XGBoostObjective:
         self.class_balance = class_balance
         # Per-row DCT sampler weights (sqrt-inverse-frequency, 1000-count floor),
         # the tree analog of the neural baselines' WeightedRandomSampler; None
-        # for faithful unweighted XGBoost.
+        # for faithful unweighted XGBoost. normalize=True (mean 1) so tuning
+        # optimizes at the same scale the final model ships with (see run.py).
         self.sample_weight = (
-            compute_sample_weights_dct(y_train) if class_balance == "dct" else None
+            compute_sample_weights_dct(y_train, normalize=True)
+            if class_balance == "dct"
+            else None
         )
 
     def __call__(self, trial: optuna.Trial) -> float:
@@ -334,9 +337,13 @@ def train_best_model(
     early_stopping_rounds = max(10, params.get("n_estimators", 100) // 10)
     model = xgb.XGBClassifier(**params, early_stopping_rounds=early_stopping_rounds)
     # 'dct' balancing weights each row by the DCT sampler scheme (the tree
-    # analog of the neural baselines' WeightedRandomSampler); 'none' = faithful.
+    # analog of the neural baselines' WeightedRandomSampler), normalize=True to
+    # mean 1 so balancing does not also change effective regularization; 'none'
+    # = faithful unweighted XGBoost.
     sample_weight = (
-        compute_sample_weights_dct(y_inner_train) if class_balance == "dct" else None
+        compute_sample_weights_dct(y_inner_train, normalize=True)
+        if class_balance == "dct"
+        else None
     )
     model.fit(
         X_inner_train,
