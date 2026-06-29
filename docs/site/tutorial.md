@@ -332,17 +332,17 @@ Since we ordered the mask indices above, it's straightforward to make this
 mapping explicit:
 
 ```{note}
-**Low-confidence abstention.** By default (`ct_abstention_k=0.2`) `predict`
-flags cells whose top-class probability falls below an IQR fence on the
-field-of-view's confidence distribution and rewrites their label to the
-sentinel `"Unknown"`. To recover the unfiltered argmax label for *every*
-cell (the historical behaviour), disable abstention with
-`ct_abstention_k=0`:
+**Low-confidence abstention.** Abstention is opt-in. By default
+(`ct_abstention_k=None`) `predict` returns the raw argmax label for *every*
+cell. To enable it, pass a float `k`: `predict` then flags cells whose
+top-class probability falls below an IQR fence on the field-of-view's
+confidence distribution and rewrites their label to the sentinel `"Unknown"`.
+`ct_abstention_k=0.2` reproduces the paper's headline operating point:
 
     cell_types = deepcell_types.predict(
         img, mask, chnames, mpp,
         model_name=model, device=device,
-        ct_abstention_k=0,
+        ct_abstention_k=0.2,
     )
 
 To inspect probabilities and which cells were abstained, pass
