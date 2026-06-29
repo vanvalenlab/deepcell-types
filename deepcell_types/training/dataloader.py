@@ -3,18 +3,13 @@
 Extracted from ``deepcell_types.training.dataset`` for modularity. These
 symbols are re-exported from ``dataset`` for backward compatibility.
 
-Contains ``create_dataloader`` (the full keyword API) and the
-``DataLoaderConfig`` dataclass that bundles its 20+ knobs. This module sits at
-the top of the training-data
-dependency chain: it imports transforms, samplers, and split helpers at module
+Contains ``create_dataloader`` (the full keyword API). This module sits at the
+top of the training-data dependency chain: it imports transforms, samplers, and split helpers at module
 scope. ``dataset`` re-exports this module's symbols for back-compat, which would
 make a module-level ``from .dataset import ...`` here a circular import (it broke
 ``import deepcell_types.training.dataloader`` when that ran before ``dataset``);
 the dataset core is therefore imported lazily inside ``create_dataloader``.
 """
-
-from dataclasses import dataclass
-from typing import Any, List, Optional
 
 import numpy as np
 import torch
@@ -440,40 +435,3 @@ def create_dataloader(
     metadata["num_val"] = len(val_subset) if hasattr(val_subset, "__len__") else 0
 
     return train_loader, val_loader, metadata
-
-
-@dataclass
-class DataLoaderConfig:
-    """Bundle the 20+ knobs ``create_dataloader`` accepts into a single object.
-
-    Grouping them in one object is more readable than 20+ keyword arguments at
-    the call site, and gives the IDE / type checker a discoverable home for new
-    options.
-
-    Field defaults exactly mirror ``create_dataloader``'s defaults; passing a
-    bare ``DataLoaderConfig()`` is equivalent to calling ``create_dataloader``
-    with no overrides.
-    """
-
-    skip_datasets: Optional[List[str]] = None
-    keep_datasets: Optional[List[str]] = None
-    batch_size: int = 256
-    num_dropout_channels: int = 8
-    num_workers: int = 16
-    only_test: bool = False
-    keep_fovs: Optional[List[str]] = None
-    lengths: Optional[List[float]] = None
-    use_fov_splits: bool = True
-    train_ratio: float = 0.8
-    seed: int = 42
-    use_weighted_sampler: bool = True
-    split_file: Optional[str] = None
-    skip_distance_transform: bool = False
-    persistent_workers: bool = False
-    max_samples_per_epoch: Optional[int] = None
-    max_val_samples: Optional[int] = None
-    multiprocessing_context: Optional[Any] = None
-    pin_memory: bool = False
-    numpy_cache_max_bytes: Optional[int] = None
-    class_balance: Optional[str] = None
-    size_data: Optional[int] = None
