@@ -6,7 +6,7 @@ This module's **import-time dependencies are numpy-only** so that
 ``apply_abstention`` below imports pandas lazily, inside the function,
 preserving that contract.
 
-Algorithm (mirrors ``analysis/ct_abstention_iqr.py``):
+Algorithm:
 
 1. For each unique group key, look at the max-softmax distribution of cells
    in that group.

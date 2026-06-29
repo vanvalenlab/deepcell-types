@@ -56,8 +56,7 @@ this everywhere."""
 
 DEFAULT_PERCENTILE: float = 99.9
 """Per-channel percentile (over nonzero pixels) used for the bright-spot
-clip step. Matches the production-pipeline value recovered from
-``preprocess_for_training.py`` on the deepcell-types branch."""
+clip step. Matches the production training-preprocessing pipeline value."""
 
 
 # ---------------------------------------------------------------------------
@@ -93,8 +92,8 @@ def _resample(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Resample raw (bilinear) and mask (nearest neighbor) by ``scale``.
 
-    Operates on the (H, W, C) layout for raw to match
-    ``deepcell-types:preprocess_for_training.py`` exactly. Returns raw
+    Operates on the (H, W, C) layout for raw to match the production
+    training-preprocessing pipeline exactly. Returns raw
     in (C, H', W') float32 and mask in (H', W') uint32.
     """
     raw_hwc = np.transpose(raw, (1, 2, 0)).astype(np.float32, copy=False)

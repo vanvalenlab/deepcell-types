@@ -38,11 +38,7 @@ python scripts/predict.py \
   --split_file "$SPLIT" \
   --ct_abstention_k 0
 
-# For the full multi-method head-to-head table (ours + XGBoost/MAPS/CellSighter),
-# score the prediction CSVs with the research-workspace scorer:
-#   python -m analysis.test_split_summary --methods \
-#       resMLP=output/eval_test_prediction.csv \
-#       XGBoost-tuned=<dct-final-ckpt>/baseline_xgboost_test_prediction.csv \
-#       MAPS=<...>/baseline_maps_test_prediction.csv \
-#       CellSighter=<...>/baseline_cellsighter_test_prediction.csv
-# (baseline test CSVs ship in dct-final-ckpt/; their 129 test FOVs are bit-identical.)
+# For a full multi-method head-to-head table (ours + XGBoost/MAPS/CellSighter),
+# generate each baseline's predictions on this same split (see
+# deepcell_types.baselines) and compare the per-cell prediction CSVs with your
+# own scoring. All methods evaluate on the identical 129-FOV test split.
