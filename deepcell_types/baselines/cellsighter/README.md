@@ -58,15 +58,17 @@ python -m deepcell_types.baselines cellsighter ...
     runs on an evaluation split disjoint from both training and inner-validation
     FOVs. Without it, the CLI emits a warning because the final number reuses the
     validation loader used for checkpoint selection.
-- **Class balancing — faithful equal-proportion (default).** `--class_balance
-  equal` (default) reproduces the upstream training recipe: the train pool is
+- **Class balancing — DCT sampler (default).** `--class_balance sqrt` (default)
+  uses the same sampler as the main DeepCell-Types model and the other baselines:
+  a `WeightedRandomSampler` with sqrt-inverse-frequency weights and a 1000-count
+  floor (`deepcell_types/training/samplers.py:compute_sample_weights`), so every
+  method is balanced identically (shared comparison footing). The faithful
+  upstream recipe is the `--class_balance equal` ablation: the train pool is
   first capped to `--size_data` cells/class (default 1000, matching the paper's
   `size_data` / `subsample_const_size`), then a `WeightedRandomSampler` draws
   with full-inverse-frequency weights `weight = total / count`
-  (`deepcell_types/training/samplers.py:compute_sample_weights_equal`, matching upstream `define_sampler`
-  with `sample_batch: true`). Two ablation schemes are selectable: `--class_balance
-  sqrt` (the DCT-wide sqrt-inverse-frequency sampler with a 1000-count floor) and
-  `--class_balance none` (uniform; also reachable via the deprecated
-  `--no_weighted_sampler`). Remaining deviation: upstream's `hierarchy_match`
+  (`compute_sample_weights_equal`, matching upstream `define_sampler` with
+  `sample_batch: true`). `--class_balance none` is uniform (also reachable via
+  the deprecated `--no_weighted_sampler`). Remaining deviation: upstream's `hierarchy_match`
   balances at the lineage level, whereas balancing here is computed on the
   fine-grained standardized cell-type label.

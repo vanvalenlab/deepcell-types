@@ -23,6 +23,7 @@ from deepcell_types.training.baseline_features import (
     save_baseline_predictions,
     extract_features_from_zarr,
 )
+from deepcell_types.training.samplers import compute_sample_weights_dct
 
 
 @click.command()
@@ -76,6 +77,16 @@ from deepcell_types.training.baseline_features import (
     default=None,
     help="Path to cache extracted features (.npz). Reuses cache if it exists.",
 )
+@click.option(
+    "--class_balance",
+    type=click.Choice(["dct", "none"]),
+    default="dct",
+    help="Training class-balancing. 'dct' (default): pass per-row "
+    "sample_weight to fit() using the DCT sampler weights (sqrt-inverse-"
+    "frequency with a 1000-count floor), identical to the main DeepCell-Types "
+    "model and the other baselines (shared comparison footing). 'none' "
+    "(faithful XGBoost, ablation): no class weighting.",
+)
 def main(
     model_name: str,
     zarr_dir: str,
@@ -86,6 +97,7 @@ def main(
     learning_rate: float,
     split_file: str,
     features_cache: str,
+    class_balance: str,
 ):
     """Train XGBoost baseline for cell type classification."""
     # Load config
@@ -230,9 +242,17 @@ def main(
     )
 
     print(f"  Early stopping: {early_stopping_rounds} rounds (inner-val FOV-grouped)")
+    # 'dct' balancing: weight each training row by the DCT sampler scheme
+    # (sqrt-inverse-frequency, 1000-count floor) — the tree analog of the
+    # WeightedRandomSampler the neural baselines use. 'none' = faithful XGBoost.
+    sample_weight = (
+        compute_sample_weights_dct(y_inner_train) if class_balance == "dct" else None
+    )
+    print(f"  Class balancing: {class_balance}")
     model.fit(
         X_inner_train,
         y_inner_train,
+        sample_weight=sample_weight,
         eval_set=[(X_inner_val, y_inner_val)],
         verbose=True,
     )

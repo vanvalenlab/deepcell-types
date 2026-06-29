@@ -31,6 +31,7 @@ from deepcell_types.training.baseline_features import (
     save_baseline_predictions,
     extract_features_from_zarr,
 )
+from deepcell_types.training.samplers import compute_sample_weights_dct
 
 
 def set_seed(seed: int) -> None:
@@ -270,6 +271,17 @@ def evaluate(
     default=None,
     help="Path to cache extracted features (.npz). Reuses cache if it exists.",
 )
+@click.option(
+    "--class_balance",
+    type=click.Choice(["dct", "full_inv_freq", "none"]),
+    default="dct",
+    help="Training class-balancing scheme for the WeightedRandomSampler. "
+    "'dct' (default): DCT sampler — sqrt-inverse-frequency with a 1000-count "
+    "floor, identical to the main DeepCell-Types model and the other baselines "
+    "(shared comparison footing). 'full_inv_freq' (FAITHFUL, ablation): "
+    "canonical mahmoodlab/MAPS full-inverse-frequency weights (weight=n/count). "
+    "'none': uniform shuffle (ablation).",
+)
 def main(
     model_name: str,
     device_num: str,
@@ -287,6 +299,7 @@ def main(
     seed: int,
     split_file: str,
     features_cache: str,
+    class_balance: str,
 ):
     """Train MAPS baseline for cell type classification."""
     # Seed everything (canonical mahmoodlab/MAPS trainer.py:81-101)
@@ -413,22 +426,34 @@ def main(
     X_inner_val_tensor = torch.from_numpy(X_inner_val_norm.astype(np.float64))
     X_test_tensor = torch.from_numpy(X_test_norm.astype(np.float64))
 
-    # Compute class weights for WeightedRandomSampler (inner-train only)
-    print("Computing class weights for balanced sampling...")
-    sample_weights = compute_class_weights(y_inner_train)
-    sampler = WeightedRandomSampler(
-        weights=sample_weights,
-        num_samples=len(sample_weights),
-        replacement=True,
-    )
+    # Class-balanced sampling for the WeightedRandomSampler (inner-train only).
+    # Default 'dct' matches the main DeepCell-Types model and the other
+    # baselines (sqrt-inverse-frequency with a 1000-count floor) so all methods
+    # share one sampler; 'full_inv_freq' is the faithful mahmoodlab/MAPS scheme;
+    # 'none' disables balancing (uniform shuffle).
+    if class_balance == "none":
+        sampler = None
+        print("Class balancing: none (uniform shuffle)")
+    else:
+        if class_balance == "dct":
+            print("Class balancing: dct (sqrt-inverse-frequency, 1000-count floor)")
+            sample_weights = compute_sample_weights_dct(y_inner_train)
+        else:  # full_inv_freq
+            print("Class balancing: full_inv_freq (faithful mahmoodlab/MAPS, n/count)")
+            sample_weights = compute_class_weights(y_inner_train)
+        sampler = WeightedRandomSampler(
+            weights=sample_weights,
+            num_samples=len(sample_weights),
+            replacement=True,
+        )
 
-    # Create training dataloader with balanced sampling
-    # drop_last=True matches original MAPS implementation
+    # Create training dataloader. drop_last=True matches original MAPS.
     train_dataset = TensorDataset(X_inner_train_tensor, y_inner_train_tensor)
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         sampler=sampler,
+        shuffle=(sampler is None),
         drop_last=True,
         num_workers=0,  # Features already in memory
     )

@@ -434,14 +434,15 @@ def evaluate(
 )
 @click.option(
     "--class_balance",
-    type=click.Choice(["equal", "sqrt", "none"]),
-    default="equal",
-    help="Training class-balancing scheme. 'equal' (default, FAITHFUL): "
-    "full-inverse-frequency WeightedRandomSampler (weight=total/count) over a "
-    "per-class pool capped at --size_data, reproducing the original CellSighter "
-    "subsample_const_size + define_sampler. 'sqrt': DCT-wide sqrt-inverse-"
-    "frequency with a 1000-count floor (ablation). 'none': uniform sampling "
-    "(ablation).",
+    type=click.Choice(["sqrt", "equal", "none"]),
+    default="sqrt",
+    help="Training class-balancing scheme. 'sqrt' (default): DCT sampler — "
+    "sqrt-inverse-frequency with a 1000-count floor, identical to the main "
+    "DeepCell-Types model and the other baselines (shared comparison footing). "
+    "'equal' (FAITHFUL, ablation): full-inverse-frequency WeightedRandomSampler "
+    "(weight=total/count) over a per-class pool capped at --size_data, "
+    "reproducing the original CellSighter subsample_const_size + define_sampler. "
+    "'none': uniform sampling (ablation).",
 )
 @click.option(
     "--size_data",

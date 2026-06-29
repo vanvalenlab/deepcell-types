@@ -51,3 +51,9 @@ python -m deepcell_types.baselines maps ...
     (selection-on-the-reported-set is leakage). This mirrors the XGBoost
     baseline's FOV-grouped early-stopping set. As a consequence the model now
     trains on ~90% of the training cells (the inner-val FOVs are held out).
+  - **Class balancing — DCT sampler (default).** `--class_balance dct` (default)
+    uses the same `WeightedRandomSampler` as the main DeepCell-Types model and
+    the other baselines (sqrt-inverse-frequency with a 1000-count floor), so all
+    methods are balanced identically. `--class_balance full_inv_freq` is the
+    faithful canonical mahmoodlab/MAPS sampler (`weight = n/count`); `none`
+    disables balancing.

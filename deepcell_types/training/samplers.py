@@ -18,8 +18,44 @@ import torch
 from torch.utils.data import Sampler
 
 
+def compute_sample_weights_dct(labels, *, floor: int = 1000):
+    """DCT sampler weights as a pure label-array helper (one source of truth).
+
+    Sqrt-inverse-frequency with a minimum effective-count ``floor``:
+    ``weight(class) = sqrt(total / max(count, floor))``. This is the exact
+    balancing the main DeepCell-Types model uses (via ``compute_sample_weights``
+    over a dataset) and that CellSighter selects with ``--class_balance sqrt``.
+    Exposed as a label-array helper so the MAPS and XGBoost baselines — which
+    operate on numpy ``y`` arrays rather than a ``dataset`` — can share the
+    identical formula, giving every method the same sampler.
+
+    The ``floor`` treats any class as having at least ``floor`` samples for
+    weighting, preventing rare single-FOV classes (e.g. Myofibroblast with 236
+    cells) from receiving extreme weights that corrupt common classes'
+    representations.
+
+    Args:
+        labels: 1-D array-like of per-sample class labels.
+        floor: Minimum effective per-class count (default 1000).
+
+    Returns:
+        weights: np.ndarray (float64) of per-sample weights, aligned to ``labels``.
+    """
+    labels = np.asarray(labels)
+    uniq, counts = np.unique(labels, return_counts=True)
+    total = int(counts.sum())
+    cls_weight = {
+        cls: float(np.sqrt(total / max(int(count), floor)))
+        for cls, count in zip(uniq.tolist(), counts.tolist())
+    }
+    return np.array([cls_weight[c] for c in labels.tolist()], dtype=np.float64)
+
+
 def compute_sample_weights(dataset, indices):
     """Compute sqrt-inverse-frequency sample weights for WeightedRandomSampler.
+
+    Thin dataset-interface wrapper over :func:`compute_sample_weights_dct` (the
+    shared formula); see that helper for the weighting rationale.
 
     Args:
         dataset: FullImageDataset instance
@@ -28,31 +64,8 @@ def compute_sample_weights(dataset, indices):
     Returns:
         weights: torch.Tensor of per-sample weights
     """
-    from collections import defaultdict
-
-    # Count cell types in the given indices
-    ct_counts = defaultdict(int)
-    for i in indices:
-        ct_label = dataset.indices[i].ct_label_standard
-        ct_counts[ct_label] += 1
-
-    # Compute sqrt-inverse-frequency weights with a minimum effective count cap.
-    # Treat any class as if it has at least 1000 samples for weighting purposes,
-    # preventing rare single-FOV classes (e.g. Myofibroblast with 236 cells)
-    # from receiving extreme weights that corrupt representations for common classes.
-    total = sum(ct_counts.values())
-    ct_weights = {}
-    for ct, count in ct_counts.items():
-        effective_count = max(count, 1000)
-        ct_weights[ct] = np.sqrt(total / effective_count)
-
-    # Assign per-sample weight
-    weights = torch.zeros(len(indices))
-    for i, idx in enumerate(indices):
-        ct_label = dataset.indices[idx].ct_label_standard
-        weights[i] = ct_weights[ct_label]
-
-    return weights
+    labels = np.array([dataset.indices[i].ct_label_standard for i in indices])
+    return torch.from_numpy(compute_sample_weights_dct(labels)).float()
 
 
 def compute_sample_weights_equal(dataset, indices):
