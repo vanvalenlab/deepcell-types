@@ -136,7 +136,9 @@ def _resolve_marker_embeddings(dct_config, state_dict, svd_path):
     default=0.2,
     help=(
         "Per-FOV IQR-fence abstention on max-softmax confidence. "
-        "Default k=0.2 is the published headline operating point. "
+        "Default k=0.2 is the published headline operating point. (Note: this "
+        "batch CLI deliberately defaults abstention ON for paper reproduction; "
+        "the deepcell_types.predict() library API defaults it OFF / opt-in.) "
         "Cells whose max-softmax falls below Q1 - k*IQR within their "
         "(dataset_name, fov_name) group are flagged as abstained "
         "(predicted_ct = 'Unknown', original kept in predicted_ct_raw). "

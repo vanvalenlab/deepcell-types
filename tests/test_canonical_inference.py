@@ -318,7 +318,7 @@ def test_patch_dataset_rejects_only_unknown_channel_names(tmp_path):
     raw = np.ones((1, 40, 40), dtype=np.float32)
     mask = np.zeros((40, 40), dtype=np.int32)
     mask[12:28, 12:28] = 1
-    with pytest.raises(ValueError, match="No input channels matched"):
+    with pytest.raises(ValueError, match="No usable input channels remain"):
         PatchDataset(raw, mask, ["FAKE_MARKER_XYZ_000"], 0.5, config)
 
 
@@ -568,7 +568,15 @@ def test_predict_default_does_not_abstain(tmp_path):
     """Abstention is opt-in: with the default ``ct_abstention_k=None`` no cell
     is relabelled to the sentinel and the returned labels equal the raw argmax
     labels. Guards against silently re-enabling the benchmark-tuned default."""
+    import inspect
+
     from deepcell_types.abstention import ABSTENTION_LABEL
+
+    # Pin the opt-in default directly: the behavioural assertions below use a
+    # uniform input whose max-softmax distribution never trips the IQR fence
+    # (so they hold for any ``k``), so this signature check is what actually
+    # catches a regression back to the old benchmark-tuned ``ct_abstention_k=0.2``.
+    assert inspect.signature(predict).parameters["ct_abstention_k"].default is None
 
     torch.manual_seed(0)
     archive_path = _make_archive(tmp_path)
