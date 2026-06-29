@@ -52,8 +52,12 @@ python -m deepcell_types.baselines maps ...
     baseline's FOV-grouped early-stopping set. As a consequence the model now
     trains on ~90% of the training cells (the inner-val FOVs are held out).
   - **Class balancing — DCT sampler (default).** `--class_balance dct` (default)
-    uses the same `WeightedRandomSampler` as the main DeepCell-Types model and
-    the other baselines (sqrt-inverse-frequency with a 1000-count floor), so all
-    methods are balanced identically. `--class_balance full_inv_freq` is the
-    faithful canonical mahmoodlab/MAPS sampler (`weight = n/count`); `none`
+    uses the same weighting as the main DeepCell-Types model and the other
+    baselines (sqrt-inverse-frequency with a 1000-count floor, drawn with a
+    `WeightedRandomSampler`; the main model wraps it as `FOVGroupedSampler` for
+    FOV cache locality — identical draw distribution). The identical scheme is
+    named `--class_balance sqrt` in CellSighter. Note the 1000-count floor flattens
+    every class below it to one weight, so the rare tail is effectively unbalanced
+    and the scheme mainly rebalances the head. `--class_balance full_inv_freq` is
+    the faithful canonical mahmoodlab/MAPS sampler (`weight = n/count`); `none`
     disables balancing.

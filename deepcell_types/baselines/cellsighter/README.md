@@ -62,7 +62,11 @@ python -m deepcell_types.baselines cellsighter ...
   uses the same sampler as the main DeepCell-Types model and the other baselines:
   a `WeightedRandomSampler` with sqrt-inverse-frequency weights and a 1000-count
   floor (`deepcell_types/training/samplers.py:compute_sample_weights`), so every
-  method is balanced identically (shared comparison footing). The faithful
+  method is balanced identically (shared comparison footing). MAPS and XGBoost
+  name this identical scheme `--class_balance dct` (CellSighter calls it `sqrt`).
+  Note the 1000-count floor flattens every class below it to one weight, so the
+  rare tail is effectively unbalanced — the scheme mainly rebalances the head. The
+  faithful
   upstream recipe is the `--class_balance equal` ablation: the train pool is
   first capped to `--size_data` cells/class (default 1000, matching the paper's
   `size_data` / `subsample_const_size`), then a `WeightedRandomSampler` draws
