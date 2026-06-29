@@ -58,14 +58,12 @@ def load_fov_data(
         channel_names: List of channel names
         cell_info: Dict with cell_index, cell_type, centroids
 
-    TODO: This function duplicates logic from ``_get_cell_data_from_ds`` in
-    ``deepcell_types/training/baseline_features.py``.  In particular, the
-    centroid-matching fallback
-    (Path 2) does **not** apply ``preproc.attrs["scale_factor"]`` to the
-    annotation centroids before comparing them to the preprocessed centroids,
-    which can cause mismatches when the image was rescaled during
-    preprocessing.  A future cleanup should replace this with a call to the
-    shared utility and fix the scale_factor handling.
+    Known limitation: this function overlaps with ``_get_cell_data_from_ds`` in
+    ``deepcell_types/training/baseline_features.py``. In particular, the
+    centroid-matching fallback (Path 2) does **not** apply
+    ``preproc.attrs["scale_factor"]`` to the annotation centroids before
+    comparing them to the preprocessed centroids, which can cause mismatches
+    when the image was rescaled during preprocessing.
     """
     ds = zf[dataset_key]
     preproc = ds["preprocessed"]
