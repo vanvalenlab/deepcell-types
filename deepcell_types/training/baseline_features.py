@@ -168,6 +168,7 @@ def save_baseline_predictions(
     fov_names: list,
     ct2idx: dict,
     output_path: Path,
+    run_metadata: dict = None,
 ):
     """
     Save predictions in the same format as PredLogger (for baselines).
@@ -180,6 +181,14 @@ def save_baseline_predictions(
         fov_names: FOV names
         ct2idx: Cell type to index mapping
         output_path: Output CSV path
+        run_metadata: Optional dict of run provenance (e.g. the active
+            ``class_balance`` scheme) written to a sidecar ``*.meta.json`` next
+            to the CSV. Because baselines now default to a shared sampler, two
+            CSVs trained under different schemes are byte-schema-identical; the
+            sidecar records which scheme produced this file so a figure builder
+            can assert the intended arm before plotting. Written as a sidecar
+            (not a CSV column) so the prediction schema — and any downstream
+            softmax-column selection — is unchanged.
     """
     # Get column names sorted by index
     columns = sorted(ct2idx, key=ct2idx.get)
@@ -194,6 +203,12 @@ def save_baseline_predictions(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
     logger.info("Predictions saved to %s", output_path)
+
+    if run_metadata:
+        meta_path = output_path.with_suffix(".meta.json")
+        with open(meta_path, "w") as fh:
+            json.dump(run_metadata, fh, indent=2, sort_keys=True)
+        logger.info("Prediction provenance saved to %s", meta_path)
 
 
 def _extract_all_dataset_features(

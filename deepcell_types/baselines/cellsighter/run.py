@@ -434,14 +434,15 @@ def evaluate(
 )
 @click.option(
     "--class_balance",
-    type=click.Choice(["equal", "sqrt", "none"]),
-    default="equal",
-    help="Training class-balancing scheme. 'equal' (default, FAITHFUL): "
-    "full-inverse-frequency WeightedRandomSampler (weight=total/count) over a "
-    "per-class pool capped at --size_data, reproducing the original CellSighter "
-    "subsample_const_size + define_sampler. 'sqrt': DCT-wide sqrt-inverse-"
-    "frequency with a 1000-count floor (ablation). 'none': uniform sampling "
-    "(ablation).",
+    type=click.Choice(["sqrt", "equal", "none"]),
+    default="sqrt",
+    help="Training class-balancing scheme. 'sqrt' (default): DCT sampler — "
+    "sqrt-inverse-frequency with a 1000-count floor, identical to the main "
+    "DeepCell-Types model and the other baselines (shared comparison footing). "
+    "'equal' (FAITHFUL, ablation): full-inverse-frequency WeightedRandomSampler "
+    "(weight=total/count) over a per-class pool capped at --size_data, "
+    "reproducing the original CellSighter subsample_const_size + define_sampler. "
+    "'none': uniform sampling (ablation).",
 )
 @click.option(
     "--size_data",
@@ -559,6 +560,14 @@ def main(
         class_balance = "none"
     # size_data=0 disables the per-class cap (pure full-inverse-frequency).
     size_data_cap = size_data if size_data and size_data > 0 else None
+    # The --size_data cap is only applied for the faithful 'equal' scheme
+    # (subsample_const_size); warn if it was set under another scheme so it is
+    # not silently inert.
+    if size_data_cap is not None and class_balance != "equal":
+        print(
+            f"  [warning] --size_data {size_data_cap} is ignored under "
+            f"--class_balance {class_balance} (only applied for 'equal')"
+        )
 
     # Faithful CellSighter: full crop incl. neighbor intensities (mask_self=False),
     # 60x60 crops, the original's geometric augmentation pipeline, and
@@ -897,6 +906,11 @@ def main(
         test_fov_names,
         dct_config.ct2idx,
         output_path,
+        run_metadata={
+            "method": "cellsighter",
+            "class_balance": class_balance,
+            "size_data": size_data_cap,
+        },
     )
 
     print("\nDone!")

@@ -27,6 +27,7 @@ from deepcell_types.training.baseline_features import (
     extract_features_from_zarr,
     compute_baseline_metrics,
 )
+from deepcell_types.training.samplers import compute_sample_weights_dct
 
 
 class XGBoostObjective:
@@ -43,6 +44,7 @@ class XGBoostObjective:
         hierarchy: dict = None,
         ct2idx: dict = None,
         device: str = "cpu",
+        class_balance: str = "dct",
     ):
         self.X_train = X_train
         self.y_train = y_train
@@ -53,6 +55,16 @@ class XGBoostObjective:
         self.hierarchy = hierarchy
         self.ct2idx = ct2idx
         self.device = device
+        self.class_balance = class_balance
+        # Per-row DCT sampler weights (sqrt-inverse-frequency, 1000-count floor),
+        # the tree analog of the neural baselines' WeightedRandomSampler; None
+        # for faithful unweighted XGBoost. normalize=True (mean 1) so tuning
+        # optimizes at the same scale the final model ships with (see run.py).
+        self.sample_weight = (
+            compute_sample_weights_dct(y_train, normalize=True)
+            if class_balance == "dct"
+            else None
+        )
 
     def __call__(self, trial: optuna.Trial) -> float:
         """
@@ -88,6 +100,7 @@ class XGBoostObjective:
         model.fit(
             self.X_train,
             self.y_train,
+            sample_weight=self.sample_weight,
             eval_set=[(self.X_val, self.y_val)],
             verbose=False,
         )
@@ -121,6 +134,7 @@ def run_tuning(
     hierarchy: dict = None,
     ct2idx: dict = None,
     device: str = "cpu",
+    class_balance: str = "dct",
 ) -> Tuple[optuna.Study, dict]:
     """
     Run hyperparameter tuning.
@@ -168,6 +182,7 @@ def run_tuning(
         hierarchy=hierarchy,
         ct2idx=ct2idx,
         device=device,
+        class_balance=class_balance,
     )
 
     # Run optimization
@@ -191,6 +206,7 @@ def train_best_model(
     hierarchy: dict = None,
     ct2idx: dict = None,
     train_fov_names: Optional[np.ndarray] = None,
+    class_balance: str = "dct",
 ) -> Tuple[xgb.XGBClassifier, dict]:
     """
     Train final model with best parameters.
@@ -320,9 +336,19 @@ def train_best_model(
 
     early_stopping_rounds = max(10, params.get("n_estimators", 100) // 10)
     model = xgb.XGBClassifier(**params, early_stopping_rounds=early_stopping_rounds)
+    # 'dct' balancing weights each row by the DCT sampler scheme (the tree
+    # analog of the neural baselines' WeightedRandomSampler), normalize=True to
+    # mean 1 so balancing does not also change effective regularization; 'none'
+    # = faithful unweighted XGBoost.
+    sample_weight = (
+        compute_sample_weights_dct(y_inner_train, normalize=True)
+        if class_balance == "dct"
+        else None
+    )
     model.fit(
         X_inner_train,
         y_inner_train,
+        sample_weight=sample_weight,
         eval_set=[(X_inner_val, y_inner_val)],
         verbose=True,
     )
@@ -410,6 +436,15 @@ def train_best_model(
     default="cpu",
     help="Device for XGBoost (cpu or cuda:N for GPU acceleration)",
 )
+@click.option(
+    "--class_balance",
+    type=click.Choice(["dct", "none"]),
+    default="dct",
+    help="Training class-balancing for both the Optuna trials and the final "
+    "model. 'dct' (default): per-row sample_weight from the DCT sampler "
+    "(sqrt-inverse-frequency, 1000-count floor), identical to the main model "
+    "and the other baselines. 'none' (faithful XGBoost, ablation): unweighted.",
+)
 def main(
     study_name: Optional[str],
     n_trials: int,
@@ -422,6 +457,7 @@ def main(
     split_file: str,
     max_tuning_samples: int,
     device_num: str,
+    class_balance: str,
 ):
     """Run XGBoost hyperparameter tuning with Optuna."""
     # Load config
@@ -597,6 +633,7 @@ def main(
         hierarchy=CELL_TYPE_HIERARCHY,
         ct2idx=tuning_ct2idx,
         device=device_num,
+        class_balance=class_balance,
     )
 
     print("\nBest trial:")
@@ -621,6 +658,7 @@ def main(
         hierarchy=CELL_TYPE_HIERARCHY,
         ct2idx=compact_ct2idx,
         train_fov_names=train_fov_names_all,
+        class_balance=class_balance,
     )
 
     print("\nFinal Test Results:")

@@ -55,12 +55,21 @@ python -m deepcell_types.baselines xgboost-tune ...   # Optuna hyperparameter se
 ## Fairness notes vs the neural baselines
 
 - **No `cellSize` feature.** XGBoost uses the per-marker mean intensities only;
-  MAPS additionally appends `cellSize` (`maps/run.py`). XGBoost also uses **no**
-  class weighting or balanced sampler, whereas MAPS and CellSighter both use
-  full-inverse-frequency samplers (CellSighter's default is `--class_balance
-  equal`). On rare-class macro
-  metrics these make the XGBoost number *conservative* relative to the neural
-  baselines, not advantaged.
+  MAPS additionally appends `cellSize` (`maps/run.py`).
+- **Class balancing — DCT sampler (default).** All methods now share the main
+  DeepCell-Types model's balancing scheme (named `dct` here; the identical scheme
+  is `--class_balance sqrt` in CellSighter). For XGBoost (a tree model, no
+  sampler) this is the tree analog of the neural baselines' `WeightedRandomSampler`:
+  the same DCT weights (sqrt-inverse-frequency with a 1000-count floor) are applied
+  as a per-row `sample_weight` in `fit()`, **rescaled to mean 1** so balancing does
+  not also alter effective regularization (an un-normalized `sample_weight` inflates
+  the summed hessian per leaf and weakens `reg_lambda` / `min_child_weight` relative
+  to the unweighted run — a `WeightedRandomSampler` is scale-invariant and has no
+  such effect). `--class_balance dct` is the default; `--class_balance none`
+  restores the faithful unweighted XGBoost. This removes the prior asymmetry where
+  XGBoost ran unbalanced while MAPS/CellSighter were balanced, which we expect made
+  the XGBoost rare-class macro number conservative (direction not yet measured —
+  compare the `none` vs `dct` arms once retrained).
 - **Tuning budget is not matched.** Only XGBoost has an automated hyperparameter
   search (`tuning.py`, ~100 Optuna trials); MAPS and CellSighter run at fixed
   configurations. When comparing the tuned XGBoost number head-to-head with the

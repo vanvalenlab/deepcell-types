@@ -29,12 +29,16 @@ MAPS_OPTS = {
     "patience",
     "seed",
     "znorm",
+    # Class-balancing scheme (shared DCT sampler default + faithful ablation).
+    "class_balance",
 }
 MAPS_DEFAULTS = {
     "max_epochs": 500,
     "min_epochs": 250,
     "patience": 100,
     "znorm": True,
+    # Unified on the shared DCT sampler by default.
+    "class_balance": "dct",
 }
 # Re-frozen for the faithful CellSighter reimplementation (feat/faithful-cellsighter):
 # added crop_size, mask_self, cifar_stem, test_split_file, allow_split_mismatch,
@@ -72,6 +76,9 @@ CELLSIGHTER_OPTS = {
     "size_data",
     "no_weighted_sampler",
 }
+# CellSighter defaults to the shared DCT sampler ('sqrt'); faithful
+# equal-proportion is the '--class_balance equal' ablation.
+CELLSIGHTER_DEFAULTS = {"class_balance": "sqrt"}
 
 
 def _param_names(cmd):
@@ -106,3 +113,6 @@ def test_cellsighter_subcommand_options_frozen():
     cmd = cli.get_command(ctx, "cellsighter")
     assert isinstance(cmd, click.Command)
     assert _param_names(cmd) == CELLSIGHTER_OPTS
+    defaults = _param_defaults(cmd)
+    for name, expected in CELLSIGHTER_DEFAULTS.items():
+        assert defaults[name] == expected
