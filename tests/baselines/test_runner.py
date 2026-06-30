@@ -23,6 +23,8 @@ XGBOOST_OPTS = {
     "learning_rate",
     "split_file",
     "features_cache",
+    # Canonical external-val selection (feat/baselines-canonical-val-selection).
+    "val_split_file",
     # Class-balancing scheme (shared DCT sampler default + faithful ablation).
     "class_balance",
 }
@@ -50,6 +52,9 @@ XGBOOST_TUNE_OPTS = {
     "split_file",
     "max_tuning_samples",
     "device_num",
+    "features_cache",
+    # Canonical external-val selection (feat/baselines-canonical-val-selection).
+    "val_split_file",
     # Class-balancing scheme (shared DCT sampler default + faithful ablation).
     "class_balance",
 }

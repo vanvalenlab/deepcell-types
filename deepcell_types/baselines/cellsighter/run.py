@@ -406,6 +406,18 @@ def evaluate(
     help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)",
 )
 @click.option(
+    "--val_split_file",
+    type=str,
+    default=None,
+    help="If set, train on the FULL --split_file train (no inner carve) and "
+    "select the best epoch on the 'val' FOVs of THIS file, capped to 200k cells "
+    "at seed 42 (mirroring deepcell_types/training/dataloader.py:269-273 "
+    "max_val_samples) and scored by the hierarchical ct_macro_f1 "
+    "(LossesAndMetrics.compute, metrics.py:399-419). The reported set stays "
+    "--split_file 'val' (unless --test_split_file overrides it). When unset, "
+    "keeps the legacy 10% FOV-grouped inner-val carve + selection.",
+)
+@click.option(
     "--test_split_file",
     type=str,
     default=None,
@@ -499,6 +511,7 @@ def main(
     seed: int,
     split_mode: str,
     split_file: str,
+    val_split_file: str,
     test_split_file: str,
     val_every_n_epochs: int,
     no_amp: bool,
@@ -588,12 +601,17 @@ def main(
     )
     cs_train_transform = build_cellsighter_train_transform()
 
-    # Load train and test data. inner_val_ratio carves a FOV-grouped
-    # inner-validation set out of the TRAIN FOVs for model selection, so the
-    # reported (test) set never drives checkpoint selection. train_loader then
-    # iterates only inner-train cells; the held-out inner-val loader comes back
-    # via metadata["inner_val_loader"]. test_loader is the reported set,
-    # unchanged. Mirrors the XGBoost baseline's FOV-grouped early-stopping set.
+    # Model-selection validation. Two protocols:
+    #   (1) --val_split_file (canonical, matches the main DCT model): train on
+    #       the FULL --split_file train (inner_val_ratio=0.0, no carve) and select
+    #       the best epoch on the 'val' FOVs of --val_split_file, built by a
+    #       second create_dataloader call with max_val_samples=200000, seed=42
+    #       (mirrors dataloader.py:269-273). The reported (test) set is
+    #       --split_file 'val' (unchanged), unless --test_split_file overrides.
+    #   (2) no --val_split_file (legacy back-compat): inner_val_ratio=0.1 carves
+    #       a FOV-grouped inner-validation set out of the TRAIN FOVs; the held-out
+    #       inner-val loader comes back via metadata["inner_val_loader"].
+    inner_val_ratio = 0.0 if val_split_file else 0.1
     train_loader, test_loader, metadata = create_dataloader(
         zarr_dir=zarr_dir,
         dct_config=dct_config,
@@ -608,9 +626,9 @@ def main(
         skip_distance_transform=True,  # CellSighter doesn't use distance transform
         persistent_workers=True,
         max_samples_per_epoch=max_samples_per_epoch,
-        multiprocessing_context="spawn",  # zarr v3 is not fork-safe
+        multiprocessing_context="fork",  # zarr v3 is not fork-safe
         pin_memory=use_cuda,  # Faster CPU→GPU transfers
-        inner_val_ratio=0.1,
+        inner_val_ratio=inner_val_ratio,
         crop_size=crop_size,
         output_size=crop_size,  # extract directly at crop_size (no resize)
         mask_intensities=mask_self,  # faithful CellSighter: False -> keep neighbors
@@ -620,18 +638,71 @@ def main(
         class_balance=class_balance,  # "equal" (faithful) | "sqrt" | "none"
         size_data=size_data_cap,  # faithful subsample_const_size cap
     )
-    sel_loader = metadata.get("inner_val_loader")
-    if sel_loader is None:
-        # FOV splits are required for a leakage-free inner-val carve.
-        raise click.UsageError(
-            "CellSighter model selection requires FOV splits (--split_mode fov "
-            "with a --split_file) so an inner-validation set can be carved from "
-            "the training FOVs."
-        )
 
-    print(f"Active datasets: {metadata['active_datasets']}")
-    print(f"Number of samples: {metadata['num_samples']}")
-    print(f"Inner-val cells (FOV-grouped, for selection): {metadata['num_inner_val']}")
+    if val_split_file:
+        # External canonical selection-val: the 'val' FOVs of --val_split_file,
+        # capped to 200k cells at seed 42 via create_dataloader's max_val_samples
+        # (dataloader.py:269-273). The train loader from this call is discarded
+        # (class_balance="none" skips the unused weighted-sampler build); we only
+        # take its unaugmented val loader as the selection set.
+        _, sel_loader, sel_meta = create_dataloader(
+            zarr_dir=zarr_dir,
+            dct_config=dct_config,
+            skip_datasets=skip_datasets,
+            keep_datasets=keep_datasets,
+            batch_size=batch_size,
+            num_dropout_channels=0,
+            num_workers=num_workers,
+            only_test=False,
+            use_fov_splits=True,
+            split_file=val_split_file,
+            skip_distance_transform=True,
+            persistent_workers=True,
+            max_samples_per_epoch=max_samples_per_epoch,
+            multiprocessing_context="fork",
+            pin_memory=use_cuda,
+            inner_val_ratio=0.0,
+            max_val_samples=200000,  # cap @ seed 42, mirrors dataloader.py:269-273
+            crop_size=crop_size,
+            output_size=crop_size,
+            mask_intensities=mask_self,
+            split_strict=not allow_split_mismatch,
+            seed=42,  # DCT training seed for the cap (independent of --seed)
+            class_balance="none",  # train loader is discarded; skip weight build
+        )
+        import json as _json
+
+        with open(split_file) as _f:
+            _sj = _json.load(_f)
+        _kept = set(keep_datasets) if keep_datasets else None
+        _train_fovs = [
+            k for k in _sj["train"] if (_kept is None or k in _kept)
+        ]
+        print(f"Active datasets: {metadata['active_datasets']}")
+        print(f"Number of samples: {metadata['num_samples']}")
+        print(
+            f"Selection protocol: train on FULL --split_file train "
+            f"({len(_train_fovs)} FOVs, no inner carve); selection-val from "
+            f"{val_split_file} capped to {len(sel_loader.dataset)} cells "
+            f"(cap 200000 @ seed 42); test (report) = {len(test_loader.dataset)} "
+            f"cells from --split_file 'val'."
+        )
+    else:
+        sel_loader = metadata.get("inner_val_loader")
+        if sel_loader is None:
+            # FOV splits are required for a leakage-free inner-val carve.
+            raise click.UsageError(
+                "CellSighter model selection requires FOV splits (--split_mode fov "
+                "with a --split_file) so an inner-validation set can be carved from "
+                "the training FOVs (or pass --val_split_file for the canonical "
+                "external selection-val protocol)."
+            )
+        print(f"Active datasets: {metadata['active_datasets']}")
+        print(f"Number of samples: {metadata['num_samples']}")
+        print(
+            f"Inner-val cells (FOV-grouped, for selection): "
+            f"{metadata['num_inner_val']}"
+        )
 
     # Create model
     model = CellSighterModel(
@@ -749,6 +820,15 @@ def main(
                 ct2idx=compact_ct2idx,
             )
 
+            # metrics["macro_f1"] is the hierarchical ct_macro_f1 on the
+            # selection-val set (the same reduction the main model reports via
+            # LossesAndMetrics.compute, metrics.py:399-419) — the canonical
+            # selection signal.
+            _sel_tag = "external-val" if val_split_file else "inner-val"
+            print(
+                f"  Epoch {epoch + 1}: selection ct_macro_f1="
+                f"{metrics['macro_f1']:.4f} ({_sel_tag})"
+            )
             print(f"  Inner-val Macro Accuracy: {metrics['macro_accuracy']:.4f}")
             print(f"  Inner-val Weighted Accuracy: {metrics['weighted_accuracy']:.4f}")
             print(f"  Inner-val Macro F1: {metrics['macro_f1']:.4f}")
@@ -832,12 +912,20 @@ def main(
             skip_distance_transform=True,
             persistent_workers=True,
             max_samples_per_epoch=max_samples_per_epoch,
-            multiprocessing_context="spawn",
+            multiprocessing_context="fork",
             pin_memory=use_cuda,
             crop_size=crop_size,
             output_size=crop_size,
             mask_intensities=mask_self,
             split_strict=not allow_split_mismatch,
+        )
+    elif val_split_file:
+        # Canonical protocol: selection used the external --val_split_file 'val',
+        # so the test_loader (--split_file 'val') is a held-out report set that
+        # never drove selection — no selection-on-eval-set warning needed.
+        print(
+            "\nFinal evaluation on --split_file 'val' (held out from selection, "
+            "which used --val_split_file 'val'). This is a comparable reported set."
         )
     else:
         print(

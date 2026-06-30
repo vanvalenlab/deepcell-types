@@ -78,6 +78,16 @@ from deepcell_types.training.samplers import compute_sample_weights_dct
     help="Path to cache extracted features (.npz). Reuses cache if it exists.",
 )
 @click.option(
+    "--val_split_file",
+    type=str,
+    default=None,
+    help="If set, train on the FULL --split_file train and early-stop on the "
+    "'val' FOVs of THIS file (capped to 200k cells at seed 42, mirroring "
+    "deepcell_types/training/dataloader.py:269-273 max_val_samples) used as the "
+    "XGBoost eval_set. The reported set stays --split_file 'val'. When unset, "
+    "keeps the legacy 10% FOV-grouped inner-val carve for early stopping.",
+)
+@click.option(
     "--class_balance",
     type=click.Choice(["dct", "none"]),
     default="dct",
@@ -97,6 +107,7 @@ def main(
     learning_rate: float,
     split_file: str,
     features_cache: str,
+    val_split_file: str,
     class_balance: str,
 ):
     """Train XGBoost baseline for cell type classification."""
@@ -116,6 +127,11 @@ def main(
             "--split_file is required. Generate one with: python -m scripts.generate_splits"
         )
 
+    # Relax the strict split-coverage check ONLY for the canonical-val smoke
+    # path (--val_split_file with --keep_datasets restricting extraction to a
+    # FOV subset). A real run (keep_datasets is None) keeps strict=True.
+    _relax_strict = (val_split_file is not None) and (keep_datasets is not None)
+
     # Extract features directly from zarr (fast path, no DataLoader overhead).
     # ``missing_value=np.nan`` so absent markers route through XGBoost's
     # ``missing=NaN`` default-direction logic at every split — without it
@@ -130,6 +146,7 @@ def main(
         keep_datasets=keep_datasets,
         cache_path=features_cache,
         missing_value=np.nan,
+        strict_split=not _relax_strict,
     )
 
     X_train, y_train = data["X_train"], data["y_train"]
@@ -142,88 +159,167 @@ def main(
     print(f"Training set: {X_train.shape[0]} samples, {X_train.shape[1]} features")
     print(f"Test set: {X_test.shape[0]} samples, {X_test.shape[1]} features")
 
-    # Remap labels to contiguous 0-indexed (XGBoost requires this).
-    # Train labels must be contiguous [0..n_train-1]; test-only labels appended after.
-    train_unique = np.sort(np.unique(y_train))
-    label_to_compact = {orig: i for i, orig in enumerate(train_unique)}
-    next_idx = len(train_unique)
-    for label in np.sort(np.unique(y_test)):
-        if label not in label_to_compact:
-            label_to_compact[label] = next_idx
-            next_idx += 1
-    compact_to_label = {i: orig for orig, i in label_to_compact.items()}
-    n_classes_compact = next_idx
-    compact_ct2idx = {
-        name: label_to_compact[idx]
-        for name, idx in dct_config.ct2idx.items()
-        if idx in label_to_compact
-    }
-    y_train_compact = np.array([label_to_compact[y] for y in y_train])
-    y_test_compact = np.array([label_to_compact[y] for y in y_test])
-    print(f"Unique cell types in data: {n_classes_compact} (of {num_classes} total)")
+    if val_split_file is not None:
+        # === Canonical external-val protocol (mirrors the main DCT model) ===
+        # Train on the FULL --split_file train; early-stop on the 'val' FOVs of
+        # --val_split_file (capped to 200k cells at seed 42, mirroring
+        # dataloader.py:269-273 max_val_samples) as the XGBoost eval_set; report
+        # on --split_file 'val'. Contiguous label space over the TRAIN classes
+        # (XGBClassifier requires y in exactly [0..K-1]); selection-val / test
+        # rows whose label is absent from train are dropped (at full 1722-FOV
+        # scale every class is in train, so this is a smoke-scale no-op).
+        train_unique = np.sort(np.unique(y_train))
+        label_to_compact = {int(orig): i for i, orig in enumerate(train_unique)}
+        compact_to_label = {i: int(orig) for orig, i in label_to_compact.items()}
+        n_classes_compact = len(train_unique)
+        compact_ct2idx = {
+            name: label_to_compact[idx]
+            for name, idx in dct_config.ct2idx.items()
+            if idx in label_to_compact
+        }
+        X_inner_train = X_train
+        y_inner_train = np.array([label_to_compact[y] for y in y_train])
 
-    # Carve a FOV-grouped inner-validation set out of training data for early stopping.
-    # Test set MUST NOT be used as eval_set — that leaks test signal into tree-count selection.
-    train_fov_array = np.asarray(train_fov_names)
-    gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=42)
-    inner_train_idx, inner_val_idx = next(
-        gss.split(X_train, y_train_compact, groups=train_fov_array)
-    )
-    X_inner_train = X_train[inner_train_idx]
-    y_inner_train = y_train_compact[inner_train_idx]
-    X_inner_val = X_train[inner_val_idx]
-    y_inner_val = y_train_compact[inner_val_idx]
-    print(
-        f"Inner-val (FOV-grouped, disjoint from test): {len(inner_val_idx)} samples from "
-        f"{len(np.unique(train_fov_array[inner_val_idx]))} FOVs"
-    )
+        # Extract the selection-val (the 'val' FOVs of --val_split_file).
+        val_features_cache = (
+            str(Path(features_cache).with_suffix(".valsel.npz"))
+            if features_cache
+            else None
+        )
+        print(f"\nExtracting selection-val features from {val_split_file}...")
+        sel_data = extract_features_from_zarr(
+            zarr_dir=zarr_dir,
+            dct_config=dct_config,
+            split_file=val_split_file,
+            skip_datasets=skip_datasets,
+            keep_datasets=keep_datasets,
+            cache_path=val_features_cache,
+            missing_value=np.nan,
+            strict_split=not _relax_strict,
+        )
+        X_sel = sel_data["X_val"]
+        y_sel_orig = sel_data["y_val"]
+        sel_mask = np.isin(y_sel_orig, train_unique)
+        X_sel = X_sel[sel_mask]
+        y_sel = np.array([label_to_compact[y] for y in y_sel_orig[sel_mask]])
+        # Cap to 200k cells EXACTLY as the main model caps its val set
+        # (dataloader.py:269-273: np.random.default_rng(42).choice, no
+        # replacement). Seed 42 is the DCT training seed.
+        n_val_cells = X_sel.shape[0]
+        cap = min(200000, n_val_cells)
+        rng = np.random.default_rng(42)
+        sel_idx = rng.choice(n_val_cells, size=cap, replace=False)
+        X_inner_val = X_sel[sel_idx]
+        y_inner_val = y_sel[sel_idx]
 
-    # Re-tighten compact labels to be strictly contiguous 0..K-1 over the inner-train
-    # label set. Modern xgboost.sklearn.XGBClassifier rejects targets whose unique values
-    # don't equal [0..K-1] exactly. The initial compact mapping above is over
-    # union(train_unique, test_unique), but GroupShuffleSplit can leave compact labels
-    # with zero examples in y_inner_train, producing holes. We re-encode here and drop
-    # any inner-val / test rows with labels absent from inner_train (this only fires on
-    # tiny smoke-sized subsets — at full scale every train label is in inner_train).
-    train_present = np.unique(y_inner_train)
-    if (
-        len(train_present) != n_classes_compact
-        or train_present[0] != 0
-        or train_present[-1] != len(train_present) - 1
-    ):
-        inner_remap = {int(orig): i for i, orig in enumerate(train_present)}
-        val_mask = np.isin(y_inner_val, train_present)
-        test_mask = np.isin(y_test_compact, train_present)
-        n_dropped_val = int((~val_mask).sum())
+        # Filter the test (report) rows to train classes + compact-map.
+        test_mask = np.isin(y_test, train_unique)
         n_dropped_test = int((~test_mask).sum())
-        if n_dropped_val or n_dropped_test:
+        if n_dropped_test:
             print(
-                f"  Dropped {n_dropped_val} inner-val + {n_dropped_test} test rows "
-                f"with labels absent from inner-train (smoke-scale artifact)."
+                f"  Dropped {n_dropped_test} test rows with labels absent from "
+                f"train (smoke-scale artifact)."
             )
-        X_inner_val = X_inner_val[val_mask]
-        y_inner_val = y_inner_val[val_mask]
         X_test = X_test[test_mask]
         y_test = y_test[test_mask]
-        y_test_compact = y_test_compact[test_mask]
-        test_dataset_names = [
-            n for n, keep in zip(test_dataset_names, test_mask) if keep
-        ]
-        test_fov_names = [n for n, keep in zip(test_fov_names, test_mask) if keep]
-        test_cell_indices = [c for c, keep in zip(test_cell_indices, test_mask) if keep]
-        remap_fn = np.vectorize(inner_remap.get, otypes=[np.int64])
-        y_inner_train = remap_fn(y_inner_train)
-        y_inner_val = remap_fn(y_inner_val)
-        y_test_compact = remap_fn(y_test_compact)
-        compact_to_label = {
-            i: compact_to_label[int(orig)] for i, orig in enumerate(train_present)
-        }
+        y_test_compact = np.array([label_to_compact[y] for y in y_test])
+        test_dataset_names = [n for n, k in zip(test_dataset_names, test_mask) if k]
+        test_fov_names = [n for n, k in zip(test_fov_names, test_mask) if k]
+        test_cell_indices = [c for c, k in zip(test_cell_indices, test_mask) if k]
+
+        n_train_fovs = len(np.unique(np.asarray(train_fov_names)))
+        n_test_fovs = len(set(test_fov_names))
+        print(
+            f"Selection protocol: train on FULL --split_file train "
+            f"({n_train_fovs} FOVs, {len(X_inner_train)} cells, no inner carve); "
+            f"selection-val (eval_set) from {val_split_file} capped to {cap} of "
+            f"{n_val_cells} cells; test (report) = {n_test_fovs} FOVs, "
+            f"{len(X_test)} cells."
+        )
+    else:
+        # === BEGIN legacy 10% FOV-grouped inner-val carve (back-compat) ===
+        # Remap labels to contiguous 0-indexed (XGBoost requires this).
+        # Train labels must be contiguous [0..n_train-1]; test-only labels appended after.
+        train_unique = np.sort(np.unique(y_train))
+        label_to_compact = {orig: i for i, orig in enumerate(train_unique)}
+        next_idx = len(train_unique)
+        for label in np.sort(np.unique(y_test)):
+            if label not in label_to_compact:
+                label_to_compact[label] = next_idx
+                next_idx += 1
+        compact_to_label = {i: orig for orig, i in label_to_compact.items()}
+        n_classes_compact = next_idx
         compact_ct2idx = {
-            name: inner_remap[orig]
-            for name, orig in compact_ct2idx.items()
-            if orig in inner_remap
+            name: label_to_compact[idx]
+            for name, idx in dct_config.ct2idx.items()
+            if idx in label_to_compact
         }
-        n_classes_compact = len(train_present)
+        y_train_compact = np.array([label_to_compact[y] for y in y_train])
+        y_test_compact = np.array([label_to_compact[y] for y in y_test])
+        print(f"Unique cell types in data: {n_classes_compact} (of {num_classes} total)")
+
+        # Carve a FOV-grouped inner-validation set out of training data for early stopping.
+        # Test set MUST NOT be used as eval_set — that leaks test signal into tree-count selection.
+        train_fov_array = np.asarray(train_fov_names)
+        gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=42)
+        inner_train_idx, inner_val_idx = next(
+            gss.split(X_train, y_train_compact, groups=train_fov_array)
+        )
+        X_inner_train = X_train[inner_train_idx]
+        y_inner_train = y_train_compact[inner_train_idx]
+        X_inner_val = X_train[inner_val_idx]
+        y_inner_val = y_train_compact[inner_val_idx]
+        print(
+            f"Inner-val (FOV-grouped, disjoint from test): {len(inner_val_idx)} samples from "
+            f"{len(np.unique(train_fov_array[inner_val_idx]))} FOVs"
+        )
+
+        # Re-tighten compact labels to be strictly contiguous 0..K-1 over the inner-train
+        # label set. Modern xgboost.sklearn.XGBClassifier rejects targets whose unique values
+        # don't equal [0..K-1] exactly. The initial compact mapping above is over
+        # union(train_unique, test_unique), but GroupShuffleSplit can leave compact labels
+        # with zero examples in y_inner_train, producing holes. We re-encode here and drop
+        # any inner-val / test rows with labels absent from inner_train (this only fires on
+        # tiny smoke-sized subsets — at full scale every train label is in inner_train).
+        train_present = np.unique(y_inner_train)
+        if (
+            len(train_present) != n_classes_compact
+            or train_present[0] != 0
+            or train_present[-1] != len(train_present) - 1
+        ):
+            inner_remap = {int(orig): i for i, orig in enumerate(train_present)}
+            val_mask = np.isin(y_inner_val, train_present)
+            test_mask = np.isin(y_test_compact, train_present)
+            n_dropped_val = int((~val_mask).sum())
+            n_dropped_test = int((~test_mask).sum())
+            if n_dropped_val or n_dropped_test:
+                print(
+                    f"  Dropped {n_dropped_val} inner-val + {n_dropped_test} test rows "
+                    f"with labels absent from inner-train (smoke-scale artifact)."
+                )
+            X_inner_val = X_inner_val[val_mask]
+            y_inner_val = y_inner_val[val_mask]
+            X_test = X_test[test_mask]
+            y_test = y_test[test_mask]
+            y_test_compact = y_test_compact[test_mask]
+            test_dataset_names = [
+                n for n, keep in zip(test_dataset_names, test_mask) if keep
+            ]
+            test_fov_names = [n for n, keep in zip(test_fov_names, test_mask) if keep]
+            test_cell_indices = [c for c, keep in zip(test_cell_indices, test_mask) if keep]
+            remap_fn = np.vectorize(inner_remap.get, otypes=[np.int64])
+            y_inner_train = remap_fn(y_inner_train)
+            y_inner_val = remap_fn(y_inner_val)
+            y_test_compact = remap_fn(y_test_compact)
+            compact_to_label = {
+                i: compact_to_label[int(orig)] for i, orig in enumerate(train_present)
+            }
+            compact_ct2idx = {
+                name: inner_remap[orig]
+                for name, orig in compact_ct2idx.items()
+                if orig in inner_remap
+            }
+            n_classes_compact = len(train_present)
 
     # Train XGBoost model
     print("\nTraining XGBoost model...")
@@ -264,6 +360,25 @@ def main(
     print(
         f"  Best iteration: {model.best_iteration}, Best score (mlogloss): {model.best_score:.6f}"
     )
+
+    if val_split_file is not None:
+        # Report the canonical selection signal: the hierarchical ct_macro_f1 on
+        # the capped external selection-val at the early-stopped best_iteration
+        # (same reduction the main model reports via LossesAndMetrics.compute,
+        # metrics.py:399-419). Early stopping itself uses XGBoost's default
+        # mlogloss on this same eval_set.
+        sel_metrics = compute_baseline_metrics(
+            y_inner_val,
+            model.predict(X_inner_val),
+            model.predict_proba(X_inner_val),
+            n_classes_compact,
+            hierarchy=CELL_TYPE_HIERARCHY,
+            ct2idx=compact_ct2idx,
+        )
+        print(
+            f"  selection ct_macro_f1={sel_metrics['macro_f1']:.4f} "
+            f"(capped external val, at best_iteration)"
+        )
 
     # Evaluate on test set
     print("\nEvaluating on test set...")

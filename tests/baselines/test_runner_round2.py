@@ -20,6 +20,8 @@ MAPS_OPTS = {
     "keep_datasets",
     "split_file",
     "features_cache",
+    # Canonical external-val selection (feat/baselines-canonical-val-selection).
+    "val_split_file",
     "batch_size",
     "dropout",
     "hidden_dim",
@@ -52,6 +54,8 @@ CELLSIGHTER_OPTS = {
     "skip_datasets",
     "keep_datasets",
     "split_file",
+    # Canonical external-val selection (feat/baselines-canonical-val-selection).
+    "val_split_file",
     "test_split_file",
     "split_mode",
     "batch_size",

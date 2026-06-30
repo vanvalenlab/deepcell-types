@@ -272,6 +272,17 @@ def evaluate(
     help="Path to cache extracted features (.npz). Reuses cache if it exists.",
 )
 @click.option(
+    "--val_split_file",
+    type=str,
+    default=None,
+    help="If set, train on the FULL --split_file train and select the best epoch "
+    "on the 'val' FOVs of THIS file (capped to 200k cells at seed 42, mirroring "
+    "deepcell_types/training/dataloader.py:269-273 max_val_samples), scored with "
+    "the canonical hierarchical ct_macro_f1 (LossesAndMetrics.compute, "
+    "metrics.py:399-419). The reported set stays --split_file 'val'. When unset, "
+    "keeps the legacy 10% FOV-grouped inner-val carve + inner-val-loss selection.",
+)
+@click.option(
     "--class_balance",
     type=click.Choice(["dct", "full_inv_freq", "none"]),
     default="dct",
@@ -299,6 +310,7 @@ def main(
     seed: int,
     split_file: str,
     features_cache: str,
+    val_split_file: str,
     class_balance: str,
 ):
     """Train MAPS baseline for cell type classification."""
@@ -329,6 +341,12 @@ def main(
             "--split_file is required. Generate one with: python -m scripts.generate_splits"
         )
 
+    # Relax the strict split-coverage check ONLY for the canonical-val smoke
+    # path (--val_split_file with --keep_datasets restricting extraction to a
+    # FOV subset). A real run (keep_datasets is None) keeps strict=True. Gated
+    # on val_split_file so the legacy path's behaviour is unchanged.
+    _relax_strict = (val_split_file is not None) and (keep_datasets is not None)
+
     # Extract features directly from zarr (fast path, no DataLoader overhead)
     print("\nExtracting features from zarr...")
     data = extract_features_from_zarr(
@@ -338,6 +356,7 @@ def main(
         skip_datasets=skip_datasets,
         keep_datasets=keep_datasets,
         cache_path=features_cache,
+        strict_split=not _relax_strict,
     )
 
     X_train, y_train = data["X_train"], data["y_train"]
@@ -387,28 +406,78 @@ def main(
         f"and will receive no loss gradient."
     )
 
-    # Carve a FOV-grouped inner-validation set out of the training data for
-    # model selection. The reported (test) set MUST NOT drive checkpoint
-    # selection — selecting the best epoch on the set you then report on is
-    # selection on the evaluation set. This mirrors the XGBoost baseline
-    # (xgb/run.py), which carves an identical FOV-grouped inner-val for early
-    # stopping. Deviates from canonical mahmoodlab/MAPS trainer.py (which
-    # selects on the eval set); documented in baselines/maps/README.
-    train_fov_array = np.asarray(train_fov_names)
-    gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=seed)
-    inner_train_idx, inner_val_idx = next(
-        gss.split(X_train, y_train, groups=train_fov_array)
-    )
-    X_inner_train, y_inner_train = X_train[inner_train_idx], y_train[inner_train_idx]
-    X_inner_val, y_inner_val = X_train[inner_val_idx], y_train[inner_val_idx]
-    print(
-        f"Inner-val (FOV-grouped, disjoint from test): {len(inner_val_idx)} samples "
-        f"from {len(np.unique(train_fov_array[inner_val_idx]))} FOVs; "
-        f"inner-train: {len(inner_train_idx)} samples"
-    )
+    # Build the model-selection validation set. Two protocols:
+    #   (1) --val_split_file (canonical, matches the main DCT model): train on
+    #       the FULL --split_file train (no inner carve) and select the best
+    #       epoch on the 'val' FOVs of --val_split_file, capped to 200k cells at
+    #       seed 42 (mirrors dataloader.py:269-273 max_val_samples) and scored by
+    #       the hierarchical ct_macro_f1 (LossesAndMetrics.compute,
+    #       metrics.py:399-419). The reported (test) set is --split_file 'val'.
+    #   (2) no --val_split_file (legacy back-compat): carve a FOV-grouped 10%
+    #       inner-validation set out of train and select on its inner-val loss.
+    if val_split_file is not None:
+        val_features_cache = (
+            str(Path(features_cache).with_suffix(".valsel.npz"))
+            if features_cache
+            else None
+        )
+        print(f"\nExtracting selection-val features from {val_split_file}...")
+        sel_data = extract_features_from_zarr(
+            zarr_dir=zarr_dir,
+            dct_config=dct_config,
+            split_file=val_split_file,
+            skip_datasets=skip_datasets,
+            keep_datasets=keep_datasets,
+            cache_path=val_features_cache,
+            strict_split=not _relax_strict,
+        )
+        X_sel = sel_data["X_val"]
+        y_sel = sel_data["y_val"]
+        sel_cell_sizes = sel_data["val_cell_sizes"].astype(np.float32).reshape(-1, 1)
+        X_sel = np.concatenate([X_sel, sel_cell_sizes], axis=1)
+        # label_to_compact covers all ct2idx values, so every known label maps.
+        y_sel = np.array([label_to_compact[y] for y in y_sel])
+        # Cap to 200k cells EXACTLY as the main model caps its val set
+        # (dataloader.py:269-273: np.random.default_rng(42).choice, no
+        # replacement). Seed 42 is the DCT training seed, independent of --seed.
+        n_val_cells = X_sel.shape[0]
+        cap = min(200000, n_val_cells)
+        rng = np.random.default_rng(42)
+        sel_idx = rng.choice(n_val_cells, size=cap, replace=False)
+        X_inner_val = X_sel[sel_idx]
+        y_inner_val = y_sel[sel_idx]
+        X_inner_train, y_inner_train = X_train, y_train
+        select_on_macro_f1 = True
+        n_train_fovs = len(np.unique(np.asarray(train_fov_names)))
+        n_test_fovs = len(set(test_fov_names))
+        print(
+            f"Selection protocol: train on FULL --split_file train "
+            f"({n_train_fovs} FOVs, {len(X_inner_train)} cells, no inner carve); "
+            f"selection-val from {val_split_file} capped to {cap} of {n_val_cells} cells; "
+            f"test (report) = {n_test_fovs} FOVs, {len(X_test)} cells."
+        )
+    else:
+        # Legacy FOV-grouped 10% inner-val carve (back-compat, unchanged). The
+        # reported (test) set MUST NOT drive checkpoint selection. Deviates from
+        # canonical mahmoodlab/MAPS trainer.py (which selects on the eval set).
+        train_fov_array = np.asarray(train_fov_names)
+        gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=seed)
+        inner_train_idx, inner_val_idx = next(
+            gss.split(X_train, y_train, groups=train_fov_array)
+        )
+        X_inner_train, y_inner_train = X_train[inner_train_idx], y_train[inner_train_idx]
+        X_inner_val, y_inner_val = X_train[inner_val_idx], y_train[inner_val_idx]
+        select_on_macro_f1 = False
+        print(
+            f"Inner-val (FOV-grouped, disjoint from test): {len(inner_val_idx)} samples "
+            f"from {len(np.unique(train_fov_array[inner_val_idx]))} FOVs; "
+            f"inner-train: {len(inner_train_idx)} samples"
+        )
 
-    # Feature normalization (stats computed from the inner-train set only).
-    # Default: train-set z-score then /255 (DCT-safe); --no_znorm for /255-only.
+    # Feature normalization (stats from the (inner-)train set; the FULL
+    # --split_file train when --val_split_file is set, applied to selection-val
+    # and test). Default: train-set z-score then /255 (DCT-safe); --no_znorm for
+    # /255-only.
     print(f"\nNormalizing features ({'z-score + /255' if znorm else '/255 only'})...")
     X_inner_train_norm, train_mean, train_std = normalize_features(
         X_inner_train, znorm=znorm
@@ -491,12 +560,18 @@ def main(
     # selection. Schedule (max=500/min=250/patience=100) matches canonical
     # mahmoodlab/MAPS trainer.py; upstream early-stops on *train* loss, we use
     # the held-out inner-val loss to avoid touching the reported set.
+    _sel_desc = (
+        "best-by-selection-ct_macro_f1"
+        if select_on_macro_f1
+        else "best-by-inner-val-loss"
+    )
     print(
         f"\nTraining MAPS model for up to {max_epochs} epochs "
-        f"(early stop: min_epochs={min_epochs}, patience={patience}, best-by-inner-val-loss)..."
+        f"(early stop: min_epochs={min_epochs}, patience={patience}, {_sel_desc})..."
     )
     print(f"  LR schedule: constant lr={learning_rate}")
     best_val_loss = float("inf")
+    best_sel_macro_f1 = float("-inf")
     best_macro_acc = 0.0
     best_epoch = 0
     patience_counter = 0
@@ -546,6 +621,16 @@ def main(
             val_logits, _ = model(X_inner_val_dev)
             val_loss = criterion(val_logits, y_inner_val_dev).item()
 
+        # Canonical selection signal: metrics["macro_f1"] is the hierarchical
+        # ct_macro_f1 on the selection-val set (the same reduction the main
+        # model reports via LossesAndMetrics.compute, metrics.py:399-419).
+        # Printed every epoch so the smoke run (max_epochs=1) always shows it.
+        if select_on_macro_f1:
+            print(
+                f"Epoch {epoch + 1:4d}: selection ct_macro_f1={metrics['macro_f1']:.4f} "
+                f"(Val Loss={val_loss:.4f})"
+            )
+
         # Print progress every 10 epochs
         if (epoch + 1) % 10 == 0 or epoch == 0:
             print(
@@ -555,11 +640,18 @@ def main(
                 f"AUROC={metrics['auroc']:.4f}"
             )
 
-        # Model selection — keep the checkpoint with the lowest inner-val loss.
-        # Canonical mahmoodlab/MAPS trainer.py:236-242 selects on the eval set;
-        # we deviate to a held-out inner-val to avoid selection on the reported set.
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        # Model selection. With --val_split_file: keep the checkpoint with the
+        # highest selection ct_macro_f1 (argmax hierarchical macro-F1 on the
+        # external canonical val), matching scripts/train.py's val_macro_f1
+        # selection for the main model. Legacy path: lowest inner-val loss.
+        improved = (
+            metrics["macro_f1"] > best_sel_macro_f1
+            if select_on_macro_f1
+            else val_loss < best_val_loss
+        )
+        if improved:
+            best_val_loss = min(best_val_loss, val_loss)
+            best_sel_macro_f1 = max(best_sel_macro_f1, metrics["macro_f1"])
             best_macro_acc = metrics["macro_accuracy"]
             best_epoch = epoch + 1
             patience_counter = 0
@@ -629,6 +721,8 @@ def main(
     print(f"  AUROC: {metrics['auroc']:.4f}")
     print(f"  Best Epoch: {best_epoch}")
     print(f"  Best Val Loss: {best_val_loss:.4f}")
+    if select_on_macro_f1:
+        print(f"  Best selection ct_macro_f1: {best_sel_macro_f1:.4f}")
 
     # Map probabilities to ct2idx-sorted columns for saving
     # save_baseline_predictions expects y_prob with len(ct2idx) columns,

@@ -26,6 +26,7 @@ from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
 from deepcell_types.training.baseline_features import (
     extract_features_from_zarr,
     compute_baseline_metrics,
+    save_baseline_predictions,
 )
 from deepcell_types.training.samplers import compute_sample_weights_dct
 
@@ -44,6 +45,7 @@ class XGBoostObjective:
         hierarchy: dict = None,
         ct2idx: dict = None,
         device: str = "cpu",
+        verbose_trial: bool = False,
         class_balance: str = "dct",
     ):
         self.X_train = X_train
@@ -55,6 +57,10 @@ class XGBoostObjective:
         self.hierarchy = hierarchy
         self.ct2idx = ct2idx
         self.device = device
+        # When True, print the per-trial fit train size + fixed n_classes (used
+        # by the canonical-val protocol to evidence subsample size + a stable
+        # label space across trials). Default False leaves legacy output intact.
+        self.verbose_trial = verbose_trial
         self.class_balance = class_balance
         # Per-row DCT sampler weights (sqrt-inverse-frequency, 1000-count floor),
         # the tree analog of the neural baselines' WeightedRandomSampler; None
@@ -76,6 +82,11 @@ class XGBoostObjective:
         Returns:
             Metric value to maximize
         """
+        if self.verbose_trial:
+            print(
+                f"  [trial] fit train rows={len(self.X_train)}, "
+                f"n_classes={self.num_classes} (fixed = full-train class count)"
+            )
         # Sample hyperparameters
         params = {
             "n_estimators": trial.suggest_int("n_estimators", 100, 1500),
@@ -134,6 +145,7 @@ def run_tuning(
     hierarchy: dict = None,
     ct2idx: dict = None,
     device: str = "cpu",
+    verbose_trial: bool = False,
     class_balance: str = "dct",
 ) -> Tuple[optuna.Study, dict]:
     """
@@ -182,6 +194,7 @@ def run_tuning(
         hierarchy=hierarchy,
         ct2idx=ct2idx,
         device=device,
+        verbose_trial=verbose_trial,
         class_balance=class_balance,
     )
 
@@ -206,6 +219,7 @@ def train_best_model(
     hierarchy: dict = None,
     ct2idx: dict = None,
     train_fov_names: Optional[np.ndarray] = None,
+    eval_set_external: Optional[Tuple[np.ndarray, np.ndarray]] = None,
     class_balance: str = "dct",
 ) -> Tuple[xgb.XGBClassifier, dict]:
     """
@@ -246,6 +260,41 @@ def train_best_model(
         "n_jobs": -1,
         "verbosity": 1,
     }
+
+    # Canonical external-val protocol: early-stop on a caller-supplied held-out
+    # set (the capped 'val' FOVs of --val_split_file) instead of carving a
+    # 10% inner-val. ``X_train``/``y_train`` are already contiguous [0..K-1] over
+    # the train classes and ``eval_set_external`` labels are filtered to the same
+    # space, so no re-tighten is needed.
+    if eval_set_external is not None:
+        X_eval, y_eval = eval_set_external
+        early_stopping_rounds = max(10, params.get("n_estimators", 100) // 10)
+        model = xgb.XGBClassifier(**params, early_stopping_rounds=early_stopping_rounds)
+        # Per-row DCT sampler weights (sqrt-inverse-frequency, 1000-count floor),
+        # the tree analog of the neural baselines' WeightedRandomSampler; None for
+        # faithful unweighted XGBoost. Mirrors the legacy path below + run.py.
+        sample_weight = (
+            compute_sample_weights_dct(y_train, normalize=True)
+            if class_balance == "dct"
+            else None
+        )
+        print(f"  Class balancing: {class_balance}")
+        model.fit(
+            X_train,
+            y_train,
+            sample_weight=sample_weight,
+            eval_set=[(X_eval, y_eval)],
+            verbose=True,
+        )
+        print(
+            f"  Best iteration: {model.best_iteration}, Best score: {model.best_score:.6f}"
+        )
+        y_pred = model.predict(X_test)
+        y_prob = model.predict_proba(X_test)
+        metrics = compute_baseline_metrics(
+            y_test, y_pred, y_prob, num_classes, hierarchy=hierarchy, ct2idx=ct2idx
+        )
+        return model, metrics, None
 
     # Carve an inner-validation set for early stopping. Disjoint from X_test
     # by construction (X_test is never passed in).
@@ -375,6 +424,277 @@ def train_best_model(
     return model, metrics, inner_remap
 
 
+def _run_canonical_val_tuning(
+    *,
+    dct_config,
+    zarr_dir,
+    split_file,
+    val_split_file,
+    skip_datasets,
+    keep_datasets,
+    relax_strict,
+    X_train_full,
+    y_train_full,
+    X_test,
+    y_test,
+    test_dataset_names,
+    test_fov_names,
+    test_cell_indices,
+    train_fov_names_full,
+    num_classes,
+    n_trials,
+    study_name,
+    storage,
+    device_num,
+    max_tuning_samples,
+    model_name=None,
+    features_cache=None,
+    class_balance="dct",
+):
+    """Canonical external-val tuning protocol (mirrors the main DCT model).
+
+    Score each Optuna trial (and early-stop the final model) on the 'val' FOVs
+    of --val_split_file capped to 200k cells at seed 42 (mirrors
+    dataloader.py:269-273 max_val_samples), with the hierarchical ct_macro_f1
+    (LossesAndMetrics.compute, metrics.py:399-419). The reported set is
+    --split_file 'val'.
+
+    For speed, each TRIAL fits on a ``max_tuning_samples``-row subsample of the
+    full train (mirrors the legacy path's subsample). The contiguous label remap
+    is built ONCE from the FULL train's class set, so XGBClassifier's
+    ``n_classes`` is fixed = number of full-train classes for every trial and for
+    the external val, regardless of which classes a given subsample draws. The
+    subsample is class-padded (one representative row per otherwise-missing class)
+    to guarantee the subsample's label set equals the full-train [0..K-1]. The
+    FINAL best model is fitted on the FULL (un-subsampled) train.
+    """
+    # Contiguous label space over the TRAIN classes (XGBClassifier requires y in
+    # exactly [0..K-1]); selection-val / test rows whose label is absent from
+    # train are dropped (smoke-scale no-op at full 1722-FOV scale).
+    train_unique = np.sort(np.unique(y_train_full))
+    label_to_compact = {int(orig): i for i, orig in enumerate(train_unique)}
+    compact_to_label = {i: int(orig) for orig, i in label_to_compact.items()}
+    n_classes_compact = len(train_unique)
+    compact_ct2idx = {
+        name: label_to_compact[idx]
+        for name, idx in dct_config.ct2idx.items()
+        if idx in label_to_compact
+    }
+    y_train_full = np.array([label_to_compact[y] for y in y_train_full])
+
+    # Extract + cap the selection-val (the 'val' FOVs of --val_split_file).
+    # Reuse the sibling '<features_cache>.valsel.npz' when provided (mirrors
+    # xgb/run.py), so the canonical-val tuning skips zarr extraction entirely.
+    val_features_cache = (
+        str(Path(features_cache).with_suffix(".valsel.npz")) if features_cache else None
+    )
+    print(f"\nExtracting selection-val features from {val_split_file}...")
+    sel_data = extract_features_from_zarr(
+        zarr_dir=zarr_dir,
+        dct_config=dct_config,
+        split_file=val_split_file,
+        skip_datasets=skip_datasets,
+        keep_datasets=keep_datasets,
+        missing_value=np.nan,
+        cache_path=val_features_cache,
+        strict_split=not relax_strict,
+    )
+    X_sel = sel_data["X_val"]
+    y_sel_orig = sel_data["y_val"]
+    sel_mask = np.isin(y_sel_orig, train_unique)
+    X_sel = X_sel[sel_mask]
+    y_sel = np.array([label_to_compact[y] for y in y_sel_orig[sel_mask]])
+    # Cap to 200k cells EXACTLY as the main model caps its val set
+    # (dataloader.py:269-273: np.random.default_rng(42).choice, no replacement).
+    n_val_cells = X_sel.shape[0]
+    cap = min(200000, n_val_cells)
+    rng = np.random.default_rng(42)
+    sel_idx = rng.choice(n_val_cells, size=cap, replace=False)
+    X_sel = X_sel[sel_idx]
+    y_sel = y_sel[sel_idx]
+
+    # Filter the test (report) rows to train classes + compact-map.
+    test_mask = np.isin(y_test, train_unique)
+    n_dropped_test = int((~test_mask).sum())
+    if n_dropped_test:
+        print(
+            f"  Dropped {n_dropped_test} test rows with labels absent from "
+            f"train (smoke-scale artifact)."
+        )
+    X_test = X_test[test_mask]
+    y_test_orig = y_test[test_mask]  # original ct2idx labels (for CSV)
+    y_test = np.array([label_to_compact[y] for y in y_test_orig])
+    test_dataset_names = [n for n, k in zip(test_dataset_names, test_mask) if k]
+    test_fov_names = [n for n, k in zip(test_fov_names, test_mask) if k]
+    test_cell_indices = [c for c, k in zip(test_cell_indices, test_mask) if k]
+
+    n_train_fovs = len(np.unique(np.asarray(train_fov_names_full)))
+    n_test_fovs = len(set(test_fov_names))
+    print(
+        f"Selection protocol: full --split_file train = "
+        f"{n_train_fovs} FOVs, {len(X_train_full)} cells (no inner carve); "
+        f"selection-val from {val_split_file} capped to {cap} of {n_val_cells} "
+        f"cells; test (report) = {n_test_fovs} FOVs, {len(X_test)} cells."
+    )
+
+    # Per-trial subsample of the full train for speed (mirrors the legacy
+    # path's max_tuning_samples). The label remap was built once over the FULL
+    # train, so it is contiguous [0..K-1] across K = n_classes_compact. We
+    # class-pad the subsample (one representative row per otherwise-missing
+    # class) so its label set equals [0..K-1] every time — that keeps
+    # XGBClassifier's n_classes fixed = K across all trials and consistent with
+    # the external val, regardless of which classes the random draw happens to
+    # contain. The FINAL model below trains on the full un-subsampled train.
+    if max_tuning_samples and len(X_train_full) > max_tuning_samples:
+        sub_idx = np.random.RandomState(42).choice(
+            len(X_train_full), max_tuning_samples, replace=False
+        )
+        X_tr_sub = X_train_full[sub_idx]
+        y_tr_sub = y_train_full[sub_idx]
+        present = set(np.unique(y_tr_sub).tolist())
+        missing = [c for c in range(n_classes_compact) if c not in present]
+        if missing:
+            pad_idx = [int(np.where(y_train_full == c)[0][0]) for c in missing]
+            X_tr_sub = np.concatenate([X_tr_sub, X_train_full[pad_idx]], axis=0)
+            y_tr_sub = np.concatenate([y_tr_sub, y_train_full[pad_idx]], axis=0)
+        print(
+            f"Per-trial train subsample: {len(X_tr_sub)} rows "
+            f"(cap {max_tuning_samples}, +{len(missing)} class-pad rows); "
+            f"n_classes fixed = {n_classes_compact} (full-train class count)."
+        )
+    else:
+        X_tr_sub, y_tr_sub = X_train_full, y_train_full
+        print(
+            f"Per-trial train subsample: {len(X_tr_sub)} rows "
+            f"(full train <= cap {max_tuning_samples}); "
+            f"n_classes fixed = {n_classes_compact} (full-train class count)."
+        )
+
+    # Optuna trials scored by the canonical ct_macro_f1 on the external val.
+    print(f"\nStarting hyperparameter tuning ({n_trials} trials)...")
+    study, best_params = run_tuning(
+        X_tr_sub,
+        y_tr_sub,
+        X_sel,
+        y_sel,
+        num_classes=n_classes_compact,
+        n_trials=n_trials,
+        metric="macro_f1",
+        study_name=study_name,
+        storage=storage,
+        hierarchy=CELL_TYPE_HIERARCHY,
+        ct2idx=compact_ct2idx,
+        device=device_num,
+        verbose_trial=True,
+        class_balance=class_balance,
+    )
+    print("\nBest trial:")
+    print(f"  Value (selection ct_macro_f1): {study.best_trial.value:.4f}")
+    print(f"  Params: {best_params}")
+
+    # Final model on full train, early-stopped on the same capped external val.
+    print(
+        f"\nTraining final model with best parameters on full train "
+        f"({len(X_train_full)} cells)..."
+    )
+    model, test_metrics, _ = train_best_model(
+        X_train_full,
+        y_train_full,
+        X_test,
+        y_test,
+        best_params,
+        n_classes_compact,
+        device=device_num,
+        hierarchy=CELL_TYPE_HIERARCHY,
+        ct2idx=compact_ct2idx,
+        eval_set_external=(X_sel, y_sel),
+        class_balance=class_balance,
+    )
+
+    print("\nFinal Test Results:")
+    print(f"  Macro Accuracy: {test_metrics['macro_accuracy']:.4f}")
+    print(f"  Weighted Accuracy: {test_metrics['weighted_accuracy']:.4f}")
+    print(f"  Macro F1: {test_metrics['macro_f1']:.4f}")
+
+    # Save results (mirrors the legacy save block).
+    output_dir = Path("output/tuning")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    study_name_safe = study_name or f"xgb_tuning_{timestamp}"
+
+    params_path = output_dir / f"{study_name_safe}_best_params.json"
+    with open(params_path, "w") as f:
+        json.dump(
+            {
+                "best_params": best_params,
+                "best_value": study.best_trial.value,
+                "metric": "macro_f1",
+                "selection": "canonical external ct_macro_f1 (capped 200k val)",
+                "n_trials": n_trials,
+                "test_metrics": {
+                    "macro_accuracy": test_metrics["macro_accuracy"],
+                    "weighted_accuracy": test_metrics["weighted_accuracy"],
+                    "macro_f1": test_metrics["macro_f1"],
+                },
+            },
+            f,
+            indent=2,
+        )
+    print(f"\nBest parameters saved to {params_path}")
+
+    model_path = Path(f"models/xgb_tuned_{study_name_safe}.json")
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    model.save_model(model_path)
+    print(f"Model saved to {model_path}")
+
+    # Self-contained post-compact -> original ct mapping (no GSS replay needed:
+    # labels are a straight contiguous remap of the train classes).
+    idx2ct = {v: k for k, v in dct_config.ct2idx.items()}
+    remap_meta = {
+        "n_classes": int(model.n_classes_),
+        "compact_to_orig_ct_idx": {int(k): int(v) for k, v in compact_to_label.items()},
+        "compact_to_ct_name": {
+            int(k): idx2ct.get(int(v), "?") for k, v in compact_to_label.items()
+        },
+        "gss_recipe": (
+            "canonical external-val protocol: contiguous remap of train classes; "
+            "early stop on capped 'val' FOVs of --val_split_file (no GSS carve)."
+        ),
+    }
+    remap_path = model_path.with_suffix(".remap.json")
+    with open(remap_path, "w") as f:
+        json.dump(remap_meta, f, indent=2, sort_keys=True)
+    print(f"Remap metadata saved to {remap_path}")
+
+    # Prediction CSV on the held-out 129-FOV test (uncapped), in the same schema
+    # as the other baselines so the tuned numbers are directly comparable. Map
+    # the model's compact probabilities back to ct2idx-sorted columns.
+    y_prob_compact = model.predict_proba(X_test)
+    sorted_ct_values = sorted(dct_config.ct2idx.values())
+    ct_value_to_col = {v: i for i, v in enumerate(sorted_ct_values)}
+    n_model_classes = y_prob_compact.shape[1]
+    y_prob = np.zeros((len(y_test_orig), len(dct_config.ct2idx)), dtype=np.float32)
+    for compact_idx, orig_idx in compact_to_label.items():
+        if compact_idx < n_model_classes and orig_idx in ct_value_to_col:
+            y_prob[:, ct_value_to_col[orig_idx]] = y_prob_compact[:, compact_idx]
+    pred_name = model_name or study_name_safe
+    output_path = Path(f"output/{pred_name}_xgb_tuned_prediction.csv")
+    save_baseline_predictions(
+        y_test_orig,
+        y_prob,
+        test_cell_indices,
+        test_dataset_names,
+        test_fov_names,
+        dct_config.ct2idx,
+        output_path,
+    )
+
+    history_path = output_dir / f"{study_name_safe}_history.csv"
+    study.trials_dataframe().to_csv(history_path, index=False)
+    print(f"Trial history saved to {history_path}")
+    print("\nDone!")
+
+
 @click.command()
 @click.option("--study_name", type=str, default=None, help="Name for the Optuna study")
 @click.option("--n_trials", type=int, default=100, help="Number of tuning trials")
@@ -425,16 +745,36 @@ def train_best_model(
     help="Path to pre-computed FOV split JSON (overrides split_mode/seed for splitting)",
 )
 @click.option(
+    "--val_split_file",
+    type=str,
+    default=None,
+    help="If set, train on the FULL --split_file train and score Optuna trials "
+    "(and early-stop the final model) on the 'val' FOVs of THIS file, capped to "
+    "200k cells at seed 42 (mirroring dataloader.py:269-273 max_val_samples), "
+    "using the canonical hierarchical ct_macro_f1. The reported set stays "
+    "--split_file 'val'. When unset, keeps the legacy FOV-grouped inner-val.",
+)
+@click.option(
     "--max_tuning_samples",
     type=int,
     default=500000,
-    help="Max training samples for tuning trials (subsample for speed)",
+    help="Max training samples per tuning trial (subsample for speed). Applies "
+    "in both the legacy and the --val_split_file canonical protocols; the final "
+    "best model always retrains on the full train.",
 )
 @click.option(
     "--device_num",
     type=str,
     default="cpu",
     help="Device for XGBoost (cpu or cuda:N for GPU acceleration)",
+)
+@click.option(
+    "--features_cache",
+    type=str,
+    default=None,
+    help="Path to a fill-agnostic feature cache (.npz). Reused if its metadata "
+    "matches (skips the expensive zarr extraction). The selection-val features "
+    "are cached/loaded from a sibling '<features_cache>.valsel.npz'.",
 )
 @click.option(
     "--class_balance",
@@ -455,8 +795,10 @@ def main(
     storage: Optional[str],
     split_mode: str,
     split_file: str,
+    val_split_file: str,
     max_tuning_samples: int,
     device_num: str,
+    features_cache: str,
     class_balance: str,
 ):
     """Run XGBoost hyperparameter tuning with Optuna."""
@@ -478,6 +820,11 @@ def main(
             "--split_file is required. Generate one with: python -m scripts.generate_splits"
         )
 
+    # Relax the strict split-coverage check ONLY for the canonical-val smoke
+    # path (--val_split_file with --keep_datasets restricting extraction to a
+    # FOV subset). A real run (keep_datasets is None) keeps strict=True.
+    _relax_strict = (val_split_file is not None) and (keep_datasets is not None)
+
     # Extract features directly from zarr (fast path, ~20-50x faster than DataLoader).
     # ``missing_value=np.nan`` so absent markers route through XGBoost's
     # ``missing=NaN`` default-direction logic at every split — without it
@@ -491,11 +838,41 @@ def main(
         skip_datasets=skip_datasets,
         keep_datasets=keep_datasets,
         missing_value=np.nan,
+        cache_path=features_cache,
+        strict_split=not _relax_strict,
     )
 
     X_train_full, y_train_full = data["X_train"], data["y_train"]
     X_test, y_test = data["X_val"], data["y_val"]
     train_fov_names_full = np.asarray(data["train_fov_names"])
+
+    if val_split_file is not None:
+        _run_canonical_val_tuning(
+            dct_config=dct_config,
+            zarr_dir=zarr_dir,
+            split_file=split_file,
+            val_split_file=val_split_file,
+            skip_datasets=skip_datasets,
+            keep_datasets=keep_datasets,
+            relax_strict=_relax_strict,
+            X_train_full=X_train_full,
+            y_train_full=y_train_full,
+            X_test=X_test,
+            y_test=y_test,
+            test_dataset_names=data["val_dataset_names"],
+            test_fov_names=data["val_fov_names"],
+            test_cell_indices=data["val_cell_indices"],
+            train_fov_names_full=train_fov_names_full,
+            num_classes=num_classes,
+            n_trials=n_trials,
+            study_name=study_name,
+            storage=storage,
+            device_num=device_num,
+            max_tuning_samples=max_tuning_samples,
+            features_cache=features_cache,
+            class_balance=class_balance,
+        )
+        return
 
     print(
         f"Training set: {X_train_full.shape[0]} samples, {X_train_full.shape[1]} features"
