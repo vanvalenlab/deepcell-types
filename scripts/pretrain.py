@@ -220,7 +220,7 @@ def main(
         if not Path(resume_path).exists():
             raise FileNotFoundError(f"--resume_path {resume_path} does not exist")
         logger.info("Resuming from %s", resume_path)
-        resume_ckpt = torch.load(resume_path, map_location=device, weights_only=True)
+        resume_ckpt = torch.load(resume_path, map_location=device, weights_only=False)  # trusted local ckpt (pretrain.py writes numpy scalars)
 
         if not isinstance(resume_ckpt, dict) or "optimizer" not in resume_ckpt:
             # Legacy pretrain checkpoint is a plain state_dict (model backbone only).
