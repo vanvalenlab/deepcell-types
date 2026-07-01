@@ -90,6 +90,12 @@ def _conf_mat_summary(conf_mat: np.ndarray) -> dict:
     """
     support = conf_mat.sum(axis=1)
     diag = np.diag(conf_mat).astype(np.float64)
+    # NOTE: this uses a support > 0 floor for model-selection/console-printed
+    # macro-F1 (broader class coverage as a training-time regularizer). The
+    # PAPER-REPORTED headline macro-F1 additionally applies a min_support=50
+    # floor (research-workspace's analysis/_score_csv.py) — the two numbers
+    # are NOT directly comparable. Do not read this function's macro_f1 as
+    # "the paper number."
     has_support = support > 0
 
     # Accuracy
