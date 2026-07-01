@@ -66,8 +66,10 @@ train = [
     "kaleido>=0.2.1,<1.0,!=0.2.1.post1",
     # Required by TIFF-based gold-standard ingest tooling.
     "tifffile",
-    # Used by scripts/generate_openai_embeddings.py.
-    "openai",
+    # Used by scripts/generate_openai_embeddings.py. Upper-bounded: openai's
+    # v0->v1 client rewrite was a fully breaking API change; unpin only after
+    # verifying generate_openai_embeddings.py against a new major version.
+    "openai>=2.0,<3",
 ]
 # Comparison baselines, folded into deepcell_types.baselines. Each extra is
 # self-contained (pulls the train stack it needs) so it installs standalone.
