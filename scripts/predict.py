@@ -133,17 +133,18 @@ def _resolve_marker_embeddings(dct_config, state_dict, svd_path):
 @click.option(
     "--ct_abstention_k",
     type=float,
-    default=0.2,
+    default=0.0,
     help=(
         "Per-FOV IQR-fence abstention on max-softmax confidence. "
-        "Default k=0.2 is the published headline operating point. (Note: this "
-        "batch CLI deliberately defaults abstention ON for paper reproduction; "
-        "the deepcell_types.predict() library API defaults it OFF / opt-in.) "
+        "Default is 0 (disabled) — the current paper headline (Fig 3c) uses no "
+        "abstention, full coverage. k=0.2 was an earlier paper draft's "
+        "operating point; IQR-fence abstention was removed from the paper "
+        "(see analysis/_score_csv.py in the research workspace) and remains "
+        "available here only as a historical ablation, opt-in via this flag. "
         "Cells whose max-softmax falls below Q1 - k*IQR within their "
         "(dataset_name, fov_name) group are flagged as abstained "
         "(predicted_ct = 'Unknown', original kept in predicted_ct_raw). "
-        "Set k <= 0 or pass 'none' to disable. k=1.5 is the canonical Tukey "
-        "fence (~no-op)."
+        "Set k <= 0 to disable. k=1.5 is the canonical Tukey fence (~no-op)."
     ),
 )
 def main(
