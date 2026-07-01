@@ -11,6 +11,11 @@ repository and switches the inference path to checkpoints that embed the
 full canonical metadata. **Breaking changes** are noted below.
 
 ### Added
+- **`--val_split_file` canonical external-val selection for baselines.**
+  MAPS, CellSighter, and XGBoost training/tuning scripts now accept
+  `--val_split_file` to select model checkpoints against a fixed, canonical
+  validation split (200k-cell cap, seed 42) shared across all baselines and
+  the main model, instead of each script carving its own validation subset.
 - **Custom preprocessing hook.** `predict(..., preprocess=...)` overrides the
   per-FOV normalization on a single FOV without retraining. Ships a bounded op
   library — `apply_config`, `make_preprocessor`, `DEFAULT_CONFIG` (top-level
@@ -54,6 +59,14 @@ full canonical metadata. **Breaking changes** are noted below.
   `baseline-cellsighter`).
 
 ### Changed
+- **Breaking (baselines default): all baselines unified onto the DCT sampler
+  by default.** MAPS, CellSighter, and XGBoost previously defaulted to their
+  own native class-balancing scheme; `--class_balance` now defaults to
+  `dct`/`sqrt` (sqrt-inverse-frequency + 1000-count floor) across all three,
+  matching the main model's sampler, so cross-method comparisons isolate the
+  modeling choice rather than the balancing scheme. Each baseline's own
+  native sampler remains available via `--class_balance` and is reported
+  separately in the paper appendix.
 - **Residual-MLP cell-type head is now the DEFAULT** (`ct_head_arch="resmlp"`)
   for fresh training, replacing the legacy 3-layer MLP. `scripts/train.py` gains
   `--ct_head_arch {resmlp,mlp}` (default `resmlp`), records it in the checkpoint
