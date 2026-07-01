@@ -1524,7 +1524,3 @@ def import_pandas():
     import pandas as pd
 
     return pd
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

@@ -7,8 +7,10 @@
 #   splits/fov_split_test_current.json  -- current-archive (f5b6ed52) test split:
 #       current train + the frozen 129 test FOVs as `val`. The 129 test FOVs are
 #       bit-identical to the prior-archive splits/fov_split_test.json (verified:
-#       486,705 cells, 100% ground-truth match), so results compare directly to
-#       the baseline test CSVs in dct-final-ckpt/.
+#       486,705 cells, 100% ground-truth match). To compare against the
+#       other methods, generate each baseline's predictions on this same
+#       split (see the deepcell_types.baselines subpackage) and score the
+#       per-cell prediction CSVs yourself.
 #
 # Usage:
 #   DATA_DIR=/path/to/archive bash scripts/evaluate_on_test.sh [MODEL_CKPT] [EMB]
@@ -38,11 +40,7 @@ python scripts/predict.py \
   --split_file "$SPLIT" \
   --ct_abstention_k 0
 
-# For the full multi-method head-to-head table (ours + XGBoost/MAPS/CellSighter),
-# score the prediction CSVs with the research-workspace scorer:
-#   python -m analysis.test_split_summary --methods \
-#       resMLP=output/eval_test_prediction.csv \
-#       XGBoost-tuned=<dct-final-ckpt>/baseline_xgboost_test_prediction.csv \
-#       MAPS=<...>/baseline_maps_test_prediction.csv \
-#       CellSighter=<...>/baseline_cellsighter_test_prediction.csv
-# (baseline test CSVs ship in dct-final-ckpt/; their 129 test FOVs are bit-identical.)
+# For a full multi-method head-to-head table (ours + XGBoost/MAPS/CellSighter),
+# generate each baseline's predictions on this same split (see
+# deepcell_types.baselines) and compare the per-cell prediction CSVs with your
+# own scoring. All methods evaluate on the identical 129-FOV test split.

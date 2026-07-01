@@ -841,9 +841,7 @@ class FullImageDataset(Dataset):
 # both continue to work).
 # ---------------------------------------------------------------------------
 from .dataloader import (  # noqa: E402,F401  (re-exported for back-compat)
-    DataLoaderConfig,
     create_dataloader,
-    create_dataloader_from_config,
 )
 from .samplers import (  # noqa: E402,F401  (re-exported for back-compat)
     FOVGroupedSampler,
@@ -899,6 +897,4 @@ __all__ = [
     "_format_fov_examples",
     # dataloader
     "create_dataloader",
-    "create_dataloader_from_config",
-    "DataLoaderConfig",
 ]

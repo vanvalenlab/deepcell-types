@@ -7,7 +7,8 @@ Features:
 - sqrt-frequency weighted sampling
 - Tissue-aware exclusion during training
 - Full reproducibility seeding
-- Loss weights: ct:1, marker_pos:1, domain:0 (DANN disabled by default)
+- Loss weights: ct:1, marker_pos:1, domain:0.1 (DANN enabled by default;
+  pass --domain_weight 0 to disable)
 - AdamW + OneCycleLR (cosine with 5% warmup)
 """
 
@@ -73,7 +74,7 @@ def _git_commit():
 
 
 # Default loss weights for multi-task training
-DEFAULT_LOSS_WEIGHTS = {"ct": 1.0, "domain": 0.0, "marker_pos": 1.0}
+DEFAULT_LOSS_WEIGHTS = {"ct": 1.0, "domain": 0.1, "marker_pos": 1.0}
 
 
 def forward_one_batch(

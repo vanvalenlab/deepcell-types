@@ -13,7 +13,6 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-import yaml
 
 from .archive import (  # noqa: F401  -- re-exported for backward compat
     _FINGERPRINT_CACHE,
@@ -131,7 +130,7 @@ class TissueNetConfig:
 
         # Compute domain2idx (after loading domain mapping)
         self._domain2idx: Optional[Dict[str, int]] = None
-        # Tissue name → idx (index 0 reserved for null token; built lazily via
+        # Tissue name → idx (no reserved null index; built lazily via
         # tissue2idx property after tissue_celltype_mapping is computed).
         self._tissue2idx_cache: Optional[Dict[str, int]] = None
 
@@ -456,98 +455,6 @@ class TissueNetConfig:
 
         return {k: sorted(v) for k, v in tissue_types.items()}
 
-    @property
-    def combined_celltype_mapping(self) -> Dict[str, List[str]]:
-        """
-        Combined cell type grouping mapping.
-
-        Maps group names (e.g., "Tcell", "Epithelial") to lists of individual
-        cell types that belong to that group. Loaded from combined_celltypes.yaml.
-        """
-        if not hasattr(self, "_combined_celltype_mapping_cache"):
-            yaml_path = CONFIG_DIR / "combined_celltypes.yaml"
-            if yaml_path.exists():
-                with open(yaml_path) as f:
-                    raw = yaml.safe_load(f)
-                # The YAML maps individual cell types to group names;
-                # invert to map group names to lists of cell types
-                groups: Dict[str, List[str]] = {}
-                for ct, group in raw.items():
-                    groups.setdefault(group, []).append(ct)
-                self._combined_celltype_mapping_cache = groups
-                logger.info(f"Loaded combined_celltype_mapping from {yaml_path}")
-            else:
-                logger.warning(f"combined_celltypes.yaml not found at {yaml_path}")
-                self._combined_celltype_mapping_cache = {}
-        return self._combined_celltype_mapping_cache
-
-    @property
-    def color_mapping(self) -> Dict[str, str]:
-        """Cell type to hex color mapping for visualization."""
-        return dict(self._zf.attrs.get("color_mapping", {}))
-
-    @property
-    def core_tree(self) -> Dict:
-        """Hierarchical cell type taxonomy."""
-        return dict(self._zf.attrs.get("core_tree", {}))
-
-    @property
-    def lineage_mapping(self) -> Dict[str, str]:
-        """Cell type to broad biological lineage mapping."""
-        return dict(self._zf.attrs.get("lineage_mapping", {}))
-
-    def get_channel_embedding(
-        self, embedding_model_name: str = "text-embedding-3-large"
-    ) -> Dict[str, List[float]]:
-        """Get marker/channel embeddings from zarr or fallback to JSON file."""
-        embeddings = self._zf.attrs.get(f"marker_embeddings_{embedding_model_name}")
-        if embeddings is not None:
-            return dict(embeddings)
-        # Fallback: look for the embeddings file shipped alongside the
-        # training subpackage. Narrow the except so bugs in JSON structure
-        # (KeyError/TypeError downstream) are NOT hidden here.
-        search_paths = [CONFIG_DIR]
-        for config_path in search_paths:
-            json_path = config_path / f"marker_embeddings-{embedding_model_name}.json"
-            if json_path.exists():
-                try:
-                    with open(json_path) as f:
-                        return json.load(f)
-                except (FileNotFoundError, OSError, json.JSONDecodeError) as e:
-                    logger.warning(
-                        "get_channel_embedding: failed to read %s: %s",
-                        json_path,
-                        e,
-                    )
-        logger.warning(f"Could not load marker embeddings for {embedding_model_name}")
-        return {}
-
-    def get_celltype_embedding(
-        self, embedding_model_name: str = "text-embedding-3-large"
-    ) -> Dict[str, List[float]]:
-        """Get cell type embeddings from zarr or fallback to JSON file."""
-        embeddings = self._zf.attrs.get(f"celltype_embeddings_{embedding_model_name}")
-        if embeddings is not None:
-            return dict(embeddings)
-        # Fallback to the embeddings JSON shipped alongside the training
-        # subpackage. Narrow except to only IO / JSON-decode errors.
-        config_path = CONFIG_DIR
-        json_path = config_path / f"celltype_embeddings-{embedding_model_name}.json"
-        if json_path.exists():
-            try:
-                with open(json_path) as f:
-                    return json.load(f)
-            except (FileNotFoundError, OSError, json.JSONDecodeError) as e:
-                logger.warning(
-                    "get_celltype_embedding: failed to read %s: %s",
-                    json_path,
-                    e,
-                )
-        logger.warning(
-            f"Could not load cell type embeddings for {embedding_model_name}"
-        )
-        return {}
-
     def load_marker_embeddings_array(
         self,
         embedding_model_name: str = "text-embedding-3-large",
@@ -805,45 +712,6 @@ class TissueNetConfig:
             )
             return None
         return self._normalize_tissue_name(raw)
-
-    def get_excluded_ct_indices(self, dataset_key: str) -> List[int]:
-        """Get cell type indices that should be excluded for a dataset's tissue.
-
-        Returns list of ct2idx indices NOT valid for this dataset's tissue.
-        """
-        tissue = self.get_tissue_for_dataset(dataset_key)
-        if tissue is None or tissue not in self.tissue_celltype_mapping:
-            return []
-
-        valid_cts = set(self.tissue_celltype_mapping[tissue])
-        excluded = []
-        for ct, idx in self.ct2idx.items():
-            if ct not in valid_cts:
-                excluded.append(idx)
-        return excluded
-
-    def validate(self) -> bool:
-        """
-        Validate configuration consistency.
-
-        Checks:
-        - Cell type mapping has expected number of types
-        - All channels in marker2idx are valid
-
-        Returns:
-            True if valid, raises ValueError otherwise
-        """
-        if len(self._ct2idx) == 0:
-            raise ValueError("No cell types found in zarr archive")
-
-        if len(self._all_channels) == 0:
-            raise ValueError("No channels found in zarr archive")
-
-        logger.info(
-            f"Configuration validated: {self.NUM_CELLTYPES} cell types, "
-            f"{len(self._all_channels)} channels, {self.NUM_DOMAINS} domains"
-        )
-        return True
 
 
 # Backward-compat re-exports: these were defined here pre-split.

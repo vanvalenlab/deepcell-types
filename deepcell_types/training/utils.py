@@ -145,8 +145,8 @@ class BatchData:
         cell_index: (B,) - cell index in FOV
         dataset_name: tuple of str - dataset names
         fov_name: tuple of str - FOV names
-        tissue_idx: (B,) - tissue indices (index 0 = ``__null__``); defaults to
-            zeros so older datasets that don't ship a tissue lookup still load.
+        tissue_idx: (B,) - tissue indices into ``tissue2idx`` (no reserved null
+            index; a missing/unknown tissue raises rather than defaulting).
     """
 
     sample: torch.Tensor
