@@ -676,7 +676,12 @@ class TissueNetConfig:
     @staticmethod
     def _normalize_tissue_name(tissue: str) -> str:
         """Normalize tissue name to canonical form."""
-        return tissue.lower().strip()
+        # Matches hubmap-to-zarr's migrate_archive_v2.py step4_tissue_normalization
+        # (lowercase + strip + remove internal spaces) so a future multi-word raw
+        # tissue value ingested without pre-normalization ("Lymph Node") doesn't
+        # silently split into a category distinct from the archive's normalized
+        # form ("lymphnode").
+        return tissue.lower().strip().replace(" ", "")
 
     def get_tissue_for_dataset(self, dataset_key: str) -> Optional[str]:
         """Get normalized tissue type for a dataset key.
