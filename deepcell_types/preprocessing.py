@@ -47,6 +47,8 @@ from skimage.transform import rescale
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["preprocess_fov", "PreprocessedFov"]
+
 
 TARGET_MPP: float = 0.5
 """Microns-per-pixel that all ingested FOVs are resampled to. Must equal
@@ -116,11 +118,14 @@ def _percentile_threshold(
 
     Zeros are excluded from the percentile calculation via NaN masking
     (matches the canonical recipe; without this, a sparse channel's
-    threshold would be dominated by background zeros). Channels that
-    are entirely zero get threshold=inf (no clipping; min-max
-    normalization later returns all zeros for the channel).
+    threshold would be dominated by background zeros). The exclusion
+    predicate is ``!= 0`` (same as the ``np.nonzero`` indexing used by
+    ``_percentile_threshold_nonzero`` and the deepcell-toolbox recipe), so
+    the two paths agree bit-for-bit on any input, not just non-negative
+    intensity. Channels that are entirely zero get threshold=inf (no
+    clipping; min-max normalization later returns all zeros for the channel).
     """
-    masked = np.where(image_hwc > 0, image_hwc, np.nan)
+    masked = np.where(image_hwc != 0, image_hwc, np.nan)
     thresholds = np.nanpercentile(masked, percentile, axis=(0, 1))  # (C,)
     thresholds = np.nan_to_num(thresholds, nan=np.inf)
     out = image_hwc.copy()
@@ -167,6 +172,15 @@ def preprocess_fov(
     target_mpp: float = TARGET_MPP,
 ) -> PreprocessedFov:
     """Canonical preprocessing for a single FOV.
+
+    Note
+    ----
+    This is the archive-ingestion recipe and is **not** a valid
+    ``predict(preprocess=...)`` hook: the hook contract is
+    ``hook(raw, channel_names) -> (C, H, W) array in [0, 1]``, whereas this
+    function takes ``mask`` / keyword-only ``native_mpp`` and returns a
+    :class:`PreprocessedFov`. Build a hook with
+    :func:`deepcell_types.make_preprocessor` instead.
 
     Parameters
     ----------

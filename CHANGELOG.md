@@ -56,7 +56,8 @@ full canonical metadata. **Breaking changes** are noted below.
   invoked through the unified runner
   `python -m deepcell_types.baselines <name>`. Each ships a self-contained
   install extra (`baseline-xgboost`, `baseline-nimbus`, `baseline-maps`,
-  `baseline-cellsighter`).
+  `baseline-cellsighter`). `list_baseline_names()` (top-level export) lists the
+  downloadable baseline checkpoints, mirroring `list_model_versions()`.
 
 ### Changed
 - **Breaking (baselines default): all baselines unified onto the DCT sampler
@@ -119,6 +120,23 @@ full canonical metadata. **Breaking changes** are noted below.
 - `predict()` now rejects non-finite (`NaN`/`inf`) `raw` with a clear
   `ValueError` instead of silently labelling every cell as a single class via a
   poisoned softmax.
+- **Masked channels now surface as one aggregate warning** at inference instead
+  of one warning per channel. A user whose `channel_names` mostly fail to
+  resolve now gets a single line reporting how many of N channels were dropped
+  and why, making a prediction built from only a handful of markers visible
+  (the per-channel warnings de-duplicated and were easy to miss).
+- **Cells lost to mask down-sampling are reinstated in the output.** When
+  `predict()` resamples a mask from a native MPP finer than the model target
+  (`mpp < 0.5`), small cells can vanish under nearest-neighbor downscaling. The
+  returned `list[str]` now covers every input cell in ascending index order,
+  labeling any dropped cell `"Unknown"` (with a warning and a zero-probability
+  row) so a positional zip against `np.unique(mask)` stays aligned. No change
+  when no cell is dropped.
+- **The `$DATA_DIR` archive auto-discovery now warns** when it is what supplies
+  the marker/cell-type registry (instead of the packaged `vocab.json`), since
+  `DATA_DIR` is a generic env var and reading the vocabulary from an ambient
+  archive can silently change predictions. Pass `zarr_path=` / set
+  `DEEPCELL_TYPES_ZARR_PATH` to select an archive explicitly.
 - Inference now sizes its per-cell tensors to the number of channels actually
   present in the FOV instead of the global `MAX_NUM_CHANNELS`. Padding tokens are
   inert in the model, so predictions are unchanged; the per-channel ResNet and
@@ -185,6 +203,17 @@ full canonical metadata. **Breaking changes** are noted below.
   canonical recipe is the decoupled two-stage `retrain_head.py` (backbone
   with the weighted sampler on, head retrained sampler-off), and end-to-end
   sampler-off training erodes the backbone, so the toggle was a dead path.
+- `predict()` now raises on non-finite model logits (a custom model / preprocess
+  hook returning `NaN`/`inf` previously produced a poisoned softmax that labeled
+  every cell class 0 without abstaining).
+- `preprocess_fov`'s nonzero-pixel mask for the percentile clip now uses the
+  `!= 0` predicate (matching `_percentile_threshold_nonzero` / `DEFAULT_CONFIG`
+  and the deepcell-toolbox recipe), so the archive-builder and inference paths
+  agree bit-for-bit on inputs with negative values, not just non-negative ones.
+- `scripts/retrain_head.py` now bundles `ct2idx`/`canonical_channels` in resMLP
+  checkpoints (matching `scripts/train.py`), so the new default-head checkpoints
+  validate their own vocabulary ordering at load instead of falling back to the
+  released-checkpoint SHA anchor meant for the legacy checkpoint.
 
 ### Migration notes
 - Users on `from deepcell_types.model import CellTypeCLIPModel` must

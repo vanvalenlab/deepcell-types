@@ -83,38 +83,50 @@ class PatchDataset(IterableDataset):
         channel_names_standard = []
         channel_masking = []
         seen_markers = set()
+        masked_channels = []  # (name, reason) collected for one aggregate warning
         for i, ch_name in enumerate(channel_names):
             ch_name_standard = self.dct_config.resolve_channel_name(ch_name)
             if ch_name_standard is None or ch_name_standard not in self.marker2idx:
                 channel_masking.append(True)
-                warnings.warn(
-                    f"Channel {ch_name} is not in the channel mapping. "
-                    "This channel will be masked out."
-                )
+                masked_channels.append((ch_name, "not in the marker registry"))
             elif ch_name_standard in seen_markers:
                 # Two input channels resolving to the same canonical marker would
                 # share a marker2idx index. The first such channel is kept; later
                 # duplicates are dropped here (not stacked) so the downstream
                 # per-marker scatter never has to arbitrate a collision.
                 channel_masking.append(True)
-                warnings.warn(
-                    f"Channel {ch_name} resolves to marker {ch_name_standard!r}, "
-                    "already provided by an earlier channel; the duplicate will "
-                    "be masked out."
+                masked_channels.append(
+                    (
+                        ch_name,
+                        f"duplicate of marker {ch_name_standard!r} already provided "
+                        "by an earlier channel",
+                    )
                 )
             elif channel_all_zero[i]:
                 # All-zero on this FOV: mask it out to match training, where the
                 # model is trained to never attend to a constant-zero channel.
                 channel_masking.append(True)
-                warnings.warn(
-                    f"Channel {ch_name} (marker {ch_name_standard!r}) is all-zero "
-                    "across this FOV; it will be masked out to match training, "
-                    "where all-zero channels are attention-masked."
+                masked_channels.append(
+                    (ch_name, f"all-zero across this FOV (marker {ch_name_standard!r})")
                 )
             else:
                 seen_markers.add(ch_name_standard)
                 channel_masking.append(False)
                 channel_names_standard.append(ch_name_standard)
+
+        # One aggregate warning instead of one-per-channel: N separate warnings
+        # de-duplicate and are easily missed, hiding how much of the panel was
+        # dropped. A single line makes the degradation visible so a user with
+        # mostly-nonstandard channel names notices a prediction built from only a
+        # handful of markers.
+        if masked_channels:
+            detail = "; ".join(f"{name} ({reason})" for name, reason in masked_channels)
+            warnings.warn(
+                f"{len(masked_channels)} of {len(channel_names)} input channels were "
+                f"masked out; prediction uses the remaining "
+                f"{len(channel_names_standard)} marker(s). Masked: {detail}.",
+                stacklevel=2,
+            )
 
         if len(channel_names_standard) > dct_config.MAX_NUM_CHANNELS:
             raise ValueError(

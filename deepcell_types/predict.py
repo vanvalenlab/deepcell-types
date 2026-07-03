@@ -10,6 +10,8 @@ from tqdm import tqdm
 from .abstention import ABSTENTION_LABEL, compute_iqr_fence
 from .config import DCTConfig
 
+__all__ = ["predict", "PredictionResult"]
+
 # NOTE: torch (and the torch-importing .model / .dataset modules) are imported
 # lazily inside the functions that use them, NOT at module scope, so that
 # `import deepcell_types` stays torch-free until predict() is actually called
@@ -441,8 +443,10 @@ def predict(
         are the resolved standard marker names aligned to ``raw``. Must return
         a ``(C, H, W)`` array in ``[0, 1]``. When ``None`` (default), the
         built-in per-channel p99.9 clip + min-max normalization is used. Build
-        one declaratively with
-        :func:`deepcell_types.make_preprocessor`.
+        one declaratively with :func:`deepcell_types.make_preprocessor`.
+        Note: :func:`deepcell_types.preprocess_fov` is NOT a valid hook — it has
+        a different signature (takes ``mask`` / keyword-only ``native_mpp``) and
+        returns a :class:`PreprocessedFov`, not a bare ``(C, H, W)`` array.
 
     Returns
     -------
@@ -493,6 +497,11 @@ def predict(
     dataset = PatchDataset(
         raw, mask, channel_names, mpp, dct_config, preprocess=preprocess
     )
+    # Unique cell ids in the caller's mask (ascending; background 0 excluded).
+    # Used below to keep the returned labels aligned to every input cell even if
+    # a small cell is lost when the mask is downscaled to the model's MPP.
+    input_cell_ids = np.unique(np.asarray(mask).astype(np.int64))
+    input_cell_ids = input_cell_ids[input_cell_ids != 0]
     # The dataset now holds its own working copies (a float32 raw and a float32
     # mask), so drop the caller-supplied references. When the caller passes the
     # arrays inline (no other reference), this frees the full-resolution source
@@ -521,6 +530,16 @@ def predict(
 
     cell_types_raw, _top_probs, cell_indices, full_probs = pred_logger.get_result()
 
+    # A custom model / preprocess hook can emit non-finite logits; softmax then
+    # yields NaN and np.argmax silently labels the cell class 0. Fail loudly
+    # rather than return confident garbage. (compute_iqr_fence drops non-finite
+    # values, so abstention would not catch this on its own.)
+    if full_probs.size and not np.isfinite(full_probs).all():
+        raise ValueError(
+            "Model produced non-finite class probabilities (NaN/inf); the "
+            "checkpoint or a custom model returned invalid logits."
+        )
+
     # IQR-fence abstention on the FOV's max-softmax distribution. Abstention is
     # bucketed per FOV, and this API processes a single FOV, so the whole input
     # is one bucket and no grouping column is needed — `compute_iqr_fence`
@@ -535,6 +554,46 @@ def predict(
                 ABSTENTION_LABEL if was_abstained else ct
                 for ct, was_abstained in zip(cell_types_raw, abstained)
             ]
+
+    # Reinstate any cell that vanished when the mask was downscaled to the
+    # model's target MPP (native mpp < 0.5 makes small cells disappear under
+    # nearest-neighbor resampling). Without this, the default list[str] return is
+    # shorter than the caller's cell set and a positional zip against
+    # np.unique(mask) silently misaligns every downstream label. Dropped cells
+    # get the "Unknown" sentinel and a zero-probability row; abstained stays
+    # False for them (they were dropped, not abstained). No-op — and byte-for-
+    # byte identical to prior behavior — when nothing was dropped (the common
+    # case: native mpp >= the model target).
+    missing_ids = np.setdiff1d(input_cell_ids, np.asarray(cell_indices, dtype=np.int64))
+    if missing_ids.size:
+        n_missing = int(missing_ids.size)
+        warnings.warn(
+            f"{n_missing} of {input_cell_ids.size} cells vanished when the mask was "
+            f"resampled from mpp={mpp} to the model target "
+            f"{dct_config.STANDARD_MPP_RESOLUTION} µm/px (small cells disappear under "
+            f"nearest-neighbor downscaling). They are labeled {ABSTENTION_LABEL!r} "
+            f"with a zero-probability row so the output stays aligned to the input "
+            f"cells.",
+            stacklevel=2,
+        )
+        n_classes = full_probs.shape[1]
+        merged_ids = np.concatenate(
+            [np.asarray(cell_indices, dtype=np.int64), missing_ids]
+        )
+        order = np.argsort(merged_ids, kind="stable")
+        cell_indices = merged_ids[order]
+        full_probs = np.concatenate(
+            [full_probs, np.zeros((n_missing, n_classes), dtype=full_probs.dtype)]
+        )[order]
+        abstained = np.concatenate([abstained, np.zeros(n_missing, dtype=bool)])[order]
+        cell_types = list(
+            np.asarray(cell_types + [ABSTENTION_LABEL] * n_missing, dtype=object)[order]
+        )
+        cell_types_raw = list(
+            np.asarray(
+                list(cell_types_raw) + [ABSTENTION_LABEL] * n_missing, dtype=object
+            )[order]
+        )
 
     if return_probabilities:
         return PredictionResult(

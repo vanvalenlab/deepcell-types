@@ -312,6 +312,27 @@ def test_build_model_infers_configless_resmlp_head_shape(tmp_path):
     assert len(model.ct_head.blocks) == 2
 
 
+def test_build_model_loads_legacy_mlp_head(tmp_path):
+    """The released v0.1.0 checkpoint uses the legacy 3-layer MLP head, but
+    ``create_model`` now defaults to ``resmlp``, so no other test exercises the
+    mlp load branch (``predict._infer_ct_head_params`` -> ``ct_head.6.weight``).
+    Build an mlp-head checkpoint explicitly and assert it loads and is wired to
+    the full cell-type space.
+    """
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path, ct_head_arch="mlp")
+
+    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    # Legacy-MLP marker key the auto-detector keys off (not present on resmlp).
+    assert "ct_head.6.weight" in checkpoint["model"]
+    assert "ct_head.inp.0.weight" not in checkpoint["model"]
+
+    model = _build_model(checkpoint, config, torch.device("cpu"))
+    assert model.ct_head_arch == "mlp"
+    assert model.ct_head[6].weight.shape[0] == len(config.ct2idx)
+
+
 def test_patch_dataset_rejects_only_unknown_channel_names(tmp_path):
     archive_path = _make_archive(tmp_path)
     config = DCTConfig(zarr_path=archive_path)
@@ -350,6 +371,49 @@ def test_predict_returns_prediction_result_when_requested(tmp_path):
     assert result.probabilities.shape == (1, len(config.ct2idx))
     assert result.cell_indices.tolist() == [1]
     assert np.isclose(result.probabilities.sum(), 1.0)
+
+
+def test_predict_reinstates_cells_lost_to_downsampling(tmp_path):
+    """A cell that vanishes when the mask is downscaled to the model MPP must
+    still appear (as "Unknown") in the output, so the returned labels stay
+    aligned to the caller's cell ids. mpp=0.1 -> scale 0.2; the single-pixel
+    cell 2 is not sampled by the nearest-neighbor downscale and drops.
+    """
+    from deepcell_types import ABSTENTION_LABEL, PredictionResult
+    from deepcell_types import predict as top_predict
+
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    ckpt_path = _build_checkpoint(config, tmp_path)
+
+    raw = np.ones((1, 40, 40), dtype=np.float32)
+    mask = np.zeros((40, 40), dtype=np.int32)
+    mask[10:30, 10:30] = 1  # large cell -> survives the downscale
+    mask[23, 17] = 2  # single-pixel cell -> dropped by nearest-neighbor downscale
+
+    common = dict(
+        model_name=str(ckpt_path),
+        device="cpu",
+        batch_size=1,
+        num_workers=0,
+        zarr_path=archive_path,
+    )
+    with pytest.warns(UserWarning, match="vanished when the mask was resampled"):
+        labels = top_predict(raw, mask, ["CD45"], 0.1, **common)
+    # The default list[str] return covers BOTH input cells in ascending id
+    # order; the dropped one carries the sentinel label.
+    assert len(labels) == 2
+    assert labels[1] == ABSTENTION_LABEL
+
+    with pytest.warns(UserWarning, match="vanished"):
+        result = top_predict(
+            raw, mask, ["CD45"], 0.1, return_probabilities=True, **common
+        )
+    assert isinstance(result, PredictionResult)
+    assert result.cell_indices.tolist() == [1, 2]
+    assert result.cell_types[1] == ABSTENTION_LABEL
+    assert not result.abstained[1]  # dropped, not abstained
+    assert np.all(result.probabilities[1] == 0.0)  # zero-probability row
 
 
 def test_dct_and_tissuenet_config_agree_on_shared_constants(tmp_path):
