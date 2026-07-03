@@ -373,7 +373,7 @@ def predict(
     return_probabilities=False,
     ct_abstention_k=None,
     preprocess=None,
-):
+) -> "list[str] | PredictionResult":
     """Run the cell-type prediction pipeline.
 
     Given a spatial proteomics image `raw`, a corresponding segmentation `mask`,
@@ -449,7 +449,9 @@ def predict(
     list of str
         (default) Predicted cell-type name for each unique cell index in
         ``mask``, ordered by ascending cell index. Cells flagged by the
-        IQR-fence abstention carry the sentinel ``"Unknown"``.
+        IQR-fence abstention carry the sentinel ``"Unknown"`` — but only
+        when ``ct_abstention_k`` is set; with the default ``None`` every
+        cell carries its raw argmax label.
     PredictionResult
         (when ``return_probabilities=True``) Full per-cell probabilities,
         cell indices, predicted names, and an ``abstained`` boolean

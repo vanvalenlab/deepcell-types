@@ -47,7 +47,7 @@ def _clip_percentile_nonzero(x, p):
 
 def _min_max(x):
     mn = x.min(axis=(1, 2), keepdims=True)
-    ptp = np.ptp(x, axis=(1, 2), keepdims=True)
+    ptp = x.max(axis=(1, 2), keepdims=True) - mn
     ptp[ptp == 0] = 1.0
     return (x - mn) / ptp
 
