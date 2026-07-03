@@ -328,7 +328,6 @@ class CellTypeAnnotator(nn.Module):
         spatial_pool_size=1,
         resnet_base_channels=48,
         compat_marker0_zero=True,
-        ct_head_arch="resmlp",
         ct_head_width=512,
         ct_head_depth=4,
     ):
@@ -376,38 +375,20 @@ class CellTypeAnnotator(nn.Module):
         self.final_norm = nn.LayerNorm(d_model)
 
         # 6. Task heads
-        # Cell type classifier. Two architectures:
-        #   "resmlp" – residual-MLP head (width 512, depth 4); the canonical
-        #              DEFAULT. On a frozen backbone trained on the natural class
-        #              distribution it lifted full-coverage macro-F1 from 70.8 to
-        #              79.1 in our experiments; it is also the default for
-        #              from-scratch training.
-        #   "mlp"    – the legacy 3-layer MLP, kept for back-compat with v0.1.0
-        #              checkpoints (which have these shapes). Inference auto-
-        #              detects the head from the state_dict, so old checkpoints
-        #              still load regardless of this default; only fresh training
-        #              follows it.
-        self.ct_head_arch = ct_head_arch
+        # Cell type classifier: a residual-MLP head (width 512, depth 4). On a
+        # frozen backbone trained on the natural class distribution it lifted
+        # full-coverage macro-F1 from 70.8 to 79.1 in our experiments; it is
+        # also the head used for from-scratch training.
+        self.ct_head_arch = "resmlp"
         self.ct_head_width = int(ct_head_width)
         self.ct_head_depth = int(ct_head_depth)
-        if ct_head_arch == "resmlp":
-            self.ct_head = ResidualMLPHead(
-                d_model,
-                width=self.ct_head_width,
-                depth=self.ct_head_depth,
-                n_out=n_celltypes,
-                dropout=dropout,
-            )
-        else:
-            self.ct_head = nn.Sequential(
-                nn.Linear(d_model, d_model),
-                nn.SiLU(),
-                nn.Dropout(dropout),
-                nn.Linear(d_model, d_model // 2),
-                nn.SiLU(),
-                nn.Dropout(dropout),
-                nn.Linear(d_model // 2, n_celltypes),
-            )
+        self.ct_head = ResidualMLPHead(
+            d_model,
+            width=self.ct_head_width,
+            depth=self.ct_head_depth,
+            n_out=n_celltypes,
+            dropout=dropout,
+        )
 
         # Marker positivity: default head (replaced if MarkerConditionedMPHead is used)
         self.marker_pos_head = nn.Linear(d_model, 1)
@@ -682,7 +663,6 @@ def create_model(
     spatial_pool_size=1,
     resnet_base_channels=48,
     compat_marker0_zero=True,
-    ct_head_arch="resmlp",
     ct_head_width=512,
     ct_head_depth=4,
 ):
@@ -707,8 +687,6 @@ def create_model(
         resnet_base_channels: per-channel ResNet stem width
         compat_marker0_zero: zero marker-0 mean intensity for v0.1.0 checkpoint
             parity (see CellTypeAnnotator)
-        ct_head_arch: "mlp" for the legacy classifier or "resmlp" for the
-            residual-MLP classifier head.
         ct_head_width: Hidden width for the residual-MLP classifier head.
         ct_head_depth: Number of residual blocks for the residual-MLP classifier
             head.
@@ -731,7 +709,6 @@ def create_model(
         spatial_pool_size=spatial_pool_size,
         resnet_base_channels=resnet_base_channels,
         compat_marker0_zero=compat_marker0_zero,
-        ct_head_arch=ct_head_arch,
         ct_head_width=ct_head_width,
         ct_head_depth=ct_head_depth,
     )

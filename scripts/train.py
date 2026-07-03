@@ -317,13 +317,6 @@ def forward_one_batch(
     help="Base channels for PerChannelResNet (canonical: 48)",
 )
 @click.option(
-    "--ct_head_arch",
-    type=click.Choice(["resmlp", "mlp"]),
-    default="resmlp",
-    help="Cell-type head architecture. 'resmlp' (default, canonical): residual-MLP "
-    "width-512 depth-4. 'mlp': legacy 3-layer MLP (v0.1.0 checkpoints).",
-)
-@click.option(
     "--freeze_backbone",
     is_flag=True,
     help="Freeze everything except the mean-intensity branch (and re-enable only intensity_cls_branch). Use with a warm-started ckpt to train only the new side input.",
@@ -365,7 +358,6 @@ def main(
     focal_gamma,
     warmup_pct,
     resnet_channels,
-    ct_head_arch,
     freeze_backbone,
     unfreeze_ct_head,
 ):
@@ -431,7 +423,6 @@ def main(
         d_model=d_model,
         spatial_pool_size=spatial_pool_size,
         resnet_base_channels=resnet_channels,
-        ct_head_arch=ct_head_arch,
     )
     # Load pre-trained backbone weights (from masked marker pre-training)
     if pretrained_path and Path(pretrained_path).exists():
@@ -525,10 +516,10 @@ def main(
         "n_heads": 8,
         "compat_marker0_zero": True,
         "n_celltypes": dct_config.NUM_CELLTYPES,
-        # Cell-type head architecture ("resmlp" default, "mlp" legacy). Inference
-        # also auto-detects this from the state_dict, but recording it keeps the
+        # Cell-type head architecture (always the residual-MLP head). Inference
+        # auto-detects it from the state_dict, but recording it keeps the
         # checkpoint self-describing and lets --resume_path validate it.
-        "ct_head_arch": ct_head_arch,
+        "ct_head_arch": "resmlp",
         # Self-pinning: the code commit this checkpoint was trained under, so a
         # result can be traced to an exact code snapshot. "unknown" if the
         # checkout isn't a git repo.

@@ -121,9 +121,22 @@ def main(
         n_heads=cc.get("n_heads", 8),
         use_conditioned_mp_head=cc.get("use_conditioned_mp_head", True),
         compat_marker0_zero=cc.get("compat_marker0_zero", True),
-        ct_head_arch="mlp",  # backbone ckpt has the legacy head; discarded below
     )
-    model.load_state_dict(ck["model"] if "model" in ck else ck)
+    # We only need the backbone: the checkpoint's cell-type head is discarded and
+    # a fresh residual-MLP head is trained below, so drop its ct_head.* params and
+    # load the rest non-strictly. The only params left uninitialized must be the
+    # fresh ct_head; anything else missing/unexpected signals a real mismatch.
+    backbone_state = {
+        k: v
+        for k, v in (ck["model"] if "model" in ck else ck).items()
+        if not k.startswith("ct_head.")
+    }
+    missing, unexpected = model.load_state_dict(backbone_state, strict=False)
+    assert not unexpected, f"unexpected keys loading backbone: {unexpected}"
+    assert all(k.startswith("ct_head.") for k in missing), (
+        f"backbone load left non-head params uninitialized: "
+        f"{[k for k in missing if not k.startswith('ct_head.')]}"
+    )
     model.to(device).eval()
     for p in model.parameters():
         p.requires_grad_(False)
@@ -182,7 +195,6 @@ def main(
 
     # Assemble + save the deployable resMLP model.
     model.ct_head = head.to(device)
-    model.ct_head_arch = "resmlp"
     out_config = {
         **cc,
         "ct_head_arch": "resmlp",

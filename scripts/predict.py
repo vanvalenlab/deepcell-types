@@ -240,7 +240,7 @@ def main(
     # used as the fallback when a key (or the whole config) is absent, which
     # keeps the current released checkpoint loading unchanged.
     try:
-        ct_head_params = _infer_ct_head_params(state_dict, ckpt_config)
+        ct_head_params = _infer_ct_head_params(state_dict)
     except KeyError as e:
         raise ValueError(
             f"Checkpoint is missing the expected key {e}; this does not look "
@@ -263,7 +263,6 @@ def main(
         n_heads=ckpt_config.get("n_heads", 8),
         use_conditioned_mp_head=ckpt_config.get("use_conditioned_mp_head", True),
         compat_marker0_zero=ckpt_config.get("compat_marker0_zero", True),
-        ct_head_arch=ct_head_params["ct_head_arch"],
         ct_head_width=ct_head_params["ct_head_width"],
         ct_head_depth=ct_head_params["ct_head_depth"],
     )
@@ -282,7 +281,6 @@ def main(
                 d_model=d_model,
                 resnet_base_channels=resnet_channels,
                 use_conditioned_mp_head=False,
-                ct_head_arch=ct_head_params["ct_head_arch"],
                 ct_head_width=ct_head_params["ct_head_width"],
                 ct_head_depth=ct_head_params["ct_head_depth"],
             ).to(device)

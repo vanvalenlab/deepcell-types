@@ -1,4 +1,3 @@
-import hashlib
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,30 +17,8 @@ __all__ = ["predict", "PredictionResult"]
 # (torch is a ~1.4s import). Keep it that way — do not add a top-level
 # `import torch` here.
 
-# Canonical cell-type ordering of the released v0.1.0 checkpoint
-# (deepcell-types_2026-05-17.pt), as SHA-256 of the ordered ``name:index``
-# pairs. The released checkpoint predates self-describing checkpoints and does
-# NOT bundle its own ``ct2idx`` (only ``canonical_channels`` for the marker
-# side), so the bundled-ct2idx guard in ``_build_model`` has nothing in the
-# checkpoint to compare against. We anchor it here instead: a vocab.json (or
-# archive) that permutes the cell-type ordering would pass the count check and
-# silently mislabel every cell, so we reject any legacy checkpoint paired with
-# a vocabulary whose ordering does not hash to this value. Checkpoints that
-# bundle their own ``ct2idx`` are validated against that instead.
-_CANONICAL_CT2IDX_SHA256 = (
-    "113687d06699fd4b4dc08e2601fba880e3a0d92e20c4b1418eef5ae3fef5bc78"
-)
-
-
 def _names_ordered_by_index(mapping):
     return [name for name, _ in sorted(mapping.items(), key=lambda item: int(item[1]))]
-
-
-def _ct2idx_ordering_sha256(ct2idx):
-    """SHA-256 of a cell-type mapping's index-ordered ``name:index`` pairs."""
-    ordered = sorted(ct2idx.items(), key=lambda item: int(item[1]))
-    payload = "\n".join(f"{name}:{int(idx)}" for name, idx in ordered)
-    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def validate_checkpoint_vocabulary(checkpoint, ct2idx, marker2idx):
@@ -54,41 +31,27 @@ def validate_checkpoint_vocabulary(checkpoint, ct2idx, marker2idx):
     (:func:`_build_model`) and the evaluation CLI (``scripts/predict.py``) so
     they cannot drift apart.
 
-    - If the checkpoint bundles its own ``ct2idx`` it must match ``ct2idx``
+    - The checkpoint must bundle its own ``ct2idx``, and it must match ``ct2idx``
       (name -> index mapping, order-independent).
-    - If it does not (legacy / released v0.1.0 checkpoint), ``ct2idx`` must hash
-      to the frozen canonical ordering, since there is nothing in the checkpoint
-      to compare against.
     - If the checkpoint bundles ``canonical_channels`` it must match the marker
       ordering (compared by numeric marker index, not dict insertion order).
 
     Raises ``ValueError`` on any mismatch.
     """
     ckpt_ct2idx = checkpoint.get("ct2idx") if isinstance(checkpoint, dict) else None
-    if ckpt_ct2idx is not None:
-        if dict(ckpt_ct2idx) != dict(ct2idx):
-            raise ValueError(
-                "Checkpoint ct2idx ordering does not match the inference "
-                "vocabulary's. The model would mislabel cell types; use the "
-                "archive the checkpoint was trained against."
-            )
-    else:
-        # Legacy / released checkpoint with no bundled ct2idx: nothing in the
-        # checkpoint to compare against, so anchor on the frozen canonical
-        # ordering. This makes the cell-type side symmetric with the marker-side
-        # protection (canonical_channels) for the shipped checkpoint.
-        ordering_sha = _ct2idx_ordering_sha256(ct2idx)
-        if ordering_sha != _CANONICAL_CT2IDX_SHA256:
-            raise ValueError(
-                "This checkpoint does not bundle a ct2idx, so the cell-type "
-                "ordering is taken from the inference vocabulary — but that "
-                "ordering does not match the canonical v0.1.0 ordering "
-                f"(got {ordering_sha[:12]}…, expected "
-                f"{_CANONICAL_CT2IDX_SHA256[:12]}…). A permuted vocabulary would "
-                "silently mislabel every cell. Use the packaged vocab.json (or "
-                "the archive the checkpoint was trained against), or supply a "
-                "checkpoint that bundles its own ct2idx."
-            )
+    if ckpt_ct2idx is None:
+        raise ValueError(
+            "Checkpoint does not bundle a ct2idx, so the cell-type ordering "
+            "cannot be verified and a permuted vocabulary would silently "
+            "mislabel every cell. Use a checkpoint that bundles its own ct2idx "
+            "(scripts/train.py and retrain_head.py record it)."
+        )
+    if dict(ckpt_ct2idx) != dict(ct2idx):
+        raise ValueError(
+            "Checkpoint ct2idx ordering does not match the inference "
+            "vocabulary's. The model would mislabel cell types; use the "
+            "archive the checkpoint was trained against."
+        )
 
     ckpt_channels = (
         checkpoint.get("canonical_channels") if isinstance(checkpoint, dict) else None
@@ -253,26 +216,17 @@ def _infer_n_domains(state_dict):
     return state_dict["domain_head.8.weight"].shape[0]
 
 
-def _infer_ct_head_params(state_dict, config):
-    """Infer CT-head construction params from a checkpoint state dict."""
-    if "ct_head.inp.0.weight" in state_dict or config.get("ct_head_arch") == "resmlp":
-        block_ids = {
-            int(key.split(".")[2])
-            for key in state_dict
-            if key.startswith("ct_head.blocks.") and key.endswith(".0.weight")
-        }
-        return {
-            "ct_head_arch": "resmlp",
-            "ct_head_width": int(state_dict["ct_head.inp.0.weight"].shape[0]),
-            "ct_head_depth": len(block_ids),
-            "n_celltypes": int(state_dict["ct_head.out.weight"].shape[0]),
-        }
-
+def _infer_ct_head_params(state_dict):
+    """Infer residual-MLP CT-head construction params from a checkpoint state dict."""
+    block_ids = {
+        int(key.split(".")[2])
+        for key in state_dict
+        if key.startswith("ct_head.blocks.") and key.endswith(".0.weight")
+    }
     return {
-        "ct_head_arch": config.get("ct_head_arch", "mlp"),
-        "ct_head_width": int(config.get("ct_head_width", 512)),
-        "ct_head_depth": int(config.get("ct_head_depth", 4)),
-        "n_celltypes": int(state_dict["ct_head.6.weight"].shape[0]),
+        "ct_head_width": int(state_dict["ct_head.inp.0.weight"].shape[0]),
+        "ct_head_depth": len(block_ids),
+        "n_celltypes": int(state_dict["ct_head.out.weight"].shape[0]),
     }
 
 
@@ -286,7 +240,7 @@ def _build_model(checkpoint, dct_config, device):
         marker_weight = state_dict["marker_embedder.embed_layer.weight"]
         n_markers = marker_weight.shape[0] - 1
         embedding_dim = marker_weight.shape[1]
-        ct_head_params = _infer_ct_head_params(state_dict, config)
+        ct_head_params = _infer_ct_head_params(state_dict)
         n_celltypes = ct_head_params["n_celltypes"]
         d_model = state_dict["cls_token"].shape[-1]
         resnet_base_channels = state_dict["channel_encoder.stem.0.weight"].shape[0]
@@ -309,10 +263,8 @@ def _build_model(checkpoint, dct_config, device):
 
     # Require the inference vocabulary to agree on ORDERING, not just counts
     # (a permuted mapping of the right size passes the count checks above but
-    # silently mislabels every prediction). Self-describing checkpoints are
-    # validated against their own bundled ct2idx / canonical_channels; the
-    # legacy released checkpoint (no bundled ct2idx) is anchored to the frozen
-    # canonical ordering. Shared with scripts/predict.py.
+    # silently mislabels every prediction). Validated against the checkpoint's
+    # own bundled ct2idx / canonical_channels. Shared with scripts/predict.py.
     validate_checkpoint_vocabulary(checkpoint, dct_config.ct2idx, dct_config.marker2idx)
 
     marker_embeddings = np.zeros((n_markers, embedding_dim), dtype=np.float32)
@@ -320,29 +272,21 @@ def _build_model(checkpoint, dct_config, device):
 
     # n_heads and compat_marker0_zero are NOT recoverable from tensor shapes
     # (MultiheadAttention params are head-count-independent; compat_marker0_zero
-    # is a pure-Python numerics flag), so they must come from the checkpoint
-    # config. Self-describing checkpoints (scripts/train.py, retrain_head.py)
-    # always bundle both. The sole exception is the legacy released v0.1.0
-    # checkpoint, which bundles no ct2idx (it is anchored to the canonical
-    # ordering validated above) and for which the canonical defaults ARE the
-    # trained values. So: require the keys for any self-describing (ct2idx-
-    # bundling) checkpoint and apply the canonical defaults only for the legacy
-    # released one, rather than silently guessing for arbitrary checkpoints.
-    ckpt_bundles_ct2idx = (
-        isinstance(checkpoint, dict) and checkpoint.get("ct2idx") is not None
-    )
+    # is a pure-Python numerics flag), so they must be recorded in the checkpoint
+    # config. scripts/train.py and retrain_head.py bundle both; a wrong value
+    # loads with silently wrong numerics, so require them rather than guess.
     missing_arch_keys = [
         k for k in ("n_heads", "compat_marker0_zero") if k not in config
     ]
-    if missing_arch_keys and ckpt_bundles_ct2idx:
+    if missing_arch_keys:
         raise ValueError(
-            "Self-describing checkpoint (bundles its own ct2idx) is missing "
-            f"{', '.join(missing_arch_keys)} in its config. These are not "
-            "recoverable from the weights and a wrong value loads with silently "
-            "wrong numerics; scripts/train.py records them in every checkpoint."
+            f"Checkpoint config is missing {', '.join(missing_arch_keys)}. These "
+            "are not recoverable from the weights and a wrong value loads with "
+            "silently wrong numerics; scripts/train.py records them in every "
+            "checkpoint."
         )
-    n_heads = int(config.get("n_heads", 8))
-    compat_marker0_zero = bool(config.get("compat_marker0_zero", True))
+    n_heads = int(config["n_heads"])
+    compat_marker0_zero = bool(config["compat_marker0_zero"])
 
     model = create_model(
         dct_config,
@@ -355,7 +299,6 @@ def _build_model(checkpoint, dct_config, device):
         spatial_pool_size=_infer_spatial_pool_size(state_dict),
         use_conditioned_mp_head=use_conditioned_mp_head,
         compat_marker0_zero=compat_marker0_zero,
-        ct_head_arch=ct_head_params["ct_head_arch"],
         ct_head_width=ct_head_params["ct_head_width"],
         ct_head_depth=ct_head_params["ct_head_depth"],
     )

@@ -12,10 +12,8 @@ from deepcell_types.model import create_model
 from deepcell_types.dataset import PatchDataset
 from deepcell_types.config import DCTConfig
 from deepcell_types.predict import (
-    _CANONICAL_CT2IDX_SHA256,
     _InferenceResultBuffer,
     _build_model,
-    _ct2idx_ordering_sha256,
     _model_path,
     predict,
     validate_checkpoint_vocabulary,
@@ -314,7 +312,6 @@ def test_build_model_infers_configless_resmlp_head_shape(tmp_path):
     ckpt_path = _build_checkpoint(
         config,
         tmp_path,
-        ct_head_arch="resmlp",
         ct_head_width=64,
         ct_head_depth=2,
     )
@@ -326,27 +323,6 @@ def test_build_model_infers_configless_resmlp_head_shape(tmp_path):
     assert model.ct_head_width == 64
     assert model.ct_head_depth == 2
     assert len(model.ct_head.blocks) == 2
-
-
-def test_build_model_loads_legacy_mlp_head(tmp_path):
-    """The released v0.1.0 checkpoint uses the legacy 3-layer MLP head, but
-    ``create_model`` now defaults to ``resmlp``, so no other test exercises the
-    mlp load branch (``predict._infer_ct_head_params`` -> ``ct_head.6.weight``).
-    Build an mlp-head checkpoint explicitly and assert it loads and is wired to
-    the full cell-type space.
-    """
-    archive_path = _make_archive(tmp_path)
-    config = DCTConfig(zarr_path=archive_path)
-    ckpt_path = _build_checkpoint(config, tmp_path, ct_head_arch="mlp")
-
-    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
-    # Legacy-MLP marker key the auto-detector keys off (not present on resmlp).
-    assert "ct_head.6.weight" in checkpoint["model"]
-    assert "ct_head.inp.0.weight" not in checkpoint["model"]
-
-    model = _build_model(checkpoint, config, torch.device("cpu"))
-    assert model.ct_head_arch == "mlp"
-    assert model.ct_head[6].weight.shape[0] == len(config.ct2idx)
 
 
 def test_patch_dataset_rejects_only_unknown_channel_names(tmp_path):
@@ -894,27 +870,14 @@ _PINNED_PROBS_SEED0 = np.array(
 # --- Vocabulary ordering guard (validate_checkpoint_vocabulary) -------------
 
 
-def test_legacy_checkpoint_requires_canonical_ordering():
-    """A checkpoint without a bundled ct2idx (the released v0.1.0 artifact)
-    must be paired with the canonical cell-type ordering; a permuted vocabulary
-    is rejected rather than silently mislabeling cells."""
+def test_checkpoint_without_ct2idx_is_rejected():
+    """A checkpoint that does not bundle its own ct2idx is rejected outright:
+    the cell-type ordering cannot be verified and a permuted vocabulary would
+    silently mislabel every cell."""
     config = DCTConfig()  # packaged vocab.json -> canonical 51-class ordering
-    legacy_ckpt = {"canonical_channels": list(config.marker2idx.keys())}
-
-    # Canonical ordering passes; the hash is order-independent (sorted by index).
-    validate_checkpoint_vocabulary(legacy_ckpt, config.ct2idx, config.marker2idx)
-    assert _ct2idx_ordering_sha256(config.ct2idx) == _CANONICAL_CT2IDX_SHA256
-    assert (
-        _ct2idx_ordering_sha256(dict(reversed(list(config.ct2idx.items()))))
-        == _CANONICAL_CT2IDX_SHA256
-    )
-
-    # Swapping two cell types' indices (same count) is rejected.
-    permuted = dict(config.ct2idx)
-    names = list(permuted)
-    permuted[names[0]], permuted[names[1]] = permuted[names[1]], permuted[names[0]]
-    with pytest.raises(ValueError, match="canonical v0.1.0 ordering"):
-        validate_checkpoint_vocabulary(legacy_ckpt, permuted, config.marker2idx)
+    ckpt = {"canonical_channels": list(config.marker2idx.keys())}
+    with pytest.raises(ValueError, match="does not bundle a ct2idx"):
+        validate_checkpoint_vocabulary(ckpt, config.ct2idx, config.marker2idx)
 
 
 def test_bundled_ct2idx_mismatch_is_rejected():
