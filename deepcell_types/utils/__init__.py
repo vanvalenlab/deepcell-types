@@ -10,6 +10,14 @@ companion; ``xgboost`` needs its ``.remap.json`` label-remap), so each
 baseline entry is a list of ``(filename, hash)`` tuples.
 """
 
+__all__ = [
+    "download_model",
+    "download_baseline_checkpoint",
+    "download_training_data",
+    "list_model_versions",
+    "list_baseline_names",
+]
+
 _latest = "2026-06-15"
 
 # Main model checkpoints. Values are ``(asset_filename, md5)``.
@@ -104,9 +112,11 @@ def list_model_versions():
     -------
     list of str
         Version identifiers accepted by :func:`download_model`. The first
-        element is the default (latest) version.
+        element is always the default (``_latest``) version that
+        ``download_model()`` resolves to with no argument.
     """
-    return sorted(_model_registry, reverse=True)
+    others = sorted((v for v in _model_registry if v != _latest), reverse=True)
+    return [_latest, *others]
 
 
 def download_baseline_checkpoint(name):
@@ -129,7 +139,10 @@ def download_baseline_checkpoint(name):
     -------
     list[pathlib.Path]
         Local paths to every file downloaded for this baseline, in the
-        order declared in ``_baseline_registry``.
+        order declared in ``_baseline_registry``. Note the asymmetry with
+        :func:`download_model`, which returns a single ``Path``: baselines
+        return a *list* because some ship companion files. Call
+        :func:`list_baseline_names` for the accepted identifiers.
     """
     from ._auth import fetch_data
 
@@ -141,6 +154,18 @@ def download_baseline_checkpoint(name):
         fetch_data(f"models/{filename}", cache_subdir="models", file_hash=md5)
         for filename, md5 in _baseline_registry[name]
     ]
+
+
+def list_baseline_names():
+    """Return the available baseline identifiers, sorted.
+
+    Returns
+    -------
+    list of str
+        Names accepted by :func:`download_baseline_checkpoint` (the
+        ``list``-returning counterpart to :func:`list_model_versions`).
+    """
+    return sorted(_baseline_registry)
 
 
 _training_data_asset_key = "data/deepcell-types/public_data_v1.1.zip"

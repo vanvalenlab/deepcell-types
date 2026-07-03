@@ -38,7 +38,7 @@ download_model()  # No argument == latest released version
 
 `predict()` does **not** require the TissueNet archive: the marker / cell-type
 registry it needs ships with the package as a small `vocab.json` snapshot, so
-`pip install deepcell-types` + `download_model()` is enough to run inference.
+the base install above + `download_model()` is enough to run inference.
 
 The (multi-GB) `tissuenet-v*.zarr` archive is only needed if you want the
 tissue→cell-type mapping or are reproducing the training pipeline. It is

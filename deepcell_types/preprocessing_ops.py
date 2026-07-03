@@ -21,6 +21,8 @@ from typing import Callable, List
 import numpy as np
 from scipy.ndimage import gaussian_filter, median_filter
 
+__all__ = ["apply_config", "make_preprocessor", "DEFAULT_CONFIG"]
+
 # Built-in inference percentile (mirrors DCTConfig.PERCENTILE_THRESHOLD).
 _DEFAULT_PERCENTILE = 99.9
 

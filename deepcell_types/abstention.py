@@ -39,6 +39,8 @@ from typing import Optional, Sequence
 import numpy as np
 
 
+__all__ = ["ABSTENTION_LABEL", "compute_iqr_fence", "apply_abstention"]
+
 ABSTENTION_LABEL = "Unknown"
 """Sentinel cell-type name used for cells flagged as abstained.
 

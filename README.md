@@ -173,6 +173,18 @@ All four paper comparison baselines are folded into `deepcell_types.baselines`
 and run via the unified runner `python -m deepcell_types.baselines <name>`.
 No submodules are required.
 
+> **Reproducing the paper comparison (fairness contract).** For an
+> apples-to-apples comparison, run every baseline *and* the main model with the
+> same class-balancing sampler and the same checkpoint-selection validation
+> split: `--class_balance dct` (the default) and
+> `--val_split_file splits/fov_split_valsubset.json` (the shared canonical
+> model-selection split, seed 42), then evaluate on the frozen test split
+> `splits/fov_split_test_current.json`. These are the settings behind the
+> reported numbers. Each baseline's own native sampler / self-carved val split
+> stays available (via `--class_balance`) for the appendix but is not the
+> headline comparison. Note these flags are opt-in, not defaults, so parity
+> depends on passing them consistently to every method.
+
 - **XGBoost** — XGBoost on mean-marker-intensity features.
 
   ```bash

@@ -41,3 +41,4 @@ Utilities
    download_baseline_checkpoint
    download_training_data
    list_model_versions
+   list_baseline_names
