@@ -195,7 +195,19 @@ def main(
         "stage2_pretrained_path": pretrained_path,
         "stage2_svd_embeddings_path": svd_embeddings_path,
     }
-    torch.save({"model": model.state_dict(), "config": out_config}, output)
+    torch.save(
+        {
+            "model": model.state_dict(),
+            "config": out_config,
+            # Bundle the canonical channel / cell-type registry (matching
+            # train.py) so inference validates the ordering this checkpoint was
+            # trained with, instead of falling back to the packaged-vocab SHA
+            # anchor meant for the legacy released checkpoint.
+            "canonical_channels": list(cfg.marker2idx.keys()),
+            "ct2idx": dict(cfg.ct2idx),
+        },
+        output,
+    )
     print(f"Saved deployable resMLP checkpoint to {output}", flush=True)
 
 
