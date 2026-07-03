@@ -17,9 +17,10 @@ Algorithm:
 
 Operating points:
 
-* ``k = 0.2`` (default; paper headline): chosen to widen macro_F1
-  separation over the strongest baseline; substantial macro_F1 lift on
-  kept cells.
+* ``k = 0.2`` (the paper-headline / eval-CLI operating point — NOT the
+  ``predict()`` default, which is ``None`` = abstention off): chosen to
+  widen macro_F1 separation over the strongest baseline; substantial
+  macro_F1 lift on kept cells.
 * ``k = 1.5`` (canonical Tukey): near-no-op (~0.23% abstained,
   +0.02pp macro).
 * ``k <= 0``: callers skip abstention. (Passing ``k = 0`` to

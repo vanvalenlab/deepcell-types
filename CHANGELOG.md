@@ -43,10 +43,10 @@ full canonical metadata. **Breaking changes** are noted below.
   depth-4 residual-MLP head trained on the frozen backbone via
   `scripts/retrain_head.py` (the two-stage sampler-off recipe). Checkpoints
   record `config["ct_head_arch"]` and `predict()` auto-detects a `resmlp` head
-  from the state dict. The legacy 3-layer MLP (`ct_head_arch="mlp"`) remains
-  the default, so existing v0.1.0 checkpoints load unchanged — `resmlp`
-  checkpoints have a different head shape and are NOT interchangeable with
-  `mlp` checkpoints.
+  from the state dict. The **released** v0.1.0 checkpoint keeps the legacy
+  3-layer MLP head (`ct_head_arch="mlp"`) and loads unchanged; fresh training
+  now defaults to `resmlp` (see the Changed entry below). `resmlp` and `mlp`
+  checkpoints have different head shapes and are NOT interchangeable.
 - Public top-level exports: `DCTConfig` and `PredictionResult` are now
   importable from `deepcell_types` directly.
 - `predict(return_probabilities=True)` returns a `PredictionResult`
@@ -172,9 +172,10 @@ full canonical metadata. **Breaking changes** are noted below.
   is now private to `deepcell_types.predict`, eliminating the name
   collision with the training-side `training.utils.PredLogger`.
 - **NumPy 2.0 compatibility** in the inference path: the per-channel
-  normalization used `np.ptp`, removed as a free function in NumPy 2.0,
-  so a fresh `pip install` (which pulls NumPy 2.x) raised `AttributeError`
-  on the first `predict()`. Replaced with `max - min`.
+  normalization called the `ndarray.ptp()` method, which NumPy 2.0 removed
+  (the free `np.ptp()` function is unaffected), so a fresh `pip install`
+  (which pulls NumPy 2.x) raised `AttributeError` on the first `predict()`.
+  Replaced with `max - min`, now used uniformly across the normalization paths.
 - `--resume_path` now validates `n_heads` and `n_celltypes` (in addition
   to `resnet_channels`/`d_model`) before restoring optimizer state. Neither
   is recoverable from tensor shapes, so a mismatch previously restored an

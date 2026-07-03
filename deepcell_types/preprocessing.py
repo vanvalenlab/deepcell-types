@@ -374,6 +374,8 @@ def patch_generator(raw, mask, mpp, dct_config, preprocess=None, channel_names=N
     raw, mask = _pad_cell(raw, mask, dct_config.CROP_SIZE)
 
     props = regionprops(mask, cache=False)
+    # Training-patch placeholder cell-type label; NOT the abstention sentinel
+    # (ABSTENTION_LABEL). predict() never surfaces this in its output.
     orig_ct = "Unknown"
 
     for prop in props:

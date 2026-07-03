@@ -63,7 +63,7 @@ from deepcell_types import predict
 
 # raw: numpy (C, H, W); mask: 2D label image; channel_names: list[str]
 # Pass the path returned by download_model() straight through to predict();
-# predict() also accepts a version stem or a filesystem path to a .pt file.
+# predict() also accepts a filesystem path to a .pt file directly.
 labels = predict(raw, mask, channel_names, mpp,
                  model_name=model_path, device="cuda:0")
 ```

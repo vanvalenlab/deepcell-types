@@ -93,8 +93,9 @@ class PatchDataset(IterableDataset):
                 )
             elif ch_name_standard in seen_markers:
                 # Two input channels resolving to the same canonical marker would
-                # share a marker2idx index; downstream the per-marker scatter is
-                # last-write-wins, so the duplicate must be dropped, not stacked.
+                # share a marker2idx index. The first such channel is kept; later
+                # duplicates are dropped here (not stacked) so the downstream
+                # per-marker scatter never has to arbitrate a collision.
                 channel_masking.append(True)
                 warnings.warn(
                     f"Channel {ch_name} resolves to marker {ch_name_standard!r}, "
