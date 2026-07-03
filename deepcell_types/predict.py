@@ -320,23 +320,26 @@ def _build_model(checkpoint, dct_config, device):
 
     # n_heads and compat_marker0_zero are NOT recoverable from tensor shapes
     # (MultiheadAttention params are head-count-independent; compat_marker0_zero
-    # is a pure-Python numerics flag). Read them from the checkpoint's saved
-    # config when present, else fall back to the v0.1.0 canonical defaults. A
-    # wrong head count loads without error (d_model is divisible by several head
-    # counts) but changes the numerics, so warn loudly when we are guessing
-    # rather than reading the value the checkpoint was trained with.
+    # is a pure-Python numerics flag), so they must come from the checkpoint
+    # config. Self-describing checkpoints (scripts/train.py, retrain_head.py)
+    # always bundle both. The sole exception is the legacy released v0.1.0
+    # checkpoint, which bundles no ct2idx (it is anchored to the canonical
+    # ordering validated above) and for which the canonical defaults ARE the
+    # trained values. So: require the keys for any self-describing (ct2idx-
+    # bundling) checkpoint and apply the canonical defaults only for the legacy
+    # released one, rather than silently guessing for arbitrary checkpoints.
+    ckpt_bundles_ct2idx = (
+        isinstance(checkpoint, dict) and checkpoint.get("ct2idx") is not None
+    )
     missing_arch_keys = [
         k for k in ("n_heads", "compat_marker0_zero") if k not in config
     ]
-    if missing_arch_keys:
-        warnings.warn(
-            "Checkpoint config does not record "
-            f"{', '.join(missing_arch_keys)}; falling back to the v0.1.0 "
-            "canonical defaults (n_heads=8, compat_marker0_zero=True). These "
-            "are not recoverable from the weights, so a checkpoint trained with "
-            "different values would load silently with wrong numerics. This is "
-            "expected for the released v0.1.0 checkpoint.",
-            stacklevel=3,
+    if missing_arch_keys and ckpt_bundles_ct2idx:
+        raise ValueError(
+            "Self-describing checkpoint (bundles its own ct2idx) is missing "
+            f"{', '.join(missing_arch_keys)} in its config. These are not "
+            "recoverable from the weights and a wrong value loads with silently "
+            "wrong numerics; scripts/train.py records them in every checkpoint."
         )
     n_heads = int(config.get("n_heads", 8))
     compat_marker0_zero = bool(config.get("compat_marker0_zero", True))

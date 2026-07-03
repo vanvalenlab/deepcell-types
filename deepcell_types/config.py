@@ -1,6 +1,5 @@
 import json
 import os
-import warnings
 from functools import lru_cache
 from pathlib import Path
 
@@ -18,51 +17,28 @@ def _read_json(path):
 
 def _archive_candidate_paths(explicit_path):
     # Resolution precedence: an explicit zarr_path wins, then the
-    # DEEPCELL_TYPES_ZARR_PATH env var, and finally a DATA_DIR fallback that
-    # auto-discovers a tissuenet-v*.zarr inside DATA_DIR (a convenience for the
-    # training/repro pipeline). If none yield an archive, the caller falls back
-    # to the packaged vocab.json. Each candidate is tagged with its source so
-    # _resolve_archive_path can warn when the (ambient, easily-unintended)
-    # DATA_DIR probe is what activated archive mode.
+    # DEEPCELL_TYPES_ZARR_PATH env var. If neither yields an archive, the caller
+    # falls back to the packaged vocab.json (archive-free inference).
     if explicit_path is not None:
-        yield Path(explicit_path).expanduser(), "explicit"
+        yield Path(explicit_path).expanduser()
 
     env_path = os.environ.get(DCTConfig.ARCHIVE_ENV_VAR)
     if env_path:
-        yield Path(env_path).expanduser(), "env"
-
-    data_dir = os.environ.get("DATA_DIR")
-    if data_dir:
-        data_dir = Path(data_dir).expanduser()
-        for name in DCTConfig.ARCHIVE_CANDIDATE_NAMES:
-            yield data_dir / name, "data_dir"
+        yield Path(env_path).expanduser()
 
 
 def _resolve_archive_path(explicit_path):
     """Resolve a TissueNet zarr archive, or return None to use the packaged vocab.
 
-    An explicitly-passed ``zarr_path`` that does not contain an archive is an
-    error (raises). When no archive is given/found and no explicit path was
-    requested, returns ``None`` so the caller can fall back to the packaged
-    vocabulary snapshot (archive-free inference).
-
-    ``DATA_DIR`` is a generic environment variable many unrelated tools set, so
-    when the archive is discovered via the ``$DATA_DIR`` probe (rather than an
-    explicit ``zarr_path`` or ``DEEPCELL_TYPES_ZARR_PATH``) a warning is emitted:
-    reading the vocabulary from an ambient archive instead of the packaged
-    ``vocab.json`` can silently change predictions.
+    Resolution consults an explicit ``zarr_path`` then the
+    ``DEEPCELL_TYPES_ZARR_PATH`` environment variable. An explicitly-passed
+    ``zarr_path`` that does not contain an archive is an error (raises). When no
+    archive is given/found and no explicit path was requested, returns ``None``
+    so the caller falls back to the packaged vocabulary snapshot (archive-free
+    inference).
     """
-    for candidate, source in _archive_candidate_paths(explicit_path):
+    for candidate in _archive_candidate_paths(explicit_path):
         if (candidate / "zarr.json").exists():
-            if source == "data_dir":
-                warnings.warn(
-                    f"Using the TissueNet archive auto-discovered under $DATA_DIR "
-                    f"({candidate}) for the marker/cell-type registry instead of the "
-                    f"packaged vocab.json. Set DEEPCELL_TYPES_ZARR_PATH (or pass "
-                    f"zarr_path=) to select an archive explicitly, or unset DATA_DIR "
-                    f"to use the packaged snapshot.",
-                    stacklevel=2,
-                )
             return candidate
     if explicit_path is not None:
         raise FileNotFoundError(
@@ -207,22 +183,16 @@ class DCTConfig:
     ----------
     zarr_path : str or Path, optional
         Path to a TissueNet zarr v3 archive. If ``None``, looks for the
-        ``DEEPCELL_TYPES_ZARR_PATH`` environment variable, then
-        ``$DATA_DIR/<candidate>`` for candidates in
-        ``DCTConfig.ARCHIVE_CANDIDATE_NAMES`` (emitting a warning when that
-        ``$DATA_DIR`` probe is what supplies the archive, since it can change
-        the vocabulary source unintentionally), and finally falls back to the
-        packaged ``vocab.json``. An explicitly-passed ``zarr_path`` that does
-        not contain an archive raises ``FileNotFoundError``. (The tissue->
-        cell-type mapping from :meth:`get_tct_mapping` is only available in
-        archive mode.)
+        ``DEEPCELL_TYPES_ZARR_PATH`` environment variable, and otherwise falls
+        back to the packaged ``vocab.json``. An explicitly-passed ``zarr_path``
+        that does not contain an archive raises ``FileNotFoundError``. (The
+        tissue->cell-type mapping from :meth:`get_tct_mapping` is only available
+        in archive mode.)
 
     Attributes
     ----------
     ARCHIVE_ENV_VAR : str
         Environment-variable name consulted when ``zarr_path`` is ``None``.
-    ARCHIVE_CANDIDATE_NAMES : tuple[str, ...]
-        Filename candidates probed under ``$DATA_DIR``.
     CHANNEL_ALIASES : dict[str, str]
         Canonical channel-name aliases applied during preprocessing.
 
@@ -233,11 +203,6 @@ class DCTConfig:
     """
 
     ARCHIVE_ENV_VAR = "DEEPCELL_TYPES_ZARR_PATH"
-    ARCHIVE_CANDIDATE_NAMES = (
-        "tissuenet-v10.zarr",
-        "tissuenet-v9.zarr",
-        "tissuenet-v8.zarr",
-    )
     CHANNEL_ALIASES = {
         "CgA": "CHGA",
         "DC-SIGN": "CD209",

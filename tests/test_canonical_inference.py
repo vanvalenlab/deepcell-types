@@ -194,26 +194,7 @@ def test_pred_logger_returns_results_ordered_by_cell_index(tmp_path):
 def test_predict_accepts_archive_backed_canonical_checkpoint_path(tmp_path):
     archive_path = _make_archive(tmp_path)
     config = DCTConfig(zarr_path=archive_path)
-    marker_embeddings = np.zeros((len(config.marker2idx), 8), dtype=np.float32)
-    model = create_model(
-        config,
-        marker_embeddings,
-        d_model=32,
-        n_heads=8,
-        n_layers=1,
-        resnet_base_channels=4,
-    )
-    checkpoint_path = tmp_path / "canonical.pt"
-    # Self-describing checkpoint (matches scripts/train.py): bundle the
-    # vocabulary so the ordering guard validates against it.
-    torch.save(
-        {
-            "model": model.state_dict(),
-            "ct2idx": dict(config.ct2idx),
-            "canonical_channels": list(config.marker2idx.keys()),
-        },
-        checkpoint_path,
-    )
+    ckpt_path = _build_checkpoint(config, tmp_path)
 
     raw = np.ones((1, 40, 40), dtype=np.float32)
     mask = np.zeros((40, 40), dtype=np.int32)
@@ -226,7 +207,7 @@ def test_predict_accepts_archive_backed_canonical_checkpoint_path(tmp_path):
             mask,
             ["CD45"],
             0.5,
-            model_name=str(checkpoint_path),
+            model_name=str(ckpt_path),
             device="cpu",
             batch_size=1,
             num_workers=0,
@@ -235,12 +216,45 @@ def test_predict_accepts_archive_backed_canonical_checkpoint_path(tmp_path):
 
     assert len(cell_types) == 1
     assert cell_types[0] in config.ct2idx
-    # The checkpoint records no n_heads / compat_marker0_zero, so the fallback
-    # warning fires and (stacklevel=3) points at this caller, not predict.py.
-    fallback_warning = next(
-        rec for rec in caught if "Checkpoint config does not record" in str(rec.message)
+    # A complete self-describing checkpoint records n_heads / compat_marker0_zero,
+    # so no arch-key warning/error is raised.
+    assert not any(
+        "n_heads" in str(rec.message) and "missing" in str(rec.message)
+        for rec in caught
     )
-    assert Path(fallback_warning.filename).name == Path(__file__).name
+
+
+def test_build_model_requires_arch_keys_for_self_describing_checkpoint(tmp_path):
+    """A checkpoint that bundles its own ct2idx (self-describing) must also
+    record n_heads / compat_marker0_zero: they are not recoverable from the
+    weights and a wrong value loads with silently wrong numerics. Only the
+    legacy released checkpoint (no bundled ct2idx) may fall back to the
+    canonical defaults.
+    """
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    marker_embeddings = np.zeros((len(config.marker2idx), 8), dtype=np.float32)
+    model = create_model(
+        config,
+        marker_embeddings,
+        d_model=32,
+        n_heads=8,
+        n_layers=1,
+        resnet_base_channels=4,
+    )
+    ckpt_path = tmp_path / "no_config.pt"
+    # ct2idx bundled (self-describing) but NO config -> missing arch keys.
+    torch.save(
+        {
+            "model": model.state_dict(),
+            "ct2idx": dict(config.ct2idx),
+            "canonical_channels": list(config.marker2idx.keys()),
+        },
+        ckpt_path,
+    )
+    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    with pytest.raises(ValueError, match="n_heads"):
+        _build_model(checkpoint, config, torch.device("cpu"))
 
 
 def _build_checkpoint(config, tmp_path, **overrides):
@@ -256,10 +270,12 @@ def _build_checkpoint(config, tmp_path, **overrides):
     )
     ckpt_path = tmp_path / "ckpt.pt"
     # Self-describing checkpoint (matches scripts/train.py): bundle the
-    # vocabulary so the ordering guard validates against it.
+    # vocabulary AND the non-shape-recoverable arch keys, so both the ordering
+    # guard and the n_heads/compat_marker0_zero requirement validate against it.
     torch.save(
         {
             "model": model.state_dict(),
+            "config": {"n_heads": 8, "compat_marker0_zero": True},
             "ct2idx": dict(config.ct2idx),
             "canonical_channels": list(config.marker2idx.keys()),
         },

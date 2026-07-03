@@ -132,11 +132,19 @@ full canonical metadata. **Breaking changes** are noted below.
   labeling any dropped cell `"Unknown"` (with a warning and a zero-probability
   row) so a positional zip against `np.unique(mask)` stays aligned. No change
   when no cell is dropped.
-- **The `$DATA_DIR` archive auto-discovery now warns** when it is what supplies
-  the marker/cell-type registry (instead of the packaged `vocab.json`), since
-  `DATA_DIR` is a generic env var and reading the vocabulary from an ambient
-  archive can silently change predictions. Pass `zarr_path=` / set
-  `DEEPCELL_TYPES_ZARR_PATH` to select an archive explicitly.
+- **Breaking: the `$DATA_DIR` archive auto-discovery is removed.** `predict()` /
+  `DCTConfig` resolve a TissueNet archive only from an explicit `zarr_path=` or
+  the `DEEPCELL_TYPES_ZARR_PATH` env var, then fall back to the packaged
+  `vocab.json`. Previously a generic `DATA_DIR` containing a `tissuenet-v*.zarr`
+  could silently switch the vocabulary source (and change predictions); the
+  `DCTConfig.ARCHIVE_CANDIDATE_NAMES` attribute is removed with it.
+- **Self-describing checkpoints must record `n_heads` / `compat_marker0_zero`.**
+  `predict()` now raises if a checkpoint bundles its own `ct2idx` but omits these
+  config keys — they are not recoverable from the weights and a wrong value
+  loads with silently wrong numerics — instead of guessing the canonical
+  defaults. `scripts/train.py` records both in every checkpoint; the legacy
+  released checkpoint (no bundled `ct2idx`) still loads via the canonical v0.1.0
+  defaults.
 - Inference now sizes its per-cell tensors to the number of channels actually
   present in the FOV instead of the global `MAX_NUM_CHANNELS`. Padding tokens are
   inert in the model, so predictions are unchanged; the per-channel ResNet and
