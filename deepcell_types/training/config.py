@@ -17,7 +17,6 @@ import pandas as pd
 from .archive import (  # noqa: F401  -- re-exported for backward compat
     _FINGERPRINT_CACHE,
     _FOV_KEYS_CACHE,
-    _patch_zarr_v3_alpha_metadata,
     _local_zarr_root_path,
     cached_archive_metadata_fingerprint,
     archive_metadata_fingerprint,

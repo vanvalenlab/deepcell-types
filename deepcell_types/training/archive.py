@@ -14,42 +14,10 @@ from typing import Dict, Iterable, List, Optional
 logger = logging.getLogger(__name__)
 
 
-def _patch_zarr_v3_alpha_metadata() -> None:
-    """Allow the installed zarr 3 alpha to read metadata emitted by newer writers."""
-    try:
-        from zarr.core.group import GroupMetadata
-        from zarr.core.metadata.v3 import ArrayV3Metadata
-    except ImportError:
-        return
-
-    if not getattr(GroupMetadata.from_dict, "_dct_compat", False):
-        group_from_dict = GroupMetadata.from_dict.__func__
-
-        def _group_from_dict_compat(cls, data):
-            data = data.copy()
-            data.pop("consolidated_metadata", None)
-            return group_from_dict(cls, data)
-
-        _group_from_dict_compat._dct_compat = True
-        GroupMetadata.from_dict = classmethod(_group_from_dict_compat)
-
-    if not getattr(ArrayV3Metadata.from_dict, "_dct_compat", False):
-        array_from_dict = ArrayV3Metadata.from_dict.__func__
-
-        def _array_from_dict_compat(cls, data):
-            data = data.copy()
-            storage_transformers = data.pop("storage_transformers", [])
-            if storage_transformers not in (None, []):
-                raise ValueError(
-                    f"unsupported storage_transformers={storage_transformers!r}"
-                )
-            return array_from_dict(cls, data)
-
-        _array_from_dict_compat._dct_compat = True
-        ArrayV3Metadata.from_dict = classmethod(_array_from_dict_compat)
-
-
-_patch_zarr_v3_alpha_metadata()
+# NOTE: a ``_patch_zarr_v3_alpha_metadata`` monkeypatch previously lived here to
+# let a zarr 3.0.0a* alpha parse the ``consolidated_metadata`` /
+# ``storage_transformers`` metadata keys emitted by newer writers. The pinned
+# ``zarr>=3.1`` (see pyproject) reads these natively, so the shim was removed.
 
 
 def _local_zarr_root_path(zarr_obj_or_path) -> Optional[Path]:

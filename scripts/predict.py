@@ -40,7 +40,9 @@ from deepcell_types.training.utils import (
 
 logger = logging.getLogger(__name__)
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
+DATA_DIR = Path(
+    os.environ.get("DEEPCELL_TYPES_ZARR_PATH") or os.environ.get("DATA_DIR", "")
+)
 
 
 def _checkpoint_state_dict(checkpoint):
@@ -499,10 +501,10 @@ def main(
     df = predlogger.to_dataframe()
 
     # ---------------- CT abstention (immediate, per-FOV) ----------------
-    # On by default with k=0.2 (published headline operating point); set
-    # --ct_abstention_k 0 or a negative value to disable. When disabled, the
-    # frame is written as-is (probability + metadata columns only, no
-    # predicted_ct) — matching the historical disabled-path output.
+    # Off by default (--ct_abstention_k 0): the paper headline is full-coverage
+    # with no abstention. Pass k > 0 to enable the historical IQR-fence ablation.
+    # When disabled, the frame is written as-is (probability + metadata columns
+    # only, no predicted_ct) — matching the historical disabled-path output.
     if ct_abstention_k is not None and ct_abstention_k > 0:
         from deepcell_types.abstention import apply_abstention
         from deepcell_types.training.metrics import hierarchical_macro_f1

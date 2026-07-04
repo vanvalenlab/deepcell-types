@@ -53,7 +53,9 @@ from deepcell_types.training.utils import (
 
 logger = logging.getLogger(__name__)
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
+DATA_DIR = Path(
+    os.environ.get("DEEPCELL_TYPES_ZARR_PATH") or os.environ.get("DATA_DIR", "")
+)
 
 
 def _git_commit():

@@ -23,7 +23,9 @@ from sklearn.model_selection import GroupShuffleSplit
 from .model import MAPSModel
 
 # Default data directory from environment
-DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
+DATA_DIR = Path(
+    os.environ.get("DEEPCELL_TYPES_ZARR_PATH") or os.environ.get("DATA_DIR", "")
+)
 
 from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
 from deepcell_types.training.baseline_features import (

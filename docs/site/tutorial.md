@@ -337,7 +337,8 @@ mapping explicit:
 cell. To enable it, pass a float `k`: `predict` then flags cells whose
 top-class probability falls below an IQR fence on the field-of-view's
 confidence distribution and rewrites their label to the sentinel `"Unknown"`.
-`ct_abstention_k=0.2` reproduces the paper's headline operating point:
+The paper's headline numbers are full-coverage (no abstention); `k=0.2` is a
+historical opt-in ablation, shown here only to illustrate how to enable it:
 
     cell_types = deepcell_types.predict(
         img, mask, chnames, mpp,

@@ -17,7 +17,9 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 # Default data directory from environment
-DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
+DATA_DIR = Path(
+    os.environ.get("DEEPCELL_TYPES_ZARR_PATH") or os.environ.get("DATA_DIR", "")
+)
 
 from deepcell_types.training.config import TissueNetConfig, CELL_TYPE_HIERARCHY
 from deepcell_types.training.dataset import create_dataloader

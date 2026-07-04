@@ -185,6 +185,24 @@ def _model_path(model_name):
     return Path.home() / ".deepcell" / "models" / f"{model_name}.pt"
 
 
+def _resolve_model_file(model_name):
+    """Resolve ``model_name`` to a local checkpoint path.
+
+    A registry version string (see :func:`list_model_versions`) or the
+    sentinel ``"latest"`` is fetched/cached via :func:`download_model`, so a
+    caller can pass e.g. ``model_name="2026-06-15"`` (or ``"latest"``) without
+    knowing the on-disk filename. Anything else is treated as a filesystem
+    path or a bare name under ``~/.deepcell/models`` (see :func:`_model_path`).
+    """
+    from .utils import download_model, list_model_versions
+
+    if model_name == "latest":
+        return download_model()
+    if model_name in list_model_versions():
+        return download_model(version=model_name)
+    return _model_path(model_name)
+
+
 def _state_dict(checkpoint):
     if isinstance(checkpoint, dict) and "model" in checkpoint:
         return checkpoint["model"]
@@ -314,7 +332,6 @@ def predict(
     *,
     model_name,
     device=None,
-    device_num=None,
     batch_size=256,
     num_workers=0,
     zarr_path=None,
@@ -342,16 +359,16 @@ def predict(
         The image resolution in microns-per-pixel. Improves prediction performance by
         removing scale variability.
     model_name : str
-        Name of the pre-trained model to use for inference. Models are searched for
-        at ``Path.home() / ".deepcell/models"``. A filesystem path to a ``.pt`` file
-        is also accepted.
+        Which pre-trained model to use. Accepts a registry version string
+        (see :func:`list_model_versions`, e.g. ``"2026-06-15"``) or the
+        sentinel ``"latest"``, either of which is downloaded and cached
+        automatically. A bare name is searched for at
+        ``Path.home() / ".deepcell/models"``, and a filesystem path to a
+        ``.pt`` file is also accepted.
     device : `torch.device` or `str`
         Which device to run inference on, e.g. ``"cpu"``, ``"cuda"``, or
         ``"cuda:0"`` to select a specific GPU. All arguments after `mpp` are
         keyword-only.
-    device_num : `torch.device` or `str`, optional
-        Deprecated alias for `device`, retained for backward compatibility. If
-        both are given, `device` takes precedence.
     batch_size : int, default=256
         Batch size to be used for inference. Larger `batch_size` will increase
         performance by increasing VRAM usage. Default value of 256 is conservative
@@ -377,9 +394,10 @@ def predict(
         cell and never relabels to ``"Unknown"``. When set to a float, the
         fence is ``Q1 - k*IQR`` on the per-FOV cell-wise max-softmax
         distribution and cells below it are relabelled to ``"Unknown"``
-        (``k=0.2`` reproduces the paper headline operating point; pass
-        ``return_probabilities=True`` to recover the pre-abstention labels and
-        the ``abstained`` mask). Has no effect on FOVs with fewer than 4 cells
+        (``k=0.2`` is a historical opt-in ablation; the paper headline is
+        full-coverage with no abstention). Pass ``return_probabilities=True``
+        to recover the pre-abstention labels and the ``abstained`` mask. Has
+        no effect on FOVs with fewer than 4 cells
         (the IQR is undefined).
     preprocess : callable, optional, default=None
         Custom per-FOV preprocessing hook. Called as
@@ -413,26 +431,22 @@ def predict(
 
     from .dataset import PatchDataset
 
-    if device_num is not None:
-        warnings.warn(
-            "predict(device_num=...) is deprecated; use device=... instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-    if device is None:
-        device = device_num
     if device is None:
         raise TypeError(
             "predict() requires a device, e.g. device='cpu' or device='cuda:0'."
         )
     device = torch.device(device)
 
-    model_file = _model_path(model_name)
+    model_file = _resolve_model_file(model_name)
     if not model_file.exists():
+        from .utils import list_model_versions
+
         raise FileNotFoundError(
-            f"Model {model_name!r} not found at {model_file}. Download it with "
-            "deepcell_types.utils.download_model(version=...), or pass a filesystem "
-            "path to a .pt file as model_name."
+            f"Model {model_name!r} not found at {model_file}. Pass a registry "
+            f"version string (one of {list_model_versions()}) or 'latest' to "
+            "auto-download the canonical checkpoint, call "
+            "deepcell_types.download_model(version=...) yourself, or pass a "
+            "filesystem path to a .pt file as model_name."
         )
     checkpoint = _torch_load_weights(model_file, device)
 

@@ -15,7 +15,9 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
+DATA_DIR = Path(
+    os.environ.get("DEEPCELL_TYPES_ZARR_PATH") or os.environ.get("DATA_DIR", "")
+)
 DEFAULT_ARCHIVE = DATA_DIR / "tissuenet.zarr" if DATA_DIR != Path("") else None
 
 KNOWN_REPAIR_MARKERS = {

@@ -32,6 +32,7 @@ from .preprocessing_ops import make_preprocessor as make_preprocessor
 from .preprocessing_ops import DEFAULT_CONFIG as DEFAULT_CONFIG
 from .utils import download_baseline_checkpoint as download_baseline_checkpoint
 from .utils import download_model as download_model
+from .utils import download_training_data as download_training_data
 from .utils import list_baseline_names as list_baseline_names
 from .utils import list_model_versions as list_model_versions
 
@@ -51,6 +52,7 @@ __all__ = [
     "DEFAULT_CONFIG",
     "download_model",
     "download_baseline_checkpoint",
+    "download_training_data",
     "list_model_versions",
     "list_baseline_names",
     "ABSTENTION_LABEL",

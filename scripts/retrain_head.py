@@ -36,7 +36,7 @@ from deepcell_types.training.dataset import create_dataloader
 from deepcell_types.model import create_model, ResidualMLPHead
 from deepcell_types.training.utils import BatchData, seed_everything
 
-DATA_DIR = os.environ.get("DATA_DIR", "")
+DATA_DIR = os.environ.get("DEEPCELL_TYPES_ZARR_PATH") or os.environ.get("DATA_DIR", "")
 
 
 def _extract_cls(model, loader, device, desc):

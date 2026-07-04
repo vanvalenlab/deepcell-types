@@ -45,27 +45,28 @@ def _synthetic_frame(
     )
 
 
-def test_default_k_0_2_abstention_is_on():
-    """``predict.py`` defaults ``--ct_abstention_k=0.2`` as the canonical
-    headline pipeline. The CSV-side guard runs ``apply_abstention`` whenever
-    ``k > 0``. We simulate the guard's behaviour: passing k=0.2 to a
-    synthetic 1000-cell frame must add the ``abstained`` column and produce
-    a non-trivial fraction of sentinel-marked cells (≈18% expected).
+def test_k_0_2_ablation_abstains_nontrivial_fraction():
+    """``k=0.2`` is the historical opt-in abstention ablation, NOT a default —
+    the CLI defaults to ``--ct_abstention_k=0`` and the paper headline is
+    full-coverage. The CSV-side guard runs ``apply_abstention`` whenever
+    ``k > 0``; we exercise that path: passing k=0.2 to a synthetic 1000-cell
+    frame must add the ``abstained`` column and produce a non-trivial fraction
+    of sentinel-marked cells (≈18% expected).
     """
     df = _synthetic_frame(1000, seed=99)
     out = apply_abstention(df.copy(), k=0.2)
     assert "abstained" in out.columns
     frac = out["abstained"].mean()
     assert 0.03 <= frac <= 0.30, (
-        f"k=0.2 (the default) should abstain ~18% of cells; got {frac * 100:.2f}%"
+        f"k=0.2 should abstain ~18% of cells; got {frac * 100:.2f}%"
     )
 
 
 def test_disable_abstention_with_nonpositive_k():
     """Passing k<=0 must be a no-op: no abstention applied, original frame
     returned unmodified. The CLI guard ``if k is not None and k > 0`` is the
-    mechanism; this test asserts the contract for end users who want to
-    opt out of the new default.
+    mechanism; this test asserts the contract for end users who leave
+    abstention off (the default).
     """
     df = _synthetic_frame(100)
     assert "abstained" not in df.columns

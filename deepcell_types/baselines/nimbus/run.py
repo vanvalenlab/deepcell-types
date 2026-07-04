@@ -22,7 +22,9 @@ from tqdm import tqdm
 from typing import Dict, List, Tuple, Optional, Any
 
 # Default data directory from environment
-DATA_DIR = Path(os.environ.get("DATA_DIR", ""))
+DATA_DIR = Path(
+    os.environ.get("DEEPCELL_TYPES_ZARR_PATH") or os.environ.get("DATA_DIR", "")
+)
 
 from deepcell_types.training.config import TissueNetConfig
 
