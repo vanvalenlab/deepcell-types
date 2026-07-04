@@ -164,3 +164,22 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# Local artifacts (datasets, model weights, inference outputs)
+/data/
+/model/
+/output/
+
+# uv lockfile — regenerated when switching between branches whose
+# pyproject.toml differs (e.g. master vs training).
+uv.lock
+
+# /deep-review outputs (local report artifacts)
+/reviews/
+audit/
+
+# Local agent planning / design artifacts (brainstorming specs, plans)
+docs/superpowers/
+
+# Per-project Claude Code settings (local-only, not for upstream)
+.claude/

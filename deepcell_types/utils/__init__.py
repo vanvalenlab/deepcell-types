@@ -1,53 +1,199 @@
-"""Utilities for model/data access."""
+"""Utilities for model / data access.
 
-_latest = "2025-06-09"
+The registries below pin checksums of the paper-release checkpoints;
+uploads to ``users.deepcell.org`` use the asset paths constructed below
+(``models/<filename>``). The hash algorithm is auto-detected from the
+digest length (32 hex → md5, 64 hex → sha256), so entries can be migrated
+to the stronger sha256 individually; new entries should pin sha256. Some
+baselines ship more than one file (e.g. ``maps`` needs its ``_stats.npz``
+companion; ``xgboost`` needs its ``.remap.json`` label-remap), so each
+baseline entry is a list of ``(filename, hash)`` tuples.
+"""
+
+__all__ = [
+    "download_model",
+    "download_baseline_checkpoint",
+    "download_training_data",
+    "list_model_versions",
+    "list_baseline_names",
+]
+
+_latest = "2026-06-15"
+
+# Main model checkpoints. Values are ``(asset_filename, md5)``.
+# The headline release is the two-stage residual-MLP model
+# (``2026-06-15``): a sampler-trained backbone, frozen, with a residual-MLP
+# cell-type head retrained on the natural class distribution. It loads via
+# stock ``predict.py`` (the resMLP head is auto-detected).
 _model_registry = {
-    # Original model version uploaded with preprint
-    "specific_ct_v0.1": "e499da92509821161be88a47237960a9",
-    # Versions released June 9th 2025. The public-data-only version is trained
-    # only on the subset of data that is publicly available (for reproducibility).
-    # Users are recommended to use the *non* public-data-only option.
-    "2025-06-09": "19b669675c06816414e8677f542ff542",
-    "2025-06-09_public-data-only": "19b669675c06816414e8677f542ff542",
+    "2026-06-15": (
+        "deepcell-types_2026-06-15_resmlp.pt",
+        "704616a1cfeb6f4718ffdb8d7ea64d65",
+    ),
+}
+
+# Baseline-model checkpoints. Values are lists of ``(asset_filename, md5)``.
+# Single-file baselines have a one-element list; ``maps`` and ``xgboost``
+# additionally ship a companion file required at inference.
+_baseline_registry = {
+    "cellsighter": [
+        (
+            "deepcell-types_baseline-cellsighter.pth",
+            "d06f8aeef485e7c40590cc35da80944b",
+        ),
+    ],
+    "maps": [
+        (
+            "deepcell-types_baseline-maps.pth",
+            "d2d1930d438c014c226202b8b7fa4a65",
+        ),
+        (
+            "deepcell-types_baseline-maps_stats.npz",
+            "e3a54e5a64d5376231abf1022b001a41",
+        ),
+    ],
+    "nimbus": [
+        (
+            "deepcell-types_baseline-nimbus.pt",
+            "47916fbebc3a58d5bee96a9289d157aa",
+        ),
+    ],
+    "xgboost": [
+        (
+            "deepcell-types_baseline-xgboost.json",
+            "00d110cc0e9f429b3014845f05a13060",
+        ),
+        (
+            "deepcell-types_baseline-xgboost.remap.json",
+            "0d94609aa7127672111797df920920b7",
+        ),
+    ],
 }
 
 
 def download_model(*, version=None):
-    """Download the deepcell-types model for local use.
+    """Download the deepcell-types model checkpoint for local use.
 
-    The model will be downloaded to ``$HOME/.deepcell/models``.
+    Downloaded files land in ``$HOME/.deepcell/models``.
 
     Parameters
     ----------
     version : str, optional
-       Which version of the model to download. Default is `None`, which results
-       in the latest (i.e. most-recently-released) version being downloaded.
+        Which checkpoint version to download. Defaults to ``None``,
+        which resolves to the most-recently-released version
+        (``_latest`` in this module).
+
+    Returns
+    -------
+    pathlib.Path
+        Local path to the downloaded checkpoint.
     """
     from ._auth import fetch_data
-
 
     version = version if version is not None else _latest
-    asset_key = f"models/deepcell-types_{version}.pt"
+    if version not in _model_registry:
+        raise ValueError(
+            f"Unknown model version {version!r}. "
+            f"Known versions: {sorted(_model_registry)}."
+        )
+    filename, md5 = _model_registry[version]
+    return fetch_data(f"models/{filename}", cache_subdir="models", file_hash=md5)
 
-    fetch_data(
-        asset_key, cache_subdir="models", file_hash=_model_registry.get(version)
-    )
+
+def list_model_versions():
+    """Return the available pre-trained model versions, newest first.
+
+    Returns
+    -------
+    list of str
+        Version identifiers accepted by :func:`download_model`. The first
+        element is always the default (``_latest``) version that
+        ``download_model()`` resolves to with no argument.
+    """
+    others = sorted((v for v in _model_registry if v != _latest), reverse=True)
+    return [_latest, *others]
 
 
-def download_training_data(*, version=None):
-    """Download the complete corpus of training data for the deepcell-types model.
+def download_baseline_checkpoint(name):
+    """Download a baseline-model checkpoint (and any companion files).
 
-    The compressed dataset will be downloaded to ``$HOME/.deepcell/data``.
+    Some baselines ship more than one file:
+
+    * ``maps``: ``.pth`` weights + ``_stats.npz`` feature-norm statistics.
+    * ``xgboost``: ``.json`` booster + ``.remap.json`` label remap.
+
+    Downloaded files land in ``$HOME/.deepcell/models``.
 
     Parameters
     ----------
-    version : str, optional
-       Which version of the training data to download. Default is `None`, which results
-       in the latest (i.e. most-recently-released) version being downloaded.
+    name : str
+        Baseline identifier. One of ``cellsighter``, ``maps``,
+        ``nimbus``, or ``xgboost``.
+
+    Returns
+    -------
+    list[pathlib.Path]
+        Local paths to every file downloaded for this baseline, in the
+        order declared in ``_baseline_registry``. Note the asymmetry with
+        :func:`download_model`, which returns a single ``Path``: baselines
+        return a *list* because some ship companion files. Call
+        :func:`list_baseline_names` for the accepted identifiers.
     """
     from ._auth import fetch_data
 
+    if name not in _baseline_registry:
+        raise ValueError(
+            f"Unknown baseline {name!r}. Known baselines: {sorted(_baseline_registry)}."
+        )
+    return [
+        fetch_data(f"models/{filename}", cache_subdir="models", file_hash=md5)
+        for filename, md5 in _baseline_registry[name]
+    ]
 
-    asset_key = f"data/deepcell-types/public_data_v1.1.zip"
 
-    fetch_data(asset_key, cache_subdir="data")
+def list_baseline_names():
+    """Return the available baseline identifiers, sorted.
+
+    Returns
+    -------
+    list of str
+        Names accepted by :func:`download_baseline_checkpoint` (the
+        ``list``-returning counterpart to :func:`list_model_versions`).
+    """
+    return sorted(_baseline_registry)
+
+
+_training_data_asset_key = "data/deepcell-types/public_data_v1.1.zip"
+
+
+def download_training_data(*, extract=False):
+    """Download the public training-data corpus for deepcell-types (v1.1).
+
+    The compressed archive is downloaded to ``$HOME/.deepcell/data``. The
+    asset is pinned to a single released version; older versions are not
+    available through this helper.
+
+    Note that the downloaded asset is a ``.zip`` and must be extracted
+    before the contained ``tissuenet-*.zarr`` archive can be used as
+    ``predict(zarr_path=...)`` / ``DEEPCELL_TYPES_ZARR_PATH``. Pass
+    ``extract=True`` to unpack it (via :func:`extract_archive`, which
+    rejects path-traversal members) and receive the extraction directory.
+
+    Parameters
+    ----------
+    extract : bool, default=False
+        If ``True``, extract the downloaded ``.zip`` next to itself and
+        return the extraction directory instead of the ``.zip`` path.
+
+    Returns
+    -------
+    pathlib.Path
+        Local path to the downloaded ``.zip`` (or, when ``extract=True``,
+        the directory it was extracted into).
+    """
+    from ._auth import extract_archive, fetch_data
+
+    zip_path = fetch_data(_training_data_asset_key, cache_subdir="data")
+    if extract:
+        return extract_archive(zip_path)
+    return zip_path

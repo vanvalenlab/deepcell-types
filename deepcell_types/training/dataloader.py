@@ -1,0 +1,437 @@
+"""DataLoader construction for training/validation.
+
+Extracted from ``deepcell_types.training.dataset`` for modularity. These
+symbols are re-exported from ``dataset`` for backward compatibility.
+
+Contains ``create_dataloader`` (the full keyword API). This module sits at the
+top of the training-data dependency chain: it imports transforms, samplers, and split helpers at module
+scope. ``dataset`` re-exports this module's symbols for back-compat, which would
+make a module-level ``from .dataset import ...`` here a circular import (it broke
+``import deepcell_types.training.dataloader`` when that ran before ``dataset``);
+the dataset core is therefore imported lazily inside ``create_dataloader``.
+"""
+
+import numpy as np
+import torch
+from torch.utils.data import DataLoader, random_split
+
+from .samplers import (
+    FOVGroupedSampler,
+    SequentialFOVGroupedSampler,
+    compute_sample_weights,
+    compute_sample_weights_equal,
+    subsample_indices_per_class,
+)
+from .splits import create_fov_splits, load_fov_splits
+from .transforms import (
+    AugmentedDataset,
+    DropOutChannels,
+    _Compose,
+    _RandomHorizontalFlip,
+    _RandomVerticalFlip,
+)
+
+
+def _carve_inner_val_fovs(dataset, train_indices, inner_val_ratio, inner_val_seed):
+    """Carve a FOV-grouped inner-validation set out of ``train_indices``.
+
+    Whole FOVs go to inner-train or inner-val (never split), so the inner-val
+    set used for baseline checkpoint selection is disjoint — at FOV
+    granularity — from inner-train (and therefore never selects on a cell that
+    also trained the model). Returns ``(inner_train_indices, inner_val_indices)``;
+    ``inner_val_indices`` is ``None`` when the carve is a no-op
+    (``inner_val_ratio`` <= 0 or no train cells), leaving ``train_indices``
+    unchanged so the main-model path is unaffected.
+    """
+    if not (inner_val_ratio and inner_val_ratio > 0.0 and len(train_indices) > 0):
+        return list(train_indices), None
+    fov_keys = [
+        (dataset.indices[i][6], dataset.indices[i][5]) for i in train_indices
+    ]  # (dataset_name, fov_name)
+    unique_fovs = sorted(set(fov_keys))
+    rng_iv = np.random.default_rng(inner_val_seed)
+    perm = rng_iv.permutation(len(unique_fovs))
+    n_iv = max(1, int(round(len(unique_fovs) * inner_val_ratio)))
+    n_iv = min(n_iv, len(unique_fovs) - 1)  # always keep ≥1 inner-train FOV
+    inner_val_fovs = {unique_fovs[p] for p in perm[:n_iv].tolist()}
+    inner_train_indices = [
+        i for i, k in zip(train_indices, fov_keys) if k not in inner_val_fovs
+    ]
+    inner_val_indices = [
+        i for i, k in zip(train_indices, fov_keys) if k in inner_val_fovs
+    ]
+    return inner_train_indices, inner_val_indices
+
+
+def create_dataloader(
+    zarr_dir,
+    dct_config,
+    skip_datasets=None,
+    keep_datasets=None,
+    batch_size=256,
+    num_dropout_channels=8,
+    num_workers=16,
+    only_test=False,
+    keep_fovs=None,
+    lengths=None,
+    use_fov_splits=True,
+    train_ratio=0.8,
+    seed=42,
+    use_weighted_sampler=True,
+    split_file=None,
+    skip_distance_transform=False,
+    persistent_workers=False,
+    max_samples_per_epoch=None,
+    max_val_samples=None,
+    multiprocessing_context=None,
+    pin_memory=False,
+    numpy_cache_max_bytes=None,
+    fov_grouped_train: bool = False,
+    inner_val_ratio: float = 0.0,
+    inner_val_seed: int = 42,
+    crop_size=None,
+    output_size=None,
+    mask_intensities=True,
+    train_transform=None,
+    split_strict=True,
+    class_balance=None,
+    size_data=None,
+):
+    """Create dataloaders with factored representation.
+
+    Args:
+        zarr_dir: Path to tissuenet zarr archive
+        dct_config: TissueNetConfig instance
+        skip_datasets: Dataset keys to skip
+        keep_datasets: Dataset keys to keep
+        batch_size: Batch size
+        num_dropout_channels: Channels to drop during training
+        num_workers: DataLoader workers
+        only_test: If True, return only test loader
+        keep_fovs: FOV names to keep (for prediction on specific FOVs)
+        lengths: Deprecated - use use_fov_splits instead
+        use_fov_splits: Use FOV-level splits (default True, no leakage)
+        train_ratio: Fraction for training (default 0.8)
+        seed: Random seed
+        use_weighted_sampler: Use sqrt-frequency WeightedRandomSampler (default True).
+            Legacy boolean; only consulted when ``class_balance`` is None.
+        class_balance: Explicit class-balancing scheme, overrides
+            ``use_weighted_sampler`` when set. One of:
+            ``"sqrt"`` (sqrt-inverse-frequency, 1000-count floor — DCT default),
+            ``"equal"`` (full-inverse-frequency / equal-proportion — faithful
+            CellSighter ``define_sampler``), or ``"none"`` (uniform). Default
+            None preserves the ``use_weighted_sampler`` behaviour.
+        size_data: Faithful CellSighter ``subsample_const_size`` cap. When set
+            (and ``class_balance="equal"``), the TRAIN pool is subsampled to at
+            most ``size_data`` cells per class before sampler construction
+            (val/test untouched). Default None disables the cap.
+        split_file: Path to pre-computed FOV split JSON (overrides use_fov_splits/seed)
+        skip_distance_transform: Skip distance transform in patch extraction
+        persistent_workers: Keep DataLoader workers alive between epochs
+        max_samples_per_epoch: Cap the number of samples drawn per epoch by the
+            WeightedRandomSampler. Useful for large datasets where iterating
+            over all samples per epoch is impractical (e.g. 7M samples).
+            If None (default), draws len(train_indices) samples per epoch.
+        max_val_samples: Cap the validation set to this many samples (fixed random subset,
+            seeded for reproducibility). Useful to keep validation fast. If None (default),
+            evaluates all val cells.
+        pin_memory: Pin DataLoader memory for faster CPU→GPU transfers (default False)
+        numpy_cache_max_bytes: Optional per-worker numpy cache budget. If None,
+            defaults to a 2 GiB total budget divided across workers.
+        inner_val_ratio: If > 0 (and FOV splits are used), carve a FOV-grouped
+            inner-validation set out of the TRAIN indices for leakage-free model
+            selection. ``train_loader`` then iterates only the inner-train cells,
+            and ``metadata["inner_val_loader"]`` holds a DataLoader over the
+            held-out inner-val cells. The reported ``val_loader`` is unchanged.
+            Default 0.0 is a no-op (main-model training path is unaffected). Used
+            by the MAPS / CellSighter baselines so the reported set never drives
+            checkpoint selection.
+        inner_val_seed: Seed for the FOV-grouped inner-val carve (default 42).
+
+    Returns:
+        train_loader, val_loader, metadata dict
+        (train_loader is None if only_test=True). When inner_val_ratio > 0,
+        metadata["inner_val_loader"] is the held-out inner-val DataLoader.
+    """
+    # Imported lazily to avoid a circular import: ``dataset`` re-exports this
+    # module's symbols at its bottom, so a module-level import here would fail
+    # whenever ``dataloader`` is imported before ``dataset``.
+    from .dataset import FullImageDataset
+
+    # Default train-time spatial augmentation = H/V flips (DCT/MAPS behavior).
+    # Callers (e.g. the faithful CellSighter baseline) can pass a richer
+    # transform that operates on the same (C_max + 3, H, W) combined tensor.
+    if train_transform is None:
+        train_transform = _Compose(
+            [
+                _RandomHorizontalFlip(),
+                _RandomVerticalFlip(),
+            ]
+        )
+
+    dropout_transform = DropOutChannels(num_dropout_channels)
+
+    if numpy_cache_max_bytes is None:
+        total_cache_budget = 2 * 1024**3
+        if num_workers > 0:
+            numpy_cache_max_bytes = max(
+                128 * 1024**2,
+                total_cache_budget // num_workers,
+            )
+        else:
+            numpy_cache_max_bytes = total_cache_budget
+
+    # Only use persistent_workers when num_workers > 0
+    pw = persistent_workers and num_workers > 0
+
+    dataset = FullImageDataset(
+        zarr_dir,
+        dct_config=dct_config,
+        skip_datasets=skip_datasets,
+        keep_datasets=keep_datasets,
+        transform=None,
+        keep_fovs=keep_fovs,
+        skip_distance_transform=skip_distance_transform,
+        numpy_cache_max_bytes=numpy_cache_max_bytes,
+        crop_size=crop_size,
+        output_size=output_size,
+        mask_intensities=mask_intensities,
+    )
+
+    metadata = dataset.metadata
+
+    if only_test:
+        test_loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            persistent_workers=pw,
+            pin_memory=pin_memory,
+        )
+        return None, test_loader, metadata
+
+    if split_file is not None:
+        use_fov_splits = True  # split_file implies FOV splits
+
+    if use_fov_splits:
+        if split_file is not None:
+            train_indices, val_indices = load_fov_splits(
+                dataset, split_file, strict=split_strict
+            )
+        else:
+            train_indices, val_indices = create_fov_splits(
+                dataset, train_ratio=train_ratio, seed=seed
+            )
+
+        # Optionally carve a FOV-grouped inner-validation set out of the TRAIN
+        # indices, for callers that must not select on the reported (val) set
+        # — e.g. the MAPS / CellSighter baselines. The carve is at FOV
+        # granularity (whole FOVs go to inner-train or inner-val, never split),
+        # mirroring the XGBoost baseline's GroupShuffleSplit early-stopping set.
+        # Default inner_val_ratio=0.0 is a no-op, so the main-model training
+        # path is unchanged.
+        # Train only on inner-train; the sampler/loaders below all key off
+        # ``train_indices``, so reassigning here is sufficient. Default
+        # inner_val_ratio=0.0 is a no-op (returns train_indices unchanged, None).
+        # NOTE: carve FIRST, then apply the scheme + size_data cap below, so the
+        # cap thins only the inner-TRAIN pool while inner-val is drawn from the
+        # full FOV pool (selection set is never subsampled).
+        train_indices, inner_val_indices = _carve_inner_val_fovs(
+            dataset, train_indices, inner_val_ratio, inner_val_seed
+        )
+
+        # Resolve the class-balancing scheme. Explicit ``class_balance`` wins;
+        # otherwise fall back to the legacy ``use_weighted_sampler`` boolean
+        # (True -> sqrt-inverse-frequency, False -> uniform/none).
+        if class_balance is not None:
+            scheme = class_balance
+        else:
+            scheme = "sqrt" if use_weighted_sampler else "none"
+
+        # Faithful CellSighter ``size_data`` cap (``subsample_const_size``): cap
+        # the TRAIN pool to <= size_data cells/class BEFORE building the subset
+        # and sampler, so over-represented classes lose per-epoch diversity
+        # while rare classes are untouched. Only meaningful for the
+        # equal-proportion scheme; val/test are never capped.
+        if scheme == "equal" and size_data is not None and len(train_indices) > 0:
+            train_indices = subsample_indices_per_class(
+                dataset, train_indices, size_data, seed=seed
+            )
+
+        train_subset = torch.utils.data.Subset(dataset, train_indices)
+
+        if max_val_samples is not None and max_val_samples < len(val_indices):
+            rng = np.random.default_rng(seed)
+            val_indices = rng.choice(
+                val_indices, size=max_val_samples, replace=False
+            ).tolist()
+        val_subset = torch.utils.data.Subset(dataset, val_indices)
+
+        # Wrap train with augmentation
+        train_dataset = AugmentedDataset(
+            train_subset, train_transform, dropout_transform
+        )
+
+        # Weighted sampler for class balance
+        sampler = None
+        shuffle = True
+        if scheme in ("sqrt", "equal") and len(train_indices) > 0:
+            if scheme == "equal":
+                # Full-inverse-frequency (equal-proportion) weights — faithful
+                # CellSighter ``define_sampler``. Pairs with the size_data cap.
+                weights = compute_sample_weights_equal(dataset, train_indices)
+            else:
+                # sqrt-inverse-frequency with a 1000-count floor (DCT default).
+                weights = compute_sample_weights(dataset, train_indices)
+            num_samples = len(weights)
+            if max_samples_per_epoch is not None:
+                num_samples = min(num_samples, max_samples_per_epoch)
+            sampler = FOVGroupedSampler(
+                weights,
+                num_samples,
+                dataset.indices,
+                train_indices,
+                replacement=True,
+                seed=seed,
+            )
+            shuffle = False
+        elif len(train_indices) > 0 and (
+            fov_grouped_train or max_samples_per_epoch is not None
+        ):
+            if max_samples_per_epoch is not None:
+                # Ablation (use_weighted_sampler=False) WITH a per-epoch budget:
+                # draw `max_samples_per_epoch` cells UNIFORMLY (replacement) so
+                # the epoch budget matches the weighted-sampler arm exactly.
+                # This isolates the class-balancing effect from epoch size — the
+                # weighted arm and this arm see the same number of cells/epoch,
+                # differing only in the draw distribution (balanced vs uniform).
+                uniform_weights = torch.ones(len(train_indices))
+                sampler = FOVGroupedSampler(
+                    uniform_weights,
+                    min(len(train_indices), max_samples_per_epoch),
+                    dataset.indices,
+                    train_indices,
+                    replacement=True,
+                    seed=seed,
+                )
+                shuffle = False
+            else:
+                # One-pass uniform sampler that preserves FOV cache locality.
+                # `shuffle=True` over a multi-thousand-FOV archive forces every
+                # worker to cold-load a fresh ~1 GB FOV per cell, which on spawn
+                # workers manifests as the documented `--learn_mp_thresholds`
+                # deadlock. Same locality guarantee as `FOVGroupedSampler`, but
+                # with uniform coverage instead of weighted draws.
+                sampler = SequentialFOVGroupedSampler(
+                    dataset.indices,
+                    train_indices,
+                    seed=seed,
+                )
+                shuffle = False
+
+        mp_ctx = multiprocessing_context if num_workers > 0 else None
+        # Wire per-worker RNG seeding so augmentation (`_RandomHorizontalFlip`,
+        # `DropOutChannels`) is reproducible across runs with the same --seed.
+        # Without this, two runs with --seed 42 differ by ~0.1-0.3pp macro
+        # because PyTorch's default per-worker seed varies per process.
+        from deepcell_types.training.utils import make_generator, worker_init_fn
+
+        train_gen = make_generator(seed)
+        val_gen = make_generator(seed + 1)
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            sampler=sampler,
+            num_workers=num_workers,
+            prefetch_factor=4
+            if num_workers > 0
+            else None,  # 4 vs 2: deeper queue reduces GPU starvation
+            drop_last=True,
+            persistent_workers=pw,
+            multiprocessing_context=mp_ctx,
+            pin_memory=pin_memory,
+            generator=train_gen,
+            worker_init_fn=worker_init_fn,
+        )
+        val_loader = DataLoader(
+            val_subset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            prefetch_factor=2 if num_workers > 0 else None,
+            persistent_workers=pw,
+            multiprocessing_context=mp_ctx,
+            pin_memory=pin_memory,
+            generator=val_gen,
+            worker_init_fn=worker_init_fn,
+        )
+        if inner_val_indices is not None:
+            inner_val_gen = make_generator(seed + 2)
+            inner_val_loader = DataLoader(
+                torch.utils.data.Subset(dataset, inner_val_indices),
+                batch_size=batch_size,
+                shuffle=False,
+                num_workers=num_workers,
+                prefetch_factor=2 if num_workers > 0 else None,
+                persistent_workers=pw,
+                multiprocessing_context=mp_ctx,
+                pin_memory=pin_memory,
+                generator=inner_val_gen,
+                worker_init_fn=worker_init_fn,
+            )
+            metadata["inner_val_loader"] = inner_val_loader
+            metadata["num_inner_val"] = len(inner_val_indices)
+    else:
+        # Legacy: cell-level random split
+        if lengths is None:
+            lengths = [0.8, 0.2]
+        random_generator = torch.Generator().manual_seed(seed)
+        train_subset, val_subset = random_split(
+            dataset, lengths, generator=random_generator
+        )
+
+        if max_val_samples is not None and max_val_samples < len(val_subset):
+            rng = np.random.default_rng(seed)
+            sub_indices = rng.choice(
+                len(val_subset), size=max_val_samples, replace=False
+            ).tolist()
+            val_subset = torch.utils.data.Subset(val_subset, sub_indices)
+
+        train_dataset = AugmentedDataset(
+            train_subset, train_transform, dropout_transform
+        )
+
+        from deepcell_types.training.utils import make_generator, worker_init_fn
+
+        train_gen = make_generator(seed)
+        val_gen = make_generator(seed + 1)
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            prefetch_factor=4 if num_workers > 0 else None,
+            drop_last=True,
+            persistent_workers=pw,
+            pin_memory=pin_memory,
+            generator=train_gen,
+            worker_init_fn=worker_init_fn,
+        )
+        val_loader = DataLoader(
+            val_subset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            prefetch_factor=2 if num_workers > 0 else None,
+            persistent_workers=pw,
+            generator=val_gen,
+            worker_init_fn=worker_init_fn,
+            pin_memory=pin_memory,
+        )
+
+    metadata["num_train"] = len(train_subset) if hasattr(train_subset, "__len__") else 0
+    metadata["num_val"] = len(val_subset) if hasattr(val_subset, "__len__") else 0
+
+    return train_loader, val_loader, metadata
