@@ -35,6 +35,8 @@ from .utils import download_model as download_model
 from .utils import download_training_data as download_training_data
 from .utils import list_baseline_names as list_baseline_names
 from .utils import list_model_versions as list_model_versions
+from .utils import list_supported_cell_types as list_supported_cell_types
+from .utils import list_supported_markers as list_supported_markers
 
 try:
     __version__ = version("deepcell-types")
@@ -55,6 +57,8 @@ __all__ = [
     "download_training_data",
     "list_model_versions",
     "list_baseline_names",
+    "list_supported_markers",
+    "list_supported_cell_types",
     "ABSTENTION_LABEL",
     "__version__",
 ]

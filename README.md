@@ -68,6 +68,9 @@ labels = predict(raw, mask, channel_names, mpp,
                  model_name=model_path, device="cuda:0")
 ```
 
+No CUDA-capable GPU? Pass `device="cpu"` instead — inference works the same,
+just slower.
+
 For a complete example of the cell-type inference pipeline, check out
 the [tutorial](https://vanvalenlab.github.io/deepcell-types/site/tutorial.html).
 

@@ -116,6 +116,17 @@ and select `Open with -> Jupytext notebook`.
    recognized channels are whatever the selected archive exposes in its root
    `attrs.all_standardized_channels`. Either way, markers not found in the
    active registry are ignored at inference time.
+
+   To check whether your marker panel overlaps the registry before
+   downloading a checkpoint, call `list_supported_markers()` (and
+   `list_supported_cell_types()` for the recognized cell-type labels):
+
+   ```python
+   import deepcell_types
+
+   deepcell_types.list_supported_markers()
+   ```
+
    There are two ways to add support for additional channels:
 
    - To add a new alias for a marker name that is currently supported, add the
