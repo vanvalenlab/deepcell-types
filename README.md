@@ -228,8 +228,9 @@ No submodules are required.
   title={Generalized cell phenotyping for spatial proteomics with language-informed vision models},
   author={Wang, Xuefei and Dilip, Rohit and Bussi, Yuval and Brown, Caitlin and Pradhan, Elora and Jain, Yashvardhan and Yu, Kevin and Li, Shenyi and Abt, Martin and Borner, Katy and others},
   journal={bioRxiv},
-  pages={2024--11},
-  year={2024},
-  publisher={Cold Spring Harbor Laboratory}
+  pages={2026--07},
+  year={2026},
+  publisher={Cold Spring Harbor Laboratory},
+  url={https://www.biorxiv.org/content/10.1101/2024.11.02.621624v4}
 }
 ```
