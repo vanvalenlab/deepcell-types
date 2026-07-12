@@ -88,6 +88,55 @@ def load_matching_state_dict(model, state_dict):
     return loaded
 
 
+def resume_onecycle_schedule(scheduler, resume_state, *, logger=None):
+    """Restore a ``OneCycleLR``'s position from a checkpoint on ``--resume_path``.
+
+    ``scheduler`` must already be constructed with the CURRENT run's
+    ``total_steps`` (i.e. derived from the current ``--epochs``). ``resume_state``
+    is the raw ``scheduler.state_dict()`` saved in the checkpoint being resumed.
+
+    Trap this guards against: ``torch.optim.lr_scheduler.LRScheduler.load_state_dict``
+    is just ``self.__dict__.update(state_dict)``. Calling
+    ``scheduler.load_state_dict(resume_state)`` unconditionally therefore
+    overwrites the freshly-built scheduler's ``total_steps`` (and the derived
+    ``_schedule_phases``) with the CHECKPOINTED run's values — so resuming with
+    a larger ``--epochs`` than the original run silently keeps training on the
+    old, shorter schedule instead of the new, longer one.
+
+    If the checkpoint's ``total_steps`` matches ``scheduler.total_steps`` (i.e.
+    ``--epochs`` didn't change), the checkpoint is loaded verbatim, matching
+    prior behavior exactly. Otherwise the freshly-built scheduler (already at
+    the new total_steps) is kept and fast-forwarded by replaying ``.step()``
+    the same number of times the checkpointed run had already taken, so the LR
+    position is preserved but the remaining schedule reflects the new
+    total_steps.
+    """
+    log = logger or globals()["logger"]
+    resumed_total_steps = resume_state.get("total_steps")
+    resumed_step_count = resume_state.get("last_epoch", 0)
+    if resumed_total_steps == scheduler.total_steps:
+        scheduler.load_state_dict(resume_state)
+        return
+    log.warning(
+        "Resumed OneCycleLR total_steps changed (%s -> %s, likely from a "
+        "changed --epochs); rebuilding the schedule at the new length and "
+        "fast-forwarding to step %s instead of loading the checkpoint's "
+        "schedule verbatim.",
+        resumed_total_steps,
+        scheduler.total_steps,
+        resumed_step_count,
+    )
+    if resumed_step_count > scheduler.total_steps:
+        raise ValueError(
+            f"Checkpoint already completed {resumed_step_count} scheduler "
+            f"steps, which exceeds the new total_steps={scheduler.total_steps} "
+            "implied by the current --epochs. Increase --epochs so the new "
+            "schedule covers at least the already-completed steps."
+        )
+    for _ in range(resumed_step_count):
+        scheduler.step()
+
+
 def _feature_cache_metadata(
     zarr_dir: str,
     dct_config,

@@ -34,6 +34,7 @@ from deepcell_types.training.utils import (
     BatchData,
     seed_everything,
     load_matching_state_dict,
+    resume_onecycle_schedule,
 )
 
 logger = logging.getLogger(__name__)
@@ -261,7 +262,13 @@ def main(
             if "recon_head" in resume_ckpt:
                 recon_head.load_state_dict(resume_ckpt["recon_head"])
             optimizer.load_state_dict(resume_ckpt["optimizer"])
-            scheduler.load_state_dict(resume_ckpt["scheduler"])
+            # See resume_onecycle_schedule() docstring: a naive
+            # scheduler.load_state_dict() here would silently overwrite
+            # total_steps with the checkpointed run's value, discarding an
+            # increased --epochs.
+            resume_onecycle_schedule(
+                scheduler, resume_ckpt["scheduler"], logger=logger
+            )
             scaler.load_state_dict(resume_ckpt["scaler"])
             start_epoch = int(resume_ckpt["epoch"]) + 1
             best_val_loss = float(resume_ckpt.get("best_val_loss", float("inf")))

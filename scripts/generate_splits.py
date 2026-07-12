@@ -28,6 +28,11 @@ Usage (to reproduce stage 1 from a local archive):
 The default stratifies by (modality, tissue). Single-FOV strata are
 forced to train (cannot evaluate held-out FOVs from a one-FOV bucket).
 Empty `--stratify_by ""` reproduces the older global random shuffle.
+
+Pass `--group-by-patient` to additionally keep every FOV from the same
+patient (parsed from the known "...Patient<N>..." naming convention) on the
+same side of the split — off by default, so existing committed split files
+are reproduced unchanged unless this is explicitly requested.
 """
 
 import os
@@ -67,6 +72,18 @@ DATA_DIR = Path(
         "(legacy global shuffle, used by v9 splits). Supported keys: modality, tissue."
     ),
 )
+@click.option(
+    "--group-by-patient",
+    is_flag=True,
+    default=False,
+    help=(
+        "Group FOVs sharing a parsed patient id (the known '...Patient<N>...' "
+        "naming convention, e.g. the McCaffrey TB MIBI dataset) so a single "
+        "patient's FOVs never straddle train/val. FOVs with no parseable "
+        "patient id keep the existing per-FOV behavior. Default off, so "
+        "existing split files are reproduced unchanged unless this is passed."
+    ),
+)
 def main(
     zarr_dir,
     output,
@@ -75,6 +92,7 @@ def main(
     skip_datasets,
     keep_datasets,
     stratify_by,
+    group_by_patient,
 ):
     """Generate a canonical FOV split file."""
     dct_config = TissueNetConfig(zarr_dir)
@@ -96,6 +114,7 @@ def main(
         train_ratio=train_ratio,
         seed=seed,
         stratify_by=stratify_keys,
+        group_by_patient=group_by_patient,
     )
 
     print(f"Total samples: {len(dataset)}")
