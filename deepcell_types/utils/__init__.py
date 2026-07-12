@@ -60,7 +60,7 @@ def download_model(*, version=None):
 
 
 def list_model_versions():
-    """Return the available pre-trained model versions, newest first.
+    """Return the available pre-trained model versions, default first.
 
     Returns
     -------
