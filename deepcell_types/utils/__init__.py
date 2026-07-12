@@ -1,14 +1,19 @@
 """Utilities for model / data access.
 
-The registries below pin checksums of the paper-release checkpoints;
-uploads to ``users.deepcell.org`` use the asset paths constructed below
-(``models/<filename>``). The hash algorithm is auto-detected from the
-digest length (32 hex → md5, 64 hex → sha256), so entries can be migrated
-to the stronger sha256 individually; new entries should pin sha256. Some
-baselines ship more than one file (e.g. ``maps`` needs its ``_stats.npz``
-companion; ``xgboost`` needs its ``.remap.json`` label-remap), so each
-baseline entry is a list of ``(filename, hash)`` tuples.
+Model, baseline, and training-data downloads are delegated to the shared
+``deepcell-auth`` client, whose bundled ``asset_manifest.yaml`` is the single
+source of truth for asset keys and integrity hashes. The functions here are
+thin adapters that preserve this package's public API (return a ``Path`` /
+``list[Path]`` and keep the friendly Nimbus pointer) on top of
+``deepcell_auth.download_deepcell_types_*``. Because those functions return
+``None``, the downloaded file is recovered by globbing the ``~/.deepcell``
+cache (mirroring ``torch-mesmer``).
+
+The version / baseline-name lists below are mirrored statically from the
+manifest; ``tests/test_download_delegation.py`` asserts they stay in sync.
 """
+
+from pathlib import Path
 
 __all__ = [
     "download_model",
@@ -21,117 +26,49 @@ __all__ = [
     "resolve_supported_marker",
 ]
 
-_latest = "2026-06-15"
-
-# Main model checkpoints. Values are ``(asset_filename, md5)``.
-# Two released residual-MLP checkpoints share the current vocabulary (51 cell
-# types, 278 markers) and load via stock ``predict.py`` (the resMLP head is
-# auto-detected):
-#   - ``2026-06-15`` (default): the from-scratch resMLP (paper Fig-3c headline).
-#   - ``2026-06-23``: the pretrain -> finetune (SSL) resMLP arm.
-#
-# Each md5 tracks the vocab-bundled asset (carries ``ct2idx`` +
-# ``canonical_channels`` so ``validate_checkpoint_vocabulary`` can verify
-# ordering). The original un-bundled assets predated the guard and raised
-# ``ValueError: ... does not bundle a ct2idx`` on every ``predict()`` call;
-# they were re-packaged with ``scripts/repackage_release_checkpoint.py``. Each
-# bundled asset must be uploaded at its filename below before its md5 is served.
-_model_registry = {
-    "2026-06-15": (
-        "deepcell-types_2026-06-15_resmlp.pt",
-        "b819a7e0b177ad5330394eab3c6c7ad8",
-    ),
-    "2026-06-23": (
-        "deepcell-types_2026-06-23_resmlp_ptft.pt",
-        "402e94c103c5e489a57433cd107009d3",
-    ),
-}
-
-# Baseline-model checkpoints. Values are lists of ``(asset_filename, md5)``.
-# Single-file baselines have a one-element list; ``maps`` and ``xgboost``
-# additionally ship a companion file required at inference. The md5s track the
-# 2026-06-30 DCT-sampler retrains -- the release-of-record that produced the
-# published baseline prediction CSVs and headline numbers.
-#
-# Nimbus is intentionally absent: it is inference-only with pretrained weights
-# produced and distributed upstream (angelolab/Nimbus-Inference), which this
-# project does not redistribute. ``download_baseline_checkpoint("nimbus")``
-# raises with a pointer to the official source instead (see below).
-_baseline_registry = {
-    "cellsighter": [
-        (
-            "deepcell-types_baseline-cellsighter.pth",
-            "c5a105fb044ad82c82817a32aabbae7c",
-        ),
-    ],
-    "maps": [
-        (
-            "deepcell-types_baseline-maps.pth",
-            "1ad5e30ceaccfdb91050b663099258fb",
-        ),
-        (
-            "deepcell-types_baseline-maps_stats.npz",
-            "1f462d0c8bf531af73026d415d52728d",
-        ),
-    ],
-    "xgboost": [
-        (
-            "deepcell-types_baseline-xgboost.json",
-            "9e51cf1af8c6c43b00871a821fde0f57",
-        ),
-        (
-            "deepcell-types_baseline-xgboost.remap.json",
-            "fba1b0e705e5f7747eb2f9cae30815ba",
-        ),
-    ],
-}
-
-# Nimbus pretrained weights are distributed upstream (via the
-# ``nimbus-inference`` library / Hugging Face Hub), not re-hosted here.
-_NIMBUS_UPSTREAM_URL = "https://github.com/angelolab/Nimbus-Inference"
+# Mirrors deepcell-auth's asset_manifest.yaml (models.deepcell-types /
+# models.deepcell-types-baselines). Kept static to avoid a runtime manifest
+# read in production; drift is caught by tests/test_download_delegation.py.
+_DEFAULT_MODEL_VERSION = "2026-06-15"
+_MODEL_VERSIONS = ("2026-06-15", "2026-06-23")
+_BASELINE_NAMES = ("cellsighter", "maps", "xgboost")
 
 
 def download_model(*, version=None):
     """Download the deepcell-types model checkpoint for local use.
 
-    Downloaded files land in ``$HOME/.deepcell/models``.
+    Delegates to ``deepcell_auth`` and returns the local path. Downloaded
+    files land in ``$HOME/.deepcell/models``.
 
     Parameters
     ----------
     version : str, optional
-        Which checkpoint version to download. Defaults to ``None``,
-        which resolves to the most-recently-released version
-        (``_latest`` in this module).
+        Which checkpoint version to download. Defaults to ``None``, which
+        resolves to the most-recently-released version.
 
     Returns
     -------
     pathlib.Path
         Local path to the downloaded checkpoint.
     """
-    from ._auth import fetch_data
+    from deepcell_auth import download_deepcell_types_model
 
-    version = version if version is not None else _latest
-    if version not in _model_registry:
-        raise ValueError(
-            f"Unknown model version {version!r}. "
-            f"Known versions: {sorted(_model_registry)}."
-        )
-    filename, md5 = _model_registry[version]
-    return fetch_data(f"models/{filename}", cache_subdir="models", file_hash=md5)
+    version = version if version is not None else _DEFAULT_MODEL_VERSION
+    download_deepcell_types_model(version)
+    models_dir = Path.home() / ".deepcell" / "models"
+    return sorted(models_dir.glob(f"deepcell-types_{version}_*.pt"))[-1]
 
 
 def list_model_versions():
-    """Return the available pre-trained model versions, newest first.
+    """Return the available pre-trained model versions, default first.
 
     Returns
     -------
     list of str
         Version identifiers accepted by :func:`download_model`. The first
-        element is always the default (``_latest``) version that
-        ``download_model()`` resolves to with no argument.
+        element is the default (``download_model()`` with no argument).
     """
-    others = sorted((v for v in _model_registry if v != _latest), reverse=True)
-    return [_latest, *others]
+    return list(_MODEL_VERSIONS)
 
 
 def download_baseline_checkpoint(name):
@@ -155,13 +92,9 @@ def download_baseline_checkpoint(name):
     Returns
     -------
     list[pathlib.Path]
-        Local paths to every file downloaded for this baseline, in the
-        order declared in ``_baseline_registry``. Note the asymmetry with
-        :func:`download_model`, which returns a single ``Path``: baselines
-        return a *list* because some ship companion files. Call
-        :func:`list_baseline_names` for the accepted identifiers.
+        Local paths to every file downloaded for this baseline.
     """
-    from ._auth import fetch_data
+    from deepcell_auth import download_deepcell_types_baseline
 
     if name == "nimbus":
         raise ValueError(
@@ -169,16 +102,9 @@ def download_baseline_checkpoint(name):
             "are distributed upstream, not re-hosted by this project. Install "
             "the official library (`pip install -e '.[baseline-nimbus]'`), which "
             "downloads the weights automatically; see "
-            f"{_NIMBUS_UPSTREAM_URL}."
+            "https://github.com/angelolab/Nimbus-Inference."
         )
-    if name not in _baseline_registry:
-        raise ValueError(
-            f"Unknown baseline {name!r}. Known baselines: {sorted(_baseline_registry)}."
-        )
-    return [
-        fetch_data(f"models/{filename}", cache_subdir="models", file_hash=md5)
-        for filename, md5 in _baseline_registry[name]
-    ]
+    return download_deepcell_types_baseline(name)
 
 
 def list_baseline_names():
@@ -187,10 +113,9 @@ def list_baseline_names():
     Returns
     -------
     list of str
-        Names accepted by :func:`download_baseline_checkpoint` (the
-        ``list``-returning counterpart to :func:`list_model_versions`).
+        Names accepted by :func:`download_baseline_checkpoint`.
     """
-    return sorted(_baseline_registry)
+    return sorted(_BASELINE_NAMES)
 
 
 def list_supported_markers(*, zarr_path=None):
@@ -269,27 +194,20 @@ def list_supported_cell_types(*, zarr_path=None):
     return sorted(DCTConfig(zarr_path=zarr_path).ct2idx)
 
 
-_training_data_asset_key = "data/deepcell-types/public_data_v1.1.zip"
-
-
 def download_training_data(*, extract=False):
     """Download the public training-data corpus for deepcell-types (v1.1).
 
-    The compressed archive is downloaded to ``$HOME/.deepcell/data``. The
-    asset is pinned to a single released version; older versions are not
-    available through this helper.
-
-    Note that the downloaded asset is a ``.zip`` and must be extracted
-    before the contained ``tissuenet-*.zarr`` archive can be used as
-    ``predict(zarr_path=...)`` / ``DEEPCELL_TYPES_ZARR_PATH``. Pass
-    ``extract=True`` to unpack it (via :func:`extract_archive`, which
-    rejects path-traversal members) and receive the extraction directory.
+    Delegates the download to ``deepcell_auth``; the compressed archive lands
+    in ``$HOME/.deepcell/data``. The asset is a ``.zip`` that must be
+    extracted before the contained ``tissuenet-*.zarr`` archive can be used as
+    ``predict(zarr_path=...)`` / ``DEEPCELL_TYPES_ZARR_PATH``.
 
     Parameters
     ----------
     extract : bool, default=False
-        If ``True``, extract the downloaded ``.zip`` next to itself and
-        return the extraction directory instead of the ``.zip`` path.
+        If ``True``, extract the downloaded ``.zip`` next to itself (via the
+        path-traversal-safe :func:`~deepcell_types.utils._archive.extract_archive`)
+        and return the extraction directory instead of the ``.zip`` path.
 
     Returns
     -------
@@ -297,9 +215,13 @@ def download_training_data(*, extract=False):
         Local path to the downloaded ``.zip`` (or, when ``extract=True``,
         the directory it was extracted into).
     """
-    from ._auth import extract_archive, fetch_data
+    from deepcell_auth import download_deepcell_types_data
 
-    zip_path = fetch_data(_training_data_asset_key, cache_subdir="data")
+    from ._archive import extract_archive
+
+    download_deepcell_types_data()
+    data_dir = Path.home() / ".deepcell" / "data"
+    zip_path = sorted(data_dir.glob("public_data*.zip"))[-1]
     if extract:
         return extract_archive(zip_path)
     return zip_path
