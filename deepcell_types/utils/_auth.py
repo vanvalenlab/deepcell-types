@@ -8,6 +8,7 @@ from pathlib import Path
 from hashlib import md5, sha256
 from tqdm import tqdm
 import logging
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,13 @@ _asset_location = Path.home() / ".deepcell"
 # working while new assets can pin the stronger sha256. SHA-256 is preferred for
 # new entries (md5 is collision-weak).
 _HASH_BY_HEXLEN = {32: ("md5", md5), 64: ("sha256", sha256)}
+
+# Deliberately generous limits accommodate the public multi-terabyte corpus
+# while still bounding hostile or accidentally unbounded responses/archives.
+MAX_DOWNLOAD_BYTES = 10 * 2**40
+MAX_ARCHIVE_MEMBERS = 100_000
+MAX_ARCHIVE_MEMBER_BYTES = 2 * 2**40
+MAX_ARCHIVE_TOTAL_BYTES = 10 * 2**40
 
 
 def _hash_file(fpath, file_hash):
@@ -41,7 +49,13 @@ def _hash_file(fpath, file_hash):
     return algo_name, hasher.hexdigest()
 
 
-def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
+def fetch_data(
+    asset_key: str,
+    cache_subdir=None,
+    file_hash=None,
+    *,
+    max_download_bytes=MAX_DOWNLOAD_BYTES,
+):
     """Fetch assets through users.deepcell.org authentication system.
 
     Download assets from the deepcell suite of datasets and models which
@@ -68,6 +82,8 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
         the length. The checksum is used to perform data caching. If no checksum
         is provided or the checksum differs from that found in the data cache,
         the data will be (re)-downloaded.
+
+        :param max_download_bytes: Maximum number of response bytes accepted.
     """
     download_location = _asset_location
     if cache_subdir is not None:
@@ -171,43 +187,78 @@ def fetch_data(asset_key: str, cache_subdir=None, file_hash=None):
     )
     data_req.raise_for_status()
 
+    content_length = data_req.headers.get("Content-Length")
+    if content_length is not None:
+        try:
+            declared_bytes = int(content_length)
+        except ValueError as exc:
+            raise ValueError(
+                f"Download for {asset_key} returned an invalid Content-Length: "
+                f"{content_length!r}."
+            ) from exc
+        if declared_bytes > max_download_bytes:
+            raise ValueError(
+                f"Download for {asset_key} declares {declared_bytes} bytes, "
+                f"exceeding the {max_download_bytes}-byte safety limit."
+            )
+
     chunk_size = 4096
+    tmp_path = None
     try:
-        with tqdm.wrapattr(
-            open(fpath, "wb"), "write", miniters=1, total=file_size_numerical
-        ) as fh:
-            for chunk in data_req.iter_content(chunk_size=chunk_size):
-                fh.write(chunk)
+        with tempfile.NamedTemporaryFile(
+            mode="wb", dir=download_location, prefix=f".{fname}.", delete=False
+        ) as raw_fh:
+            tmp_path = Path(raw_fh.name)
+            with tqdm.wrapattr(
+                raw_fh, "write", miniters=1, total=file_size_numerical
+            ) as fh:
+                downloaded = 0
+                for chunk in data_req.iter_content(chunk_size=chunk_size):
+                    if not chunk:
+                        continue
+                    downloaded += len(chunk)
+                    if downloaded > max_download_bytes:
+                        raise ValueError(
+                            f"Download for {asset_key} exceeded the "
+                            f"{max_download_bytes}-byte safety limit."
+                        )
+                    fh.write(chunk)
+                fh.flush()
+                os.fsync(fh.fileno())
+
+        if file_hash is not None:
+            algo_name, actual = _hash_file(tmp_path, file_hash)
+            if actual != file_hash:
+                raise ValueError(
+                    f"Integrity check failed for {fname}: "
+                    f"expected {algo_name}={file_hash}, got {algo_name}={actual}. "
+                    "The downloaded file has been removed; please retry."
+                )
+        os.replace(tmp_path, fpath)
+        tmp_path = None
     except BaseException:
-        # Don't leave a half-written file on disk: subsequent runs (especially
-        # for callers that don't pass file_hash) would silently return the
-        # corrupt path. Drop and re-raise.
-        if fpath.exists():
+        # Preserve an existing cache entry; only the unique temporary download
+        # is removed when transfer or validation fails.
+        if tmp_path is not None:
             try:
-                fpath.unlink()
+                tmp_path.unlink(missing_ok=True)
             except OSError:
                 pass
         raise
-
-    # Verify the downloaded file against the expected hash, if one was given.
-    # This catches truncated downloads that completed without raising and
-    # protects against tampered intermediaries.
-    if file_hash is not None:
-        algo_name, actual = _hash_file(fpath, file_hash)
-        if actual != file_hash:
-            fpath.unlink(missing_ok=True)
-            raise ValueError(
-                f"Integrity check failed for {fname}: "
-                f"expected {algo_name}={file_hash}, got {algo_name}={actual}. "
-                "The downloaded file has been removed; please retry."
-            )
 
     logger.info(f"Successfully downloaded {fname} to {fpath}")
 
     return fpath
 
 
-def extract_archive(archive_path, dest=None):
+def extract_archive(
+    archive_path,
+    dest=None,
+    *,
+    max_members=MAX_ARCHIVE_MEMBERS,
+    max_member_bytes=MAX_ARCHIVE_MEMBER_BYTES,
+    max_total_bytes=MAX_ARCHIVE_TOTAL_BYTES,
+):
     """Safely extract a ``.zip`` or ``.tar[.gz]`` archive.
 
     Rejects members whose resolved path would escape ``dest`` (zip-slip /
@@ -240,18 +291,59 @@ def extract_archive(archive_path, dest=None):
 
     if zipfile.is_zipfile(archive_path):
         with zipfile.ZipFile(archive_path) as zf:
-            for member in zf.namelist():
-                if not _within(member):
+            infos = zf.infolist()
+            if len(infos) > max_members:
+                raise ValueError(
+                    f"Refusing to extract archive with {len(infos)} members; "
+                    f"limit is {max_members}."
+                )
+            total = 0
+            for member in infos:
+                is_symlink = (member.external_attr >> 16) & 0o170000 == 0o120000
+                if not _within(member.filename):
                     raise ValueError(
-                        f"Refusing to extract {member!r}: path escapes {dest}."
+                        f"Refusing to extract {member.filename!r}: path escapes {dest}."
+                    )
+                if is_symlink:
+                    raise ValueError(
+                        f"Refusing to extract unsafe zip member {member.filename!r}."
+                    )
+                if member.file_size > max_member_bytes:
+                    raise ValueError(
+                        f"Refusing to extract {member.filename!r}: declared size "
+                        f"exceeds {max_member_bytes} bytes."
+                    )
+                total += member.file_size
+                if total > max_total_bytes:
+                    raise ValueError(
+                        f"Refusing to extract archive larger than "
+                        f"{max_total_bytes} bytes."
                     )
             zf.extractall(dest)
     elif tarfile.is_tarfile(archive_path):
         with tarfile.open(archive_path) as tf:
-            for member in tf.getmembers():
-                if member.islnk() or member.issym() or not _within(member.name):
+            members = tf.getmembers()
+            if len(members) > max_members:
+                raise ValueError(
+                    f"Refusing to extract archive with {len(members)} members; "
+                    f"limit is {max_members}."
+                )
+            total = 0
+            for member in members:
+                if not (member.isfile() or member.isdir()) or not _within(member.name):
                     raise ValueError(
                         f"Refusing to extract unsafe tar member {member.name!r}."
+                    )
+                if member.size > max_member_bytes:
+                    raise ValueError(
+                        f"Refusing to extract {member.name!r}: declared size "
+                        f"exceeds {max_member_bytes} bytes."
+                    )
+                total += member.size
+                if total > max_total_bytes:
+                    raise ValueError(
+                        f"Refusing to extract archive larger than "
+                        f"{max_total_bytes} bytes."
                     )
             tf.extractall(dest, filter="data")
     else:

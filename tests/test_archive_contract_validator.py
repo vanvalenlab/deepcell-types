@@ -2,7 +2,10 @@
 
 import json
 
+import pytest
+
 from scripts.validate_archive_contract import (
+    _load_expected_marker_order,
     check_marker_index_order,
     validate_archive,
 )
@@ -11,6 +14,15 @@ from scripts.validate_archive_contract import (
 def _write_json(path, payload):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload))
+
+
+def test_marker_order_loader_accepts_json_and_rejects_numpy_pickle(tmp_path):
+    marker_order = tmp_path / "markers.json"
+    _write_json(marker_order, {"CD3": 1, "CD45": 0})
+    assert _load_expected_marker_order(marker_order) == ["CD45", "CD3"]
+
+    with pytest.raises(ValueError, match="must be supplied as JSON"):
+        _load_expected_marker_order(tmp_path / "embeddings.npz")
 
 
 def _write_fov(

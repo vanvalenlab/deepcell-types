@@ -512,6 +512,13 @@ def test_config_raises_when_explicit_archive_missing(tmp_path, monkeypatch):
         DCTConfig(zarr_path=tmp_path / "does-not-exist.zarr")
 
 
+def test_config_raises_when_environment_archive_missing(tmp_path, monkeypatch):
+    missing = tmp_path / "does-not-exist.zarr"
+    monkeypatch.setenv("DEEPCELL_TYPES_ZARR_PATH", str(missing))
+    with pytest.raises(FileNotFoundError, match="DEEPCELL_TYPES_ZARR_PATH"):
+        DCTConfig()
+
+
 def test_config_falls_back_to_packaged_vocab(monkeypatch):
     # No archive anywhere -> DCTConfig loads the packaged vocab.json snapshot,
     # so predict() works without the (large) TissueNet archive.
@@ -858,9 +865,7 @@ def test_predict_output_is_pinned_for_a_fixed_checkpoint(tmp_path):
     # just the discrete labels) catches numerics drift even when it does not
     # cross an argmax boundary. Regenerate deliberately if preprocessing or the
     # forward path changes on purpose.
-    np.testing.assert_allclose(
-        res.probabilities, _PINNED_PROBS_SEED0, atol=1e-4
-    )
+    np.testing.assert_allclose(res.probabilities, _PINNED_PROBS_SEED0, atol=1e-4)
 
 
 # Golden softmax matrix for test_predict_output_is_pinned_for_a_fixed_checkpoint

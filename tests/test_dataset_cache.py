@@ -1,6 +1,7 @@
 """Tests for zarr cell-data cache provenance and negative entries."""
 
 import json
+import os
 import pickle
 
 from deepcell_types.training import config as config_module
@@ -93,6 +94,33 @@ def test_cell_data_cache_rejects_legacy_bare_dict(tmp_path):
     )
 
     assert loaded is None
+
+
+def test_cell_data_cache_rejects_group_writable_file(tmp_path):
+    cache_path = tmp_path / "cell-data.pkl"
+    FullImageDataset._save_cell_data_cache(cache_path, {"labeled": {}}, "archive123")
+    cache_path.chmod(0o660)
+
+    loaded = FullImageDataset._load_cell_data_cache(
+        cache_path, ["labeled"], "archive123"
+    )
+
+    assert loaded is None
+    assert os.stat(cache_path).st_mode & 0o020
+
+
+def test_cell_data_cache_rebuilds_on_stale_import_error(tmp_path, monkeypatch):
+    cache_path = tmp_path / "cell-data.pkl"
+    cache_path.write_bytes(b"placeholder")
+
+    def fail_load(_file):
+        raise ModuleNotFoundError("removed cache class")
+
+    monkeypatch.setattr(pickle, "load", fail_load)
+    assert (
+        FullImageDataset._load_cell_data_cache(cache_path, ["labeled"], "archive123")
+        is None
+    )
 
 
 def _write_json(path, payload):

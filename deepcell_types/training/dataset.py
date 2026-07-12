@@ -417,30 +417,42 @@ class FullImageDataset(Dataset):
         # check + world-writable rejection blocks that vector while leaving the
         # single-user workflow unchanged.
         try:
-            st = cache_path.stat()
-        except OSError as e:
-            logger.warning("cell-data cache stat failed (%s), rebuilding...", e)
-            return None
-        if st.st_uid != os.getuid():
-            logger.warning(
-                "cell-data cache at %s not owned by current user (uid=%d, "
-                "expected %d) — rejecting and rebuilding",
-                cache_path,
-                st.st_uid,
-                os.getuid(),
-            )
-            return None
-        if st.st_mode & 0o002:  # world-writable
-            logger.warning(
-                "cell-data cache at %s is world-writable — rejecting and rebuilding",
-                cache_path,
-            )
-            return None
-        try:
-            with open(cache_path, "rb") as f:
+            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            fd = os.open(cache_path, flags)
+            with os.fdopen(fd, "rb") as f:
+                st = os.fstat(f.fileno())
+                if st.st_uid != os.getuid():
+                    logger.warning(
+                        "cell-data cache at %s not owned by current user "
+                        "(uid=%d, expected %d) — rejecting and rebuilding",
+                        cache_path,
+                        st.st_uid,
+                        os.getuid(),
+                    )
+                    return None
+                if st.st_mode & 0o022:
+                    logger.warning(
+                        "cell-data cache at %s is group- or world-writable — "
+                        "rejecting and rebuilding",
+                        cache_path,
+                    )
+                    return None
                 cached = pickle.load(f)
-        except (OSError, pickle.UnpicklingError, EOFError) as e:
-            logger.warning("cell-data cache load failed (%s), rebuilding...", e)
+        except (
+            OSError,
+            pickle.UnpicklingError,
+            EOFError,
+            AttributeError,
+            ImportError,
+            IndexError,
+            TypeError,
+            ValueError,
+        ) as e:
+            logger.warning(
+                "cell-data cache at %s could not be loaded (%s), rebuilding...",
+                cache_path,
+                e,
+            )
             return None
 
         # New format: {"fingerprint": ..., "data": {...}}

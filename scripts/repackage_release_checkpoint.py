@@ -87,7 +87,14 @@ def main():
     )
     args = parser.parse_args()
 
-    ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+    try:
+        ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
+    except Exception as exc:
+        raise SystemExit(
+            "Checkpoint could not be loaded in restricted weights-only mode. "
+            "Do not repackage an untrusted legacy pickle checkpoint; convert it "
+            "in an isolated environment first."
+        ) from exc
     cfg = DCTConfig(zarr_path=args.zarr_path)
     try:
         bundle_vocabulary(ckpt, cfg)

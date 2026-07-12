@@ -37,6 +37,7 @@ def _resolve_archive_path(explicit_path):
     so the caller falls back to the packaged vocabulary snapshot (archive-free
     inference).
     """
+    env_path = os.environ.get(DCTConfig.ARCHIVE_ENV_VAR)
     for candidate in _archive_candidate_paths(explicit_path):
         if (candidate / "zarr.json").exists():
             return candidate
@@ -44,6 +45,11 @@ def _resolve_archive_path(explicit_path):
         raise FileNotFoundError(
             f"No TissueNet zarr archive found at {explicit_path} "
             "(expected a 'zarr.json' there)."
+        )
+    if env_path:
+        raise FileNotFoundError(
+            f"{DCTConfig.ARCHIVE_ENV_VAR} points to {env_path}, but no TissueNet "
+            "zarr archive was found there (expected a 'zarr.json' file)."
         )
     return None
 
