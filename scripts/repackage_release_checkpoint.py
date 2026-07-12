@@ -14,8 +14,8 @@ packaged canonical ``vocab.json`` by default, or an explicit ``--zarr_path``
 archive. The checkpoint's ``config.n_celltypes`` must match the vocabulary
 size, which guards against pairing a checkpoint with a mismatched vocabulary
 (the count check that ``load_state_dict`` would otherwise only catch at load
-time). Re-packaging changes the file's checksum, so the ``_model_registry``
-entry in ``deepcell_types/utils/__init__.py`` must be updated to the new md5
+time). Re-packaging changes the file's checksum, so the ``deepcell-auth``
+asset manifest (``asset_manifest.yaml``) entry must be updated to the new md5
 and the new asset re-uploaded before ``download_model`` will serve it.
 
 Usage:
