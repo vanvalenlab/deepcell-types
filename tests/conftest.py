@@ -6,7 +6,7 @@ On an inference-only checkout (``pip install -e .``) those packages are absent,
 and the affected tests must be *skipped*, not raise collection errors.
 
 Rather than hand-maintaining a list of which test file needs which extra (which
-silently rots whenever a new train-dependent test file is added, and bit us
+can silently become stale whenever a new train-dependent test file is added
 when a missing entry turned the inference-only CI job red), we autodetect: for
 each ``test_*.py`` we parse its top-level imports and try to import them. If one
 fails because an *optional* (extra-only) package is missing -- directly or

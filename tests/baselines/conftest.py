@@ -24,7 +24,7 @@ if not (_have("xgboost") and _have("optuna")):
 if not _have("pandas"):
     collect_ignore.append("test_nimbus_metrics_characterization.py")
 if not _have("pandas"):
-    collect_ignore.append("test_runner_round2.py")
+    collect_ignore.append("test_maps_cellsighter_cli.py")
 # cellsighter.model imports torchvision AND (via deepcell_types.training.utils)
 # pandas, so both must be present or this test would error, not skip. torchvision
 # does not pull pandas, so guarding on torchvision alone is insufficient.

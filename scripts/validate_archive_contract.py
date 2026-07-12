@@ -196,8 +196,8 @@ def check_marker_index_order(
     ``svd_512.npz`` marker embeddings are built for that exact order. Reordering
     or resizing it silently misaligns the checkpoint's per-marker weights, or
     trips the ``n_markers`` guard in ``predict._build_model`` so the released
-    checkpoint fails to load. This caught a real incident (2026-06-01) where the
-    registry was re-accumulated to a 327-channel union and re-sorted.
+    checkpoint fails to load. Ordered comparison is required because equal
+    marker names in a different order still misalign checkpoint weights.
 
     Returns a list of human-readable error strings (empty == contract holds).
     """

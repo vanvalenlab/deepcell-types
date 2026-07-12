@@ -66,7 +66,11 @@ def _extract_cls(model, loader, device, desc):
 @click.option(
     "--output", required=True, help="Path for the deployable resMLP checkpoint"
 )
-@click.option("--device_num", default="cuda:0")
+@click.option(
+    "--device_num",
+    default="auto",
+    help="Torch device. 'auto' selects cuda:0 when available, otherwise cpu.",
+)
 @click.option("--batch_size", type=int, default=512)
 @click.option("--num_workers", type=int, default=12)
 @click.option("--epochs", type=int, default=50)
@@ -90,6 +94,8 @@ def main(
     seed,
 ):
     seed_everything(seed)
+    if device_num == "auto":
+        device_num = "cuda:0" if torch.cuda.is_available() else "cpu"
     device = torch.device(device_num)
     cfg = TissueNetConfig(zarr_dir)
     marker_emb = cfg.load_marker_embeddings_array(svd_path=svd_embeddings_path)
@@ -110,7 +116,9 @@ def main(
         pin_memory=True,
     )
 
-    ck = torch.load(pretrained_path, map_location=device, weights_only=False)  # trusted local ckpt (pretrain.py writes numpy scalars)
+    ck = torch.load(
+        pretrained_path, map_location=device, weights_only=False
+    )  # trusted local ckpt (pretrain.py writes numpy scalars)
     cc = ck.get("config", {}) if isinstance(ck, dict) else {}
     model = create_model(
         cfg,

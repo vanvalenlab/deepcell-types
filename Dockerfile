@@ -18,12 +18,7 @@
 # The optional-dependency names mirror [project.optional-dependencies] in
 # pyproject.toml. Leave DCT_EXTRAS empty for the inference-only image.
 
-# Base image must ship Python >=3.11 to satisfy this package's
-# `requires-python = ">=3.11"` floor (pyproject.toml). The previous
-# `pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime` tag ships Python 3.10.14, so
-# `pip install .` failed for EVERY profile with
-# "requires a different Python: 3.10.14 not in '>=3.11'". The 2.4.1 runtime tag
-# below bundles Python 3.11, clearing the floor (and bumps cuDNN 8 -> 9).
+# The base image supplies Python 3.11, matching the package's supported floor.
 FROM pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
 
 # Which optional-dependency set to install (e.g. "[train]", "[baselines]",
@@ -39,6 +34,5 @@ WORKDIR /app
 COPY . .
 
 # Install the package itself (plus any requested extras) from pyproject.toml.
-# The legacy requirements.txt / deepcelltypes-kit/ install steps are gone —
-# dependencies are declared in pyproject.toml now.
+# Dependencies are declared in pyproject.toml.
 RUN python -m pip install --no-cache-dir ".${DCT_EXTRAS}"

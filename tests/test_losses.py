@@ -1,12 +1,12 @@
 """Tests for deepcell_types.training.losses.
 
-R7 M4 — FocalLoss coverage:
+FocalLoss coverage:
     (a) reduction='none' shape
     (b) reduction='sum' matches sum of 'none'
     (c) ignore_index correctly excludes samples
     (d) gamma=0, alpha=None reduces to F.cross_entropy
 
-R7 M5 — HierarchicalLoss coverage:
+HierarchicalLoss coverage:
     (a) parent-superclass-wrong-leaf case: hierarchical loss is lower than flat CE
     (b) smoke test on project CELL_TYPE_HIERARCHY → finite scalar
 """
@@ -19,7 +19,7 @@ from deepcell_types.training.losses import FocalLoss, HierarchicalLoss
 
 
 # =============================================================================
-# R7 M4 — FocalLoss coverage
+# FocalLoss coverage
 # =============================================================================
 
 
@@ -120,7 +120,7 @@ class TestFocalLossReduction:
 
 
 # =============================================================================
-# R7 M5 — HierarchicalLoss
+# HierarchicalLoss coverage
 # =============================================================================
 
 
@@ -134,6 +134,7 @@ def tiny_hierarchy_yaml(tmp_path):
         Macrophage       → Myeloid
     """
     import yaml
+
     mapping = {
         "CD4T": "Tcell",
         "CD8T": "Tcell",
@@ -149,7 +150,9 @@ def tiny_hierarchy_yaml(tmp_path):
 
 
 class TestHierarchicalLoss:
-    def test_parent_superclass_wrong_leaf_is_lower_than_flat_ce(self, tiny_hierarchy_yaml):
+    def test_parent_superclass_wrong_leaf_is_lower_than_flat_ce(
+        self, tiny_hierarchy_yaml
+    ):
         """If the prediction lands on the wrong leaf but right parent group,
         hierarchical loss < flat cross-entropy.
 
@@ -203,6 +206,7 @@ class TestHierarchicalLoss:
 
         # Construct a minimal ct2idx that matches the YAML keys.
         import yaml
+
         with open(yaml_path) as f:
             mapping = yaml.safe_load(f)
         fine_names = sorted(mapping.keys())

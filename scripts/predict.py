@@ -78,7 +78,12 @@ def _resolve_marker_embeddings(dct_config, state_dict, svd_path):
 
 @click.command()
 @click.option("--model_name", type=str, default="deepcell-types")
-@click.option("--device_num", type=str, default="cuda:0")
+@click.option(
+    "--device_num",
+    type=str,
+    default="auto",
+    help="Torch device. 'auto' selects cuda:0 when available, otherwise cpu.",
+)
 @click.option("--zarr_dir", type=str, default=str(DATA_DIR))
 @click.option("--skip_datasets", type=str, multiple=True, default=[])
 @click.option("--keep_datasets", type=str, multiple=True, default=[])
@@ -139,11 +144,8 @@ def _resolve_marker_embeddings(dct_config, state_dict, svd_path):
     default=0.0,
     help=(
         "Per-FOV IQR-fence abstention on max-softmax confidence. "
-        "Default is 0 (disabled) — the current paper headline (Fig 3c) uses no "
-        "abstention, full coverage. k=0.2 was an earlier paper draft's "
-        "operating point; IQR-fence abstention was removed from the paper "
-        "(see analysis/_score_csv.py in the research workspace) and remains "
-        "available here only as a historical ablation, opt-in via this flag. "
+        "Default is 0 (disabled), which returns a prediction for every cell. "
+        "Positive values opt into IQR-fence abstention. "
         "Cells whose max-softmax falls below Q1 - k*IQR within their "
         "(dataset_name, fov_name) group are flagged as abstained "
         "(predicted_ct = 'Unknown', original kept in predicted_ct_raw). "
@@ -170,6 +172,9 @@ def main(
     ct_abstention_k,
 ):
     seed_everything(seed)
+
+    if device_num == "auto":
+        device_num = "cuda:0" if torch.cuda.is_available() else "cpu"
 
     device = torch.device(device_num)
     dct_config = TissueNetConfig(zarr_dir)
@@ -396,7 +401,7 @@ def main(
             # Forward — only request attention weights when --save_attention
             # is set. Asking for them unconditionally disables PyTorch's fast
             # SDPA kernel and forces a slower per-head materialised attention
-            # path. Per the deep-review (perf): gating saves ~15% wall-clock
+            # path. Gating avoids the cost of collecting attention weights
             # on a typical predict run because that kernel is the bottleneck.
             outputs = model(
                 batch_data.sample,

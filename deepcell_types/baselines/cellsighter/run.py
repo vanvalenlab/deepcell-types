@@ -715,17 +715,17 @@ def main(
         cifar_stem=cifar_stem,
     ).to(device)
 
-    # Fix 6: torch.compile for fused operations (PyTorch 2.x+)
+    # Compile supported operations for the fused PyTorch execution path.
     if not no_compile and hasattr(torch, "compile"):
         print("Applying torch.compile...")
         model = torch.compile(model)
 
-    # Fix 1: Mixed precision (AMP)
+    # Mixed precision (AMP).
     use_amp = use_cuda and not no_amp
     scaler = torch.amp.GradScaler("cuda") if use_amp else None
     amp_dtype = torch.float16 if use_amp else None
 
-    # Fix 5: Move label_remap to device once (avoid per-batch CPU→GPU transfer)
+    # Move label_remap to the device once to avoid per-batch transfers.
     label_remap = label_remap.to(device)
 
     # Loss and optimizer (matching CellSighter paper: constant lr=0.001)

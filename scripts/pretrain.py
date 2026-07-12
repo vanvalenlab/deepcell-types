@@ -46,7 +46,12 @@ DATA_DIR = Path(
 
 @click.command()
 @click.option("--model_name", type=str, default="pretrain")
-@click.option("--device_num", type=str, default="cuda:0")
+@click.option(
+    "--device_num",
+    type=str,
+    default="auto",
+    help="Torch device. 'auto' selects cuda:0 when available, otherwise cpu.",
+)
 @click.option("--zarr_dir", type=str, default=str(DATA_DIR))
 @click.option("--skip_datasets", type=str, multiple=True, default=[])
 @click.option("--keep_datasets", type=str, multiple=True, default=[])
@@ -123,6 +128,9 @@ def main(
 ):
     seed_everything(seed)
 
+    if device_num == "auto":
+        device_num = "cuda:0" if torch.cuda.is_available() else "cpu"
+
     device = torch.device(device_num)
     # AMP is only supported on CUDA; disable automatically on CPU
     enable_amp = enable_amp and device.type == "cuda"
@@ -188,7 +196,7 @@ def main(
     # GradScaler for AMP (no-op when enable_amp=False)
     scaler = torch.amp.GradScaler("cuda", enabled=enable_amp)
 
-    # ---------- Checkpoint helpers (R4 H1: full training-state checkpoints) ----------
+    # Full training-state checkpoint helpers.
     CKPT_CONFIG = {
         "d_model": d_model,
         "resnet_channels": 48,  # matches create_model(resnet_base_channels=48) default
@@ -217,13 +225,15 @@ def main(
     best_model_path = Path(f"models/model_{model_name}_best.pt")
     best_model_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # ---------- R4 H1: full training-state resume ----------
+    # Resume the full training state when available.
     start_epoch = 0
     if resume_path is not None:
         if not Path(resume_path).exists():
             raise FileNotFoundError(f"--resume_path {resume_path} does not exist")
         logger.info("Resuming from %s", resume_path)
-        resume_ckpt = torch.load(resume_path, map_location=device, weights_only=False)  # trusted local ckpt (pretrain.py writes numpy scalars)
+        resume_ckpt = torch.load(
+            resume_path, map_location=device, weights_only=False
+        )  # trusted local ckpt (pretrain.py writes numpy scalars)
 
         if not isinstance(resume_ckpt, dict) or "optimizer" not in resume_ckpt:
             # Legacy pretrain checkpoint is a plain state_dict (model backbone only).
@@ -266,9 +276,7 @@ def main(
             # scheduler.load_state_dict() here would silently overwrite
             # total_steps with the checkpointed run's value, discarding an
             # increased --epochs.
-            resume_onecycle_schedule(
-                scheduler, resume_ckpt["scheduler"], logger=logger
-            )
+            resume_onecycle_schedule(scheduler, resume_ckpt["scheduler"], logger=logger)
             scaler.load_state_dict(resume_ckpt["scaler"])
             start_epoch = int(resume_ckpt["epoch"]) + 1
             best_val_loss = float(resume_ckpt.get("best_val_loss", float("inf")))
@@ -292,7 +300,7 @@ def main(
         model.train()
         recon_head.train()
         train_losses = defaultdict(list)
-        train_valid_mp_batches = 0  # R5 L1: track batches where MP loss was non-trivial
+        train_valid_mp_batches = 0  # Batches with non-trivial marker-positivity loss.
         val_valid_mp_batches = 0
 
         for batch in tqdm(train_loader, desc=f"Epoch {epoch} (pretrain)", leave=False):
@@ -426,7 +434,7 @@ def main(
         val_summary = {k: np.mean(v) for k, v in val_losses.items()}
         print(f"Epoch {epoch} val: {val_summary}")
 
-        # R5 L1: warn if MP-loss mask was empty for the entire epoch (train or val);
+        # Warn if the marker-positivity mask was empty for the entire epoch;
         # otherwise the reported mp_loss average is effectively zero with no signal.
         if marker_pos_weight > 0:
             if train_valid_mp_batches == 0:

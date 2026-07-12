@@ -167,8 +167,8 @@ def download_baseline_checkpoint(name):
         raise ValueError(
             "The Nimbus baseline is inference-only and its pretrained weights "
             "are distributed upstream, not re-hosted by this project. Install "
-            "the official library (`pip install -e '.[baseline-nimbus]'`), which "
-            "downloads the weights automatically; see "
+            "the official library (`pip install nimbus-inference==0.0.5` on "
+            "Python 3.11), which downloads the weights automatically; see "
             f"{_NIMBUS_UPSTREAM_URL}."
         )
     if name not in _baseline_registry:

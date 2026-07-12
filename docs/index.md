@@ -165,9 +165,9 @@ checkpoints. Training-only code lives under `deepcell_types.training` and is
 gated behind the `[train]` install extra so plain inference users don't pull
 in `zarr`, `pandas`, `scikit-learn`, etc.
 
-```bash
-pip install "deepcell-types[train] @ git+https://github.com/vanvalenlab/deepcell-types@master"
-```
+These commands are source-checkout workflows and are not installed by the
+wheel. Clone the repository and run `uv sync --extra train` from its root before
+using `scripts/...`; see the README's Training section for complete commands.
 
 The end-to-end training and evaluation scripts live under `scripts/`:
 

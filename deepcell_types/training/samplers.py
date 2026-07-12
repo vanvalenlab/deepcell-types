@@ -210,7 +210,7 @@ class FOVGroupedSampler(Sampler):
         self.replacement = replacement
         self._base_seed = int(seed)
         self._epoch = 0
-        # Map sampler position i -> ds_idx of the i-th train sample (Fix 1).
+        # Map sampler position i to the dataset index of the i-th train sample.
         # drawn[i] is a position in [0, len(train_indices)), so _ds_idx_map[drawn[i]]
         # gives the correct ds_idx for FOV grouping.
         self._ds_idx_map = torch.tensor(
