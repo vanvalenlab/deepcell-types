@@ -46,41 +46,46 @@ _model_registry = {
 
 # Baseline-model checkpoints. Values are lists of ``(asset_filename, md5)``.
 # Single-file baselines have a one-element list; ``maps`` and ``xgboost``
-# additionally ship a companion file required at inference.
+# additionally ship a companion file required at inference. The md5s track the
+# 2026-06-30 DCT-sampler retrains -- the release-of-record that produced the
+# published baseline prediction CSVs and headline numbers.
+#
+# Nimbus is intentionally absent: it is inference-only with pretrained weights
+# produced and distributed upstream (angelolab/Nimbus-Inference), which this
+# project does not redistribute. ``download_baseline_checkpoint("nimbus")``
+# raises with a pointer to the official source instead (see below).
 _baseline_registry = {
     "cellsighter": [
         (
             "deepcell-types_baseline-cellsighter.pth",
-            "d06f8aeef485e7c40590cc35da80944b",
+            "c5a105fb044ad82c82817a32aabbae7c",
         ),
     ],
     "maps": [
         (
             "deepcell-types_baseline-maps.pth",
-            "d2d1930d438c014c226202b8b7fa4a65",
+            "1ad5e30ceaccfdb91050b663099258fb",
         ),
         (
             "deepcell-types_baseline-maps_stats.npz",
-            "e3a54e5a64d5376231abf1022b001a41",
-        ),
-    ],
-    "nimbus": [
-        (
-            "deepcell-types_baseline-nimbus.pt",
-            "47916fbebc3a58d5bee96a9289d157aa",
+            "1f462d0c8bf531af73026d415d52728d",
         ),
     ],
     "xgboost": [
         (
             "deepcell-types_baseline-xgboost.json",
-            "00d110cc0e9f429b3014845f05a13060",
+            "9e51cf1af8c6c43b00871a821fde0f57",
         ),
         (
             "deepcell-types_baseline-xgboost.remap.json",
-            "0d94609aa7127672111797df920920b7",
+            "fba1b0e705e5f7747eb2f9cae30815ba",
         ),
     ],
 }
+
+# Nimbus pretrained weights are distributed upstream (via the
+# ``nimbus-inference`` library / Hugging Face Hub), not re-hosted here.
+_NIMBUS_UPSTREAM_URL = "https://github.com/angelolab/Nimbus-Inference"
 
 
 def download_model(*, version=None):
@@ -139,8 +144,10 @@ def download_baseline_checkpoint(name):
     Parameters
     ----------
     name : str
-        Baseline identifier. One of ``cellsighter``, ``maps``,
-        ``nimbus``, or ``xgboost``.
+        Baseline identifier. One of ``cellsighter``, ``maps``, or
+        ``xgboost``. ``nimbus`` is not served here (its weights are
+        distributed upstream); requesting it raises with a pointer to the
+        official source.
 
     Returns
     -------
@@ -153,6 +160,14 @@ def download_baseline_checkpoint(name):
     """
     from ._auth import fetch_data
 
+    if name == "nimbus":
+        raise ValueError(
+            "The Nimbus baseline is inference-only and its pretrained weights "
+            "are distributed upstream, not re-hosted by this project. Install "
+            "the official library (`pip install -e '.[baseline-nimbus]'`), which "
+            "downloads the weights automatically; see "
+            f"{_NIMBUS_UPSTREAM_URL}."
+        )
     if name not in _baseline_registry:
         raise ValueError(
             f"Unknown baseline {name!r}. Known baselines: {sorted(_baseline_registry)}."
