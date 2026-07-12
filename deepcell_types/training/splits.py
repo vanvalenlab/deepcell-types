@@ -13,6 +13,7 @@ functions only take a ``dataset`` instance as a parameter (no import of
 import json
 import logging
 import random
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -131,7 +132,59 @@ def _build_fov_strata(dataset, fov_to_indices, stratify_by):
     return fov_to_stratum
 
 
-def create_fov_splits(dataset, train_ratio=0.8, seed=42, stratify_by=()):
+def parse_patient_id(fov_key):
+    """Best-effort patient/donor id parsed from a ``fov_key`` naming convention.
+
+    There is no structured patient/donor metadata in the archive (only
+    ``tissue``/``modality`` zarr attrs, see ``_build_fov_strata``) — patient
+    identity, where recoverable at all, is embedded in the dataset/FOV name
+    string itself. This currently only recognizes the known
+    ``...Patient<N>...`` convention used by e.g. the McCaffrey TB MIBI
+    dataset (``mccaffrey_tb_mibi_lung_Patient3-2`` -> patient id
+    ``"mccaffrey_tb_mibi_lung_Patient3"``).
+
+    The returned id is anchored to everything up to and including
+    ``Patient<N>`` (not just the bare number), so that two unrelated source
+    datasets that both happen to have a "Patient3" are never merged into the
+    same group.
+
+    Args:
+        fov_key: (dataset_name, fov_name) tuple, as used elsewhere in this
+            module.
+
+    Returns:
+        The parsed patient id string, or None if neither field matches the
+        known convention (caller should fall back to per-FOV handling).
+    """
+    for candidate in fov_key:
+        match = re.search(r"^.*?Patient\d+", str(candidate))
+        if match:
+            return match.group(0)
+    return None
+
+
+def _group_fov_keys_by_patient(fov_keys):
+    """Group ``fov_keys`` sharing a ``parse_patient_id`` result into units.
+
+    Returns a list of "units", where each unit is a list of one or more
+    fov_keys that must be assigned to the same split (train xor val) as a
+    whole. FOVs with no parseable patient id become their own singleton
+    unit — identical to the ungrouped, per-FOV behavior.
+    """
+    patient_to_unit = defaultdict(list)
+    singleton_units = []
+    for fov_key in fov_keys:
+        patient_id = parse_patient_id(fov_key)
+        if patient_id is None:
+            singleton_units.append([fov_key])
+        else:
+            patient_to_unit[patient_id].append(fov_key)
+    return list(patient_to_unit.values()) + singleton_units
+
+
+def create_fov_splits(
+    dataset, train_ratio=0.8, seed=42, stratify_by=(), group_by_patient=False
+):
     """Split dataset by FOV (no spatial leakage).
 
     Groups cells by FOV, then assigns entire FOVs to train or val.
@@ -149,6 +202,16 @@ def create_fov_splits(dataset, train_ratio=0.8, seed=42, stratify_by=()):
         seed: Random seed
         stratify_by: Tuple of stratification keys, e.g. ("modality", "tissue").
             Empty tuple disables stratification (legacy global shuffle).
+        group_by_patient: If True, FOVs whose key matches the known
+            ``...Patient<N>...`` naming convention (see ``parse_patient_id``)
+            are grouped so every FOV from the same patient lands entirely in
+            train or entirely in val, instead of being shuffled
+            independently — prevents patient-level leakage across the split.
+            FOVs with no parseable patient id keep the per-FOV behavior.
+            Only applies within the ``stratify_by`` per-stratum split (a
+            no-op when ``stratify_by`` is empty). Default False: existing
+            callers and split files are unaffected unless this is
+            explicitly requested.
 
     Returns:
         train_indices: List of integer indices into dataset
@@ -184,17 +247,38 @@ def create_fov_splits(dataset, train_ratio=0.8, seed=42, stratify_by=()):
         single_fov_strata = []
         for stratum in sorted(by_stratum.keys()):
             keys = list(by_stratum[stratum])
-            rng.shuffle(keys)
-            if len(keys) == 1:
+            # Collapse FOVs sharing a parsed patient id into single "units"
+            # that are assigned to a split as a whole (see
+            # _group_fov_keys_by_patient). When group_by_patient=False every
+            # unit is a singleton [fov_key] — identical to the old,
+            # ungrouped per-FOV list — so behavior is unchanged by default.
+            units = (
+                _group_fov_keys_by_patient(keys)
+                if group_by_patient
+                else [[fk] for fk in keys]
+            )
+            rng.shuffle(units)
+            if len(units) == 1:
+                # Whole stratum is one unsplittable unit — either a single
+                # FOV, or (with group_by_patient) a single patient group
+                # spanning every remaining FOV in this stratum. Can't
+                # evaluate a held-out portion either way, so force to train
+                # (same rule as the pre-existing single-FOV case).
                 single_fov_strata.append(stratum)
-                train_indices.extend(fov_to_indices[keys[0]])
+                for fk in units[0]:
+                    train_indices.extend(fov_to_indices[fk])
                 continue
-            # Round to nearest, clamp so neither side is empty
-            n_train = max(1, min(len(keys) - 1, int(round(len(keys) * train_ratio))))
-            for fk in keys[:n_train]:
-                train_indices.extend(fov_to_indices[fk])
-            for fk in keys[n_train:]:
-                val_indices.extend(fov_to_indices[fk])
+            # Round to nearest, clamp so neither side is empty. Ratio is
+            # computed over units, not raw FOV counts: with group_by_patient
+            # this trades exact train_ratio adherence for never splitting a
+            # patient across train/val.
+            n_train = max(1, min(len(units) - 1, int(round(len(units) * train_ratio))))
+            for unit in units[:n_train]:
+                for fk in unit:
+                    train_indices.extend(fov_to_indices[fk])
+            for unit in units[n_train:]:
+                for fk in unit:
+                    val_indices.extend(fov_to_indices[fk])
         if single_fov_strata:
             logger.info(
                 "stratified split: %d single-FOV strata forced to train (cannot eval): %s",
@@ -251,7 +335,14 @@ def _format_fov_examples(fov_keys, limit=5):
     return ", ".join(f"{ds}/{fov}" for ds, fov in examples) + suffix
 
 
-def save_fov_splits(dataset, split_file, train_ratio=0.8, seed=42, stratify_by=()):
+def save_fov_splits(
+    dataset,
+    split_file,
+    train_ratio=0.8,
+    seed=42,
+    stratify_by=(),
+    group_by_patient=False,
+):
     """Generate FOV splits and save to a JSON file for reproducibility.
 
     Delegates to ``create_fov_splits`` for the actual partitioning logic
@@ -266,6 +357,8 @@ def save_fov_splits(dataset, split_file, train_ratio=0.8, seed=42, stratify_by=(
         stratify_by: Tuple of stratification keys, e.g. ``("modality", "tissue")``.
             Empty tuple disables stratification (legacy global shuffle, used by
             v9 splits for benchmark continuity).
+        group_by_patient: See ``create_fov_splits``. Default False (no change
+            to existing split files unless explicitly requested).
 
     Returns:
         train_indices, val_indices (same as ``create_fov_splits``).
@@ -275,6 +368,7 @@ def save_fov_splits(dataset, split_file, train_ratio=0.8, seed=42, stratify_by=(
         train_ratio=train_ratio,
         seed=seed,
         stratify_by=stratify_by,
+        group_by_patient=group_by_patient,
     )
 
     # Reconstruct (dataset_name -> [fov_names]) groupings from the per-cell
@@ -299,7 +393,10 @@ def save_fov_splits(dataset, split_file, train_ratio=0.8, seed=42, stratify_by=(
         val_fov_keys.add(fov_key)
         val_split.setdefault(fov_key[0], []).append(fov_key[1])
 
-    # Re-derive single-FOV stratum count for metadata transparency.
+    # Re-derive single-unit stratum count for metadata transparency. A "unit"
+    # is a single FOV, or (group_by_patient=True) a whole patient group — see
+    # create_fov_splits. Mirrors that function's own single-unit forced-to-
+    # train rule so this count stays accurate whether or not grouping is on.
     num_single_fov_strata = 0
     if stratify_by:
         fov_to_indices = defaultdict(list)
@@ -312,13 +409,21 @@ def save_fov_splits(dataset, split_file, train_ratio=0.8, seed=42, stratify_by=(
             if fov_key in forced:
                 continue
             by_stratum[fov_to_stratum[fov_key]].append(fov_key)
-        num_single_fov_strata = sum(1 for v in by_stratum.values() if len(v) == 1)
+        for stratum_keys in by_stratum.values():
+            n_units = (
+                len(_group_fov_keys_by_patient(stratum_keys))
+                if group_by_patient
+                else len(stratum_keys)
+            )
+            if n_units == 1:
+                num_single_fov_strata += 1
 
     split_data = {
         "metadata": {
             "seed": seed,
             "train_ratio": train_ratio,
             "stratify_by": list(stratify_by),
+            "group_by_patient": bool(group_by_patient),
             "num_train_fovs": sum(len(v) for v in train_split.values()),
             "num_val_fovs": sum(len(v) for v in val_split.values()),
             "num_datasets": len(set(list(train_split) + list(val_split))),

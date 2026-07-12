@@ -59,13 +59,20 @@ required**. The marker / cell-type registry ships inside the package as a
 automatically:
 
 ```python
+import torch
+
 from deepcell_types import predict
+
+# Pick a device: the default GPU if one is available, otherwise the CPU
+# (inference works the same on CPU, just slower). Use "cuda:1", "cuda:2",
+# etc. to target a specific GPU.
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # raw: numpy (C, H, W); mask: 2D label image; channel_names: list[str]
 # Pass the path returned by download_model() straight through to predict();
 # predict() also accepts a filesystem path to a .pt file directly.
 labels = predict(raw, mask, channel_names, mpp,
-                 model_name=model_path, device="cuda:0")
+                 model_name=model_path, device=device)
 ```
 
 For a complete example of the cell-type inference pipeline, check out
@@ -120,7 +127,11 @@ can also call directly if you already know the fix. Build one declaratively from
 bounded set of ops:
 
 ```python
+import torch
+
 from deepcell_types import predict, make_preprocessor
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 config = [
     {"op": "clip_percentile", "p": 99.9},
@@ -128,7 +139,7 @@ config = [
     {"op": "min_max_normalize"},                # model sees [0, 1]
 ]
 labels = predict(raw, mask, channel_names, mpp, model_name=...,
-                 device="cuda:0", preprocess=make_preprocessor(config))
+                 device=device, preprocess=make_preprocessor(config))
 ```
 
 The hook receives the resampled, in-vocabulary raw `(C, H, W)` array and the

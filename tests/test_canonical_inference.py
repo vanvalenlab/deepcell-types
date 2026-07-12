@@ -161,6 +161,15 @@ def test_patch_dataset_shards_iterable_workers_without_duplicates(tmp_path):
     assert len(cell_indices) == len(set(cell_indices)) == len(dataset)
 
 
+def test_patch_dataset_rejects_raw_mask_spatial_mismatch(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    config = DCTConfig(zarr_path=archive_path)
+    raw = np.ones((1, 40, 40), dtype=np.float32)
+    mask = np.zeros((32, 32), dtype=np.int32)
+    with pytest.raises(ValueError, match="raw spatial shape"):
+        PatchDataset(raw, mask, ["CD45"], 0.5, config)
+
+
 def test_model_path_treats_dotted_model_names_as_cached_models():
     model_cache = Path.home() / ".deepcell" / "models"
 
@@ -909,3 +918,23 @@ def test_marker_ordering_uses_indices_not_dict_insertion():
             {"A": 0, "B": 1},
             {"M1": 1, "M2": 0},
         )
+
+
+def test_checkpoint_without_canonical_channels_is_rejected():
+    """A checkpoint that bundles ct2idx but not canonical_channels is rejected
+    outright: the marker ordering cannot be verified and a permuted marker
+    vocabulary would silently mislabel every cell."""
+    config = DCTConfig()  # packaged vocab.json -> canonical 51-class ordering
+    ckpt = {"ct2idx": dict(config.ct2idx)}
+    with pytest.raises(ValueError, match="does not bundle canonical_channels"):
+        validate_checkpoint_vocabulary(ckpt, config.ct2idx, config.marker2idx)
+
+
+def test_checkpoint_with_matching_ct2idx_and_canonical_channels_is_accepted():
+    """Both ct2idx and canonical_channels present and matching -> no error."""
+    config = DCTConfig()
+    ckpt = {
+        "ct2idx": dict(config.ct2idx),
+        "canonical_channels": list(config.marker2idx.keys()),
+    }
+    validate_checkpoint_vocabulary(ckpt, config.ct2idx, config.marker2idx)

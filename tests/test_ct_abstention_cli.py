@@ -1,7 +1,7 @@
 """Tests for the post-hoc CT abstention wired into scripts/predict.py.
 
 Exercises the lower-level building blocks in `deepcell_types.abstention` —
-`compute_iqr_fence` and `apply_abstention` — that the CLI wires up. Five
+`_compute_iqr_fence` and `apply_abstention` — that the CLI wires up. Five
 scenarios are covered:
 
 1. Default (no abstention applied) — `apply_abstention` not called → no
@@ -22,8 +22,8 @@ import pytest
 
 from deepcell_types.abstention import (
     ABSTENTION_LABEL,
+    _compute_iqr_fence,
     apply_abstention,
-    compute_iqr_fence,
 )
 
 
@@ -174,8 +174,8 @@ def test_compute_iqr_fence_returns_none_under_threshold():
     """Tiny samples (<4) cannot define an IQR; helper returns None and the
     caller must not abstain anything in that group.
     """
-    assert compute_iqr_fence(np.array([0.5, 0.6, 0.7]), 1.5) is None
-    f = compute_iqr_fence(np.array([0.1, 0.2, 0.3, 0.4]), 1.5)
+    assert _compute_iqr_fence(np.array([0.5, 0.6, 0.7]), 1.5) is None
+    f = _compute_iqr_fence(np.array([0.1, 0.2, 0.3, 0.4]), 1.5)
     assert f is not None
     assert f == pytest.approx(0.175 - 1.5 * 0.15)
 

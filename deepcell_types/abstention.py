@@ -25,7 +25,7 @@ Operating points:
 * ``k = 1.5`` (canonical Tukey): near-no-op (~0.23% abstained,
   +0.02pp macro).
 * ``k <= 0``: callers skip abstention. (Passing ``k = 0`` to
-  :func:`compute_iqr_fence` directly gives ``fence = Q1``, not a no-op.)
+  ``_compute_iqr_fence`` directly gives ``fence = Q1``, not a no-op.)
 
 :func:`apply_abstention` (this module) applies the same fence to a pandas
 DataFrame of DCT predictions, grouped by FOV — the batched form used by the
@@ -40,7 +40,7 @@ from typing import Optional, Sequence
 import numpy as np
 
 
-__all__ = ["ABSTENTION_LABEL", "compute_iqr_fence", "apply_abstention"]
+__all__ = ["ABSTENTION_LABEL", "apply_abstention"]
 
 ABSTENTION_LABEL = "Unknown"
 """Sentinel cell-type name used for cells flagged as abstained.
@@ -51,7 +51,7 @@ output for cells whose max-softmax falls below the IQR fence.
 """
 
 
-def compute_iqr_fence(max_softmax: np.ndarray, k: float) -> Optional[float]:
+def _compute_iqr_fence(max_softmax: np.ndarray, k: float) -> Optional[float]:
     """Compute the Tukey lower fence ``Q1 - k * IQR`` for a 1D array.
 
     Returns ``None`` when fewer than 4 values are supplied (the IQR is
@@ -100,7 +100,7 @@ def apply_abstention(
     the macro/weighted denominator.
 
     Per-group fences are computed independently. Groups with fewer than 4 cells
-    have no fence (no abstention fires for them — see :func:`compute_iqr_fence`).
+    have no fence (no abstention fires for them — see ``_compute_iqr_fence``).
     Groups whose max_softmax distribution is degenerate (all identical) yield
     fence == Q1, so ``vals >= fence`` is all True (no abstention fires).
     """
@@ -130,7 +130,7 @@ def apply_abstention(
     for _gkey, idx in grouped.items():
         if len(idx) < 4:
             continue
-        fence = compute_iqr_fence(max_p[idx], k)
+        fence = _compute_iqr_fence(max_p[idx], k)
         if fence is None:
             continue
         abstained[idx] = max_p[idx] < fence

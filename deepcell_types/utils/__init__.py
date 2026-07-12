@@ -16,59 +16,79 @@ __all__ = [
     "download_training_data",
     "list_model_versions",
     "list_baseline_names",
+    "list_supported_markers",
+    "list_supported_cell_types",
+    "resolve_supported_marker",
 ]
 
 _latest = "2026-06-15"
 
 # Main model checkpoints. Values are ``(asset_filename, md5)``.
-# The headline release is the two-stage residual-MLP model
-# (``2026-06-15``): a sampler-trained backbone, frozen, with a residual-MLP
-# cell-type head retrained on the natural class distribution. It loads via
-# stock ``predict.py`` (the resMLP head is auto-detected).
+# Two released residual-MLP checkpoints share the current vocabulary (51 cell
+# types, 278 markers) and load via stock ``predict.py`` (the resMLP head is
+# auto-detected):
+#   - ``2026-06-15`` (default): the from-scratch resMLP (paper Fig-3c headline).
+#   - ``2026-06-23``: the pretrain -> finetune (SSL) resMLP arm.
+#
+# Each md5 tracks the vocab-bundled asset (carries ``ct2idx`` +
+# ``canonical_channels`` so ``validate_checkpoint_vocabulary`` can verify
+# ordering). The original un-bundled assets predated the guard and raised
+# ``ValueError: ... does not bundle a ct2idx`` on every ``predict()`` call;
+# they were re-packaged with ``scripts/repackage_release_checkpoint.py``. Each
+# bundled asset must be uploaded at its filename below before its md5 is served.
 _model_registry = {
     "2026-06-15": (
         "deepcell-types_2026-06-15_resmlp.pt",
-        "704616a1cfeb6f4718ffdb8d7ea64d65",
+        "b819a7e0b177ad5330394eab3c6c7ad8",
+    ),
+    "2026-06-23": (
+        "deepcell-types_2026-06-23_resmlp_ptft.pt",
+        "402e94c103c5e489a57433cd107009d3",
     ),
 }
 
 # Baseline-model checkpoints. Values are lists of ``(asset_filename, md5)``.
 # Single-file baselines have a one-element list; ``maps`` and ``xgboost``
-# additionally ship a companion file required at inference.
+# additionally ship a companion file required at inference. The md5s track the
+# 2026-06-30 DCT-sampler retrains -- the release-of-record that produced the
+# published baseline prediction CSVs and headline numbers.
+#
+# Nimbus is intentionally absent: it is inference-only with pretrained weights
+# produced and distributed upstream (angelolab/Nimbus-Inference), which this
+# project does not redistribute. ``download_baseline_checkpoint("nimbus")``
+# raises with a pointer to the official source instead (see below).
 _baseline_registry = {
     "cellsighter": [
         (
             "deepcell-types_baseline-cellsighter.pth",
-            "d06f8aeef485e7c40590cc35da80944b",
+            "c5a105fb044ad82c82817a32aabbae7c",
         ),
     ],
     "maps": [
         (
             "deepcell-types_baseline-maps.pth",
-            "d2d1930d438c014c226202b8b7fa4a65",
+            "1ad5e30ceaccfdb91050b663099258fb",
         ),
         (
             "deepcell-types_baseline-maps_stats.npz",
-            "e3a54e5a64d5376231abf1022b001a41",
-        ),
-    ],
-    "nimbus": [
-        (
-            "deepcell-types_baseline-nimbus.pt",
-            "47916fbebc3a58d5bee96a9289d157aa",
+            "1f462d0c8bf531af73026d415d52728d",
         ),
     ],
     "xgboost": [
         (
             "deepcell-types_baseline-xgboost.json",
-            "00d110cc0e9f429b3014845f05a13060",
+            "9e51cf1af8c6c43b00871a821fde0f57",
         ),
         (
             "deepcell-types_baseline-xgboost.remap.json",
-            "0d94609aa7127672111797df920920b7",
+            "fba1b0e705e5f7747eb2f9cae30815ba",
         ),
     ],
 }
+
+# Nimbus pretrained weights are distributed upstream (via the
+# ``nimbus-inference`` library / Hugging Face Hub), not re-hosted here.
+_NIMBUS_UPSTREAM_URL = "https://github.com/angelolab/Nimbus-Inference"
 
 
 def download_model(*, version=None):
@@ -127,8 +147,10 @@ def download_baseline_checkpoint(name):
     Parameters
     ----------
     name : str
-        Baseline identifier. One of ``cellsighter``, ``maps``,
-        ``nimbus``, or ``xgboost``.
+        Baseline identifier. One of ``cellsighter``, ``maps``, or
+        ``xgboost``. ``nimbus`` is not served here (its weights are
+        distributed upstream); requesting it raises with a pointer to the
+        official source.
 
     Returns
     -------
@@ -141,6 +163,14 @@ def download_baseline_checkpoint(name):
     """
     from ._auth import fetch_data
 
+    if name == "nimbus":
+        raise ValueError(
+            "The Nimbus baseline is inference-only and its pretrained weights "
+            "are distributed upstream, not re-hosted by this project. Install "
+            "the official library (`pip install -e '.[baseline-nimbus]'`), which "
+            "downloads the weights automatically; see "
+            f"{_NIMBUS_UPSTREAM_URL}."
+        )
     if name not in _baseline_registry:
         raise ValueError(
             f"Unknown baseline {name!r}. Known baselines: {sorted(_baseline_registry)}."
@@ -161,6 +191,82 @@ def list_baseline_names():
         ``list``-returning counterpart to :func:`list_model_versions`).
     """
     return sorted(_baseline_registry)
+
+
+def list_supported_markers(*, zarr_path=None):
+    """Return the canonical marker names in the active registry, sorted.
+
+    Lets a user pre-flight-check whether their marker panel overlaps the
+    model's registry before downloading a checkpoint or running inference.
+    Use :func:`resolve_supported_marker` to check acquisition names that may
+    be aliases or differ in capitalization.
+    Reads the packaged ``vocab.json`` snapshot via :class:`.DCTConfig`
+    (no archive or checkpoint required); pass ``zarr_path`` to inspect an
+    archive's registry instead.
+
+    Parameters
+    ----------
+    zarr_path : str or Path, optional
+        Forwarded to :class:`.DCTConfig`. If ``None`` (default), resolves the
+        ``DEEPCELL_TYPES_ZARR_PATH`` environment variable and falls back to
+        the packaged ``vocab.json``.
+
+    Returns
+    -------
+    list of str
+        Recognized marker names, sorted.
+    """
+    from ..config import DCTConfig
+
+    return sorted(DCTConfig(zarr_path=zarr_path).marker2idx)
+
+
+def resolve_supported_marker(marker, *, zarr_path=None):
+    """Resolve a marker name or alias to its canonical registry name.
+
+    Resolution matches inference behavior, including configured aliases and
+    case-insensitive names.
+
+    Parameters
+    ----------
+    marker : str
+        Marker/channel name to resolve.
+    zarr_path : str or Path, optional
+        Forwarded to :class:`.DCTConfig`. If ``None`` (default), resolves the
+        ``DEEPCELL_TYPES_ZARR_PATH`` environment variable and falls back to
+        the packaged ``vocab.json``.
+
+    Returns
+    -------
+    str or None
+        Canonical marker name, or ``None`` when the marker is unsupported.
+    """
+    from ..config import DCTConfig
+
+    return DCTConfig(zarr_path=zarr_path).resolve_channel_name(marker)
+
+
+def list_supported_cell_types(*, zarr_path=None):
+    """Return the cell-type names the packaged registry recognizes, sorted.
+
+    The ``list``-returning counterpart to :func:`list_supported_markers`; see
+    its docstring for the pre-flight-check motivation.
+
+    Parameters
+    ----------
+    zarr_path : str or Path, optional
+        Forwarded to :class:`.DCTConfig`. If ``None`` (default), resolves the
+        ``DEEPCELL_TYPES_ZARR_PATH`` environment variable and falls back to
+        the packaged ``vocab.json``.
+
+    Returns
+    -------
+    list of str
+        Recognized cell-type names, sorted.
+    """
+    from ..config import DCTConfig
+
+    return sorted(DCTConfig(zarr_path=zarr_path).ct2idx)
 
 
 _training_data_asset_key = "data/deepcell-types/public_data_v1.1.zip"

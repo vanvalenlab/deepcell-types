@@ -47,9 +47,14 @@ To fetch a baseline checkpoint instead of the main DeepCellTypes model:
 ```python
 from deepcell_types.utils import download_baseline_checkpoint
 
-# One of: "cellsighter", "maps", "nimbus", "xgboost"
+# One of: "cellsighter", "maps", "xgboost"
 download_baseline_checkpoint("maps")
 ```
+
+The Nimbus baseline is not served here: its pretrained weights are
+distributed upstream, so install it with `pip install -e ".[baseline-nimbus]"`
+(which fetches the weights automatically) rather than
+`download_baseline_checkpoint`.
 
 Training Data
 -------------

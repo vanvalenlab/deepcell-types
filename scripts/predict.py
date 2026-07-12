@@ -269,25 +269,7 @@ def main(
         ct_head_depth=ct_head_params["ct_head_depth"],
     )
 
-    if isinstance(checkpoint, dict) and "model" in checkpoint:
-        model.load_state_dict(checkpoint["model"])
-    else:
-        # Legacy format: plain state_dict — detect old Linear MP head
-        if (
-            "marker_pos_head.weight" in checkpoint
-            and "marker_pos_head.film_scale.weight" not in checkpoint
-        ):
-            model = create_model(
-                dct_config,
-                marker_embeddings,
-                d_model=d_model,
-                resnet_base_channels=resnet_channels,
-                use_conditioned_mp_head=False,
-                ct_head_width=ct_head_params["ct_head_width"],
-                ct_head_depth=ct_head_params["ct_head_depth"],
-            ).to(device)
-        model.load_state_dict(checkpoint)
-        print("Legacy checkpoint")
+    model.load_state_dict(checkpoint["model"])
 
     model.to(device)
     summary(model, col_names=["trainable"])
