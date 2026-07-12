@@ -130,6 +130,42 @@ def load_fov_data(
     return raw, mask, channel_names, cell_info
 
 
+# Dataset-level failure-rate gate for the FOV-loading loop in main(). Mirrors
+# the ``failed_keys`` / fail-rate convention in
+# ``deepcell_types/training/dataset.py`` (cell-data cache build): baselines
+# must be scored at full coverage (see ``deepcell_types/abstention.py``), so a
+# silent drop of skipped/failed datasets must never be invisible.
+NIMBUS_DATASET_FAILURE_RATE_THRESHOLD = 0.01
+
+
+def check_dataset_coverage(
+    skipped_keys: List[str],
+    total_keys: int,
+    threshold: float = NIMBUS_DATASET_FAILURE_RATE_THRESHOLD,
+) -> None:
+    """Report and gate on dataset-level coverage loss.
+
+    Always prints an aggregate "Skipped N of M datasets" line so a coverage
+    drop is never silent, then raises ``RuntimeError`` if the failure rate
+    exceeds ``threshold`` (default 1%, matching
+    ``training/dataset.py``'s cache-build gate).
+    """
+    n_skipped = len(skipped_keys)
+    print(f"Skipped {n_skipped} of {total_keys} datasets")
+    if n_skipped == 0:
+        return
+    fail_rate = n_skipped / max(1, total_keys)
+    if fail_rate > threshold:
+        raise RuntimeError(
+            f"Nimbus baseline dropped {n_skipped} of {total_keys} datasets "
+            f"({fail_rate:.1%}, above the {threshold:.0%} safety threshold). "
+            "Baselines must be scored at full coverage (see abstention.py) "
+            "so this would bias the baseline comparison. Inspect the warnings "
+            f"above and either fix the archive or relax the threshold "
+            f"deliberately. Skipped keys (first 10): {skipped_keys[:10]}"
+        )
+
+
 def compute_marker_positivity_metrics(
     predictions: pd.DataFrame,
     ground_truth: Dict[str, pd.DataFrame],
@@ -387,6 +423,7 @@ def main(
     # Process each dataset
     all_predictions = []
     fov_count = 0
+    skipped_dataset_keys: List[str] = []
 
     from scipy.ndimage import mean as ndimage_mean
     import cv2
@@ -474,6 +511,7 @@ def main(
         # Check if preprocessed data exists
         if "preprocessed" not in ds:
             print(f"Warning: No preprocessed data for {dataset_key}, skipping")
+            skipped_dataset_keys.append(dataset_key)
             continue
 
         try:
@@ -481,8 +519,14 @@ def main(
             _, mask, channel_names, cell_info = load_fov_data(
                 zf, dataset_key, load_raw=False
             )
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, TypeError, OSError) as e:
+            # Narrowed from a bare ``except Exception`` (mirrors the expected-error
+            # set in training/dataset.py's cache build): missing zarr paths
+            # (KeyError/OSError), the explicit "No cell annotations found"
+            # ValueError, and malformed attrs (AttributeError/TypeError).
+            # Schema/logic bugs outside this set should crash loudly.
             print(f"Error loading {dataset_key}: {e}")
+            skipped_dataset_keys.append(dataset_key)
             continue
 
         # Prepare binary mask once per FOV (with boundary erosion, matching original Nimbus)
@@ -592,6 +636,12 @@ def main(
         if max_fovs and fov_count >= max_fovs:
             print(f"\nReached max_fovs limit ({max_fovs})")
             break
+
+    # Report and gate on dataset-level coverage loss before metrics are
+    # finalized (baselines must be scored at full coverage). Denominator is
+    # datasets actually attempted (succeeded + skipped), not the full
+    # dataset_keys list, since --max_fovs can end the loop early.
+    check_dataset_coverage(skipped_dataset_keys, fov_count + len(skipped_dataset_keys))
 
     # Combine all predictions
     if len(all_predictions) == 0:
