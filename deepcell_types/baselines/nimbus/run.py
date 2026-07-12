@@ -645,8 +645,7 @@ def main(
 
     # Combine all predictions
     if len(all_predictions) == 0:
-        print("Error: No predictions generated.")
-        return
+        raise click.ClickException("No predictions were generated.")
 
     predictions_df = pd.concat(all_predictions, ignore_index=True)
     print(f"\nGenerated predictions for {len(predictions_df)} cells")

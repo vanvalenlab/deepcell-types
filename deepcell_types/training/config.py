@@ -9,6 +9,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from types import MappingProxyType
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -111,6 +112,12 @@ class TissueNetConfig:
         # Build ct2idx from cell_type_mapping (maps cell type name -> integer ID)
         # This is used for model output labels
         self._ct2idx = {ct: idx for ct, idx in self._cell_type_mapping.items()}
+        expected_indices = set(range(len(self._ct2idx)))
+        if set(self._ct2idx.values()) != expected_indices:
+            raise ValueError(
+                "cell_type_mapping indices must be unique and contiguous from 0 "
+                f"to {len(self._ct2idx) - 1}; got {self._ct2idx}."
+            )
 
         # Build marker2idx from all standardized channels
         self._marker2idx = {ch: idx for idx, ch in enumerate(self._all_channels)}
@@ -147,12 +154,12 @@ class TissueNetConfig:
     @property
     def ct2idx(self) -> Dict[str, int]:
         """Cell type name to integer index mapping."""
-        return self._ct2idx
+        return MappingProxyType(self._ct2idx)
 
     @property
     def marker2idx(self) -> Dict[str, int]:
         """Marker/channel name to integer index mapping."""
-        return self._marker2idx
+        return MappingProxyType(self._marker2idx)
 
     @property
     def tumor_datasets(self) -> set:
@@ -166,7 +173,7 @@ class TissueNetConfig:
             # Get unique domains from domain_mapping
             domains = sorted(set(self.domain_mapping.values()))
             self._domain2idx = {d: idx for idx, d in enumerate(domains)}
-        return self._domain2idx
+        return MappingProxyType(self._domain2idx)
 
     @property
     def NUM_DOMAINS(self) -> int:
@@ -725,4 +732,3 @@ from .patch import (  # noqa: F401, E402
     extract_patch,
     extract_patch_from_zarr,
 )
-

@@ -187,6 +187,20 @@ def test_preprocess_fov_rejects_shape_mismatches():
         )
 
 
+@pytest.mark.parametrize("name", ["native_mpp", "target_mpp"])
+@pytest.mark.parametrize("value", [0.0, -1.0, float("nan"), float("inf")])
+def test_preprocess_fov_rejects_invalid_resolution(name, value):
+    kwargs = {"native_mpp": 0.5, "target_mpp": 0.5}
+    kwargs[name] = value
+    with pytest.raises(ValueError, match=f"{name} must be positive and finite"):
+        preprocess_fov(
+            np.ones((1, 2, 2), dtype=np.float32),
+            np.ones((2, 2), dtype=np.int32),
+            channel_names=["CD3"],
+            **kwargs,
+        )
+
+
 def test_preprocess_fov_deterministic():
     raw, mask = _fixture_raw_mask()
     out1 = preprocess_fov(

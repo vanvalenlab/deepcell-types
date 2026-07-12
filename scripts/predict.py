@@ -24,6 +24,7 @@ from deepcell_types.training.dataset import create_dataloader
 from deepcell_types.model import create_model
 from deepcell_types.predict import (
     validate_checkpoint_vocabulary,
+    validate_checkpoint_architecture_config,
     _infer_ct_head_params,
 )
 from deepcell_types.training.losses import FocalLoss
@@ -254,6 +255,7 @@ def main(
     # of the right size would load cleanly and silently mislabel every cell in
     # the eval CSV. Same check the Python API runs.
     validate_checkpoint_vocabulary(checkpoint, dct_config.ct2idx, dct_config.marker2idx)
+    n_heads, compat_marker0_zero = validate_checkpoint_architecture_config(checkpoint)
 
     # Build model
     model = create_model(
@@ -262,9 +264,9 @@ def main(
         d_model=d_model,
         resnet_base_channels=ckpt_config.get("resnet_channels", resnet_channels),
         spatial_pool_size=ckpt_config.get("spatial_pool_size", spatial_pool_size),
-        n_heads=ckpt_config.get("n_heads", 8),
+        n_heads=n_heads,
         use_conditioned_mp_head=ckpt_config.get("use_conditioned_mp_head", True),
-        compat_marker0_zero=ckpt_config.get("compat_marker0_zero", True),
+        compat_marker0_zero=compat_marker0_zero,
         ct_head_width=ct_head_params["ct_head_width"],
         ct_head_depth=ct_head_params["ct_head_depth"],
     )

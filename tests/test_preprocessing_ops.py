@@ -44,6 +44,19 @@ def test_channel_drop_zeros_named_channel():
     assert np.all(out[2] == 0.0)
 
 
+@pytest.mark.parametrize(
+    "step",
+    [
+        {"op": "background_subtract_per_channel", "names": ["TYPO"]},
+        {"op": "channel_drop", "names": ["TYPO"]},
+        {"op": "channel_weight", "weights": {"TYPO": 0.5}},
+    ],
+)
+def test_named_ops_reject_unknown_channels(step):
+    with pytest.raises(ValueError, match="unknown preprocessing channel"):
+        apply_config(np.ones((1, 2, 2)), ["CD3"], [step])
+
+
 def test_channel_weight_after_normalize_scales():
     raw, names = _fov()
     cfg = [

@@ -344,6 +344,12 @@ class FullImageDataset(Dataset):
                 domain = modality_attr
 
             cell_types, cell_indices, centroids = entry["cell_data"]
+            lengths = (len(cell_types), len(cell_indices), len(centroids))
+            if len(set(lengths)) != 1:
+                raise ValueError(
+                    f"{dataset_key}: cell_type, cell_index, and centroid arrays "
+                    f"must have equal lengths; got {lengths}."
+                )
 
             tissue_attr = ""
             try:
