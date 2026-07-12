@@ -25,6 +25,7 @@ dependencies = [
     "scipy>=1.9",
     "scikit-image>=0.20",
     "tqdm>=4.60",
+    "deepcell_auth@git+https://github.com/rossbar/deepcell-auth.git@add-dct-2026-06-23",
     "torch>=2.0",
 ]
 classifiers = [
