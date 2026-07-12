@@ -6,7 +6,11 @@ inference/train dependency split guarded by ``test_inference_deps.py``).
 """
 
 import deepcell_types
-from deepcell_types import list_supported_cell_types, list_supported_markers
+from deepcell_types import (
+    list_supported_cell_types,
+    list_supported_markers,
+    resolve_supported_marker,
+)
 from deepcell_types.config import DCTConfig
 
 
@@ -27,3 +31,12 @@ def test_list_supported_cell_types_matches_config():
 def test_listing_helpers_importable_from_top_level_package():
     assert deepcell_types.list_supported_markers is list_supported_markers
     assert deepcell_types.list_supported_cell_types is list_supported_cell_types
+    assert deepcell_types.resolve_supported_marker is resolve_supported_marker
+
+
+def test_resolve_supported_marker_matches_inference_resolution():
+    assert resolve_supported_marker("PanCK") == "PanCK"
+    assert resolve_supported_marker("PANCK") == "PanCK"
+    assert resolve_supported_marker("panck") == "PanCK"
+    assert resolve_supported_marker("Pan-Cytokeratin") == "PanCK"
+    assert resolve_supported_marker("not-a-supported-marker") is None

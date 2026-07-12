@@ -127,7 +127,11 @@ can also call directly if you already know the fix. Build one declaratively from
 bounded set of ops:
 
 ```python
+import torch
+
 from deepcell_types import predict, make_preprocessor
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 config = [
     {"op": "clip_percentile", "p": 99.9},

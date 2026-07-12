@@ -37,6 +37,7 @@ from .utils import list_baseline_names as list_baseline_names
 from .utils import list_model_versions as list_model_versions
 from .utils import list_supported_cell_types as list_supported_cell_types
 from .utils import list_supported_markers as list_supported_markers
+from .utils import resolve_supported_marker as resolve_supported_marker
 
 try:
     __version__ = version("deepcell-types")
@@ -59,6 +60,7 @@ __all__ = [
     "list_baseline_names",
     "list_supported_markers",
     "list_supported_cell_types",
+    "resolve_supported_marker",
     "ABSTENTION_LABEL",
     "__version__",
 ]

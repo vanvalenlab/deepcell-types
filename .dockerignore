@@ -28,7 +28,11 @@ htmlcov/
 # Local artifacts (datasets, model weights, inference outputs) — see .gitignore
 /data/
 /model/
+/models/
 /output/
+
+# Generated documentation
+docs/_build/
 
 # /deep-review outputs and local agent planning artifacts (not part of the package)
 /reviews/
