@@ -41,3 +41,6 @@ Utilities
    download_training_data
    list_model_versions
    list_baseline_names
+   list_supported_markers
+   list_supported_cell_types
+   resolve_supported_marker

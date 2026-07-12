@@ -16,6 +16,9 @@ __all__ = [
     "download_training_data",
     "list_model_versions",
     "list_baseline_names",
+    "list_supported_markers",
+    "list_supported_cell_types",
+    "resolve_supported_marker",
 ]
 
 _latest = "2026-06-15"
@@ -188,6 +191,82 @@ def list_baseline_names():
         ``list``-returning counterpart to :func:`list_model_versions`).
     """
     return sorted(_baseline_registry)
+
+
+def list_supported_markers(*, zarr_path=None):
+    """Return the canonical marker names in the active registry, sorted.
+
+    Lets a user pre-flight-check whether their marker panel overlaps the
+    model's registry before downloading a checkpoint or running inference.
+    Use :func:`resolve_supported_marker` to check acquisition names that may
+    be aliases or differ in capitalization.
+    Reads the packaged ``vocab.json`` snapshot via :class:`.DCTConfig`
+    (no archive or checkpoint required); pass ``zarr_path`` to inspect an
+    archive's registry instead.
+
+    Parameters
+    ----------
+    zarr_path : str or Path, optional
+        Forwarded to :class:`.DCTConfig`. If ``None`` (default), resolves the
+        ``DEEPCELL_TYPES_ZARR_PATH`` environment variable and falls back to
+        the packaged ``vocab.json``.
+
+    Returns
+    -------
+    list of str
+        Recognized marker names, sorted.
+    """
+    from ..config import DCTConfig
+
+    return sorted(DCTConfig(zarr_path=zarr_path).marker2idx)
+
+
+def resolve_supported_marker(marker, *, zarr_path=None):
+    """Resolve a marker name or alias to its canonical registry name.
+
+    Resolution matches inference behavior, including configured aliases and
+    case-insensitive names.
+
+    Parameters
+    ----------
+    marker : str
+        Marker/channel name to resolve.
+    zarr_path : str or Path, optional
+        Forwarded to :class:`.DCTConfig`. If ``None`` (default), resolves the
+        ``DEEPCELL_TYPES_ZARR_PATH`` environment variable and falls back to
+        the packaged ``vocab.json``.
+
+    Returns
+    -------
+    str or None
+        Canonical marker name, or ``None`` when the marker is unsupported.
+    """
+    from ..config import DCTConfig
+
+    return DCTConfig(zarr_path=zarr_path).resolve_channel_name(marker)
+
+
+def list_supported_cell_types(*, zarr_path=None):
+    """Return the cell-type names the packaged registry recognizes, sorted.
+
+    The ``list``-returning counterpart to :func:`list_supported_markers`; see
+    its docstring for the pre-flight-check motivation.
+
+    Parameters
+    ----------
+    zarr_path : str or Path, optional
+        Forwarded to :class:`.DCTConfig`. If ``None`` (default), resolves the
+        ``DEEPCELL_TYPES_ZARR_PATH`` environment variable and falls back to
+        the packaged ``vocab.json``.
+
+    Returns
+    -------
+    list of str
+        Recognized cell-type names, sorted.
+    """
+    from ..config import DCTConfig
+
+    return sorted(DCTConfig(zarr_path=zarr_path).ct2idx)
 
 
 _training_data_asset_key = "data/deepcell-types/public_data_v1.1.zip"
