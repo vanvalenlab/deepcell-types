@@ -294,8 +294,12 @@ model = download_model(version="2026-06-15")
 ```{code-cell} ipython3
 # System-specific configuration
 
-# NOTE: if you do not have a cuda-capable GPU, try "cpu"
-device = "cuda:0"
+# Pick a device: the default GPU if one is available, otherwise the CPU
+# (inference works the same on CPU, just slower). Use "cuda:1", "cuda:2",
+# etc. to target a specific GPU.
+import torch
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
 # NOTE: For machines with many cores & large RAM (e.g. GPU nodes), consider
 # increasing for better performance.
 num_data_loader_threads = 1
