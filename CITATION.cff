@@ -41,3 +41,46 @@ repository-code: "https://github.com/vanvalenlab/deepcell-types"
 url: "https://github.com/vanvalenlab/deepcell-types"
 license-url: "https://github.com/vanvalenlab/deepcell-types/blob/master/LICENSE"
 version: 0.1.0
+
+preferred-citation:
+  type: article
+  title: >-
+    Generalized cell phenotyping for spatial proteomics with
+    language-informed vision models
+  year: 2026
+  journal: bioRxiv
+  doi: 10.1101/2024.11.02.621624
+  url: "https://www.biorxiv.org/content/10.1101/2024.11.02.621624"
+  # bioRxiv preprint; update to the Science Advances journal + DOI on publication
+  authors:
+    - given-names: "Xuefei (Julie)"
+      family-names: Wang
+    - given-names: Rohit
+      family-names: Dilip
+    - given-names: "Ahamed Raffey"
+      family-names: Iqbal
+    - given-names: Yuval
+      family-names: Bussi
+    - given-names: Caitlin
+      family-names: Brown
+    - given-names: Elora
+      family-names: Pradhan
+    - given-names: Yashvardhan
+      family-names: Jain
+    - given-names: Kevin
+      family-names: Yu
+    - given-names: Shenyi
+      family-names: Li
+    - given-names: Martin
+      family-names: Abt
+    - given-names: Katy
+      family-names: Börner
+    - given-names: Leeat
+      family-names: Keren
+    - given-names: Yisong
+      family-names: Yue
+    - given-names: Ross
+      family-names: Barnowski
+    - given-names: David
+      family-names: Van Valen
+      email: vanvalen@caltech.edu
