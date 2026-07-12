@@ -55,7 +55,7 @@ def test_percentile_threshold_handles_all_zero_channel():
 def test_percentile_threshold_excludes_zeros_from_calculation():
     # If zeros were included, p99.9 would be near 0 and everything clipped.
     arr = np.zeros((100, 100, 1), dtype=np.float32)
-    arr[:5, :5, 0] = 100.0   # 25 nonzero pixels at value 100
+    arr[:5, :5, 0] = 100.0  # 25 nonzero pixels at value 100
     out = _percentile_threshold(arr, percentile=99.9)
     # Threshold from nonzero pixels = 100, so 100s should remain 100
     assert (out[:5, :5, 0] == 100.0).all()
@@ -64,9 +64,9 @@ def test_percentile_threshold_excludes_zeros_from_calculation():
 
 
 def test_min_max_normalize_to_unit_range():
-    arr = np.array([[[2.0, 5.0]],
-                    [[4.0, 5.0]],
-                    [[6.0, 5.0]]], dtype=np.float32)  # (3, 1, 2)
+    arr = np.array(
+        [[[2.0, 5.0]], [[4.0, 5.0]], [[6.0, 5.0]]], dtype=np.float32
+    )  # (3, 1, 2)
     out = _min_max_normalize(arr)
     # Channel 0: min=2, max=6 → normalized to {0, 0.5, 1}
     np.testing.assert_allclose(out[..., 0].ravel(), [0.0, 0.5, 1.0])
@@ -91,9 +91,7 @@ def _fixture_raw_mask(C=3, H=20, W=20):
 
 def test_preprocess_fov_output_in_unit_range_and_correct_dtypes():
     raw, mask = _fixture_raw_mask()
-    out = preprocess_fov(
-        raw, mask, native_mpp=0.5, channel_names=["A", "B", "C"]
-    )
+    out = preprocess_fov(raw, mask, native_mpp=0.5, channel_names=["A", "B", "C"])
     assert isinstance(out, PreprocessedFov)
     assert out.raw.dtype == np.float32
     assert out.mask.dtype == np.uint32
@@ -107,18 +105,14 @@ def test_preprocess_fov_produces_max_one_per_channel():
     """The recipe normalizes to [0, 1] per channel, so each channel's
     max should be exactly 1.0 (matches production)."""
     raw, mask = _fixture_raw_mask()
-    out = preprocess_fov(
-        raw, mask, native_mpp=0.5, channel_names=["A", "B", "C"]
-    )
+    out = preprocess_fov(raw, mask, native_mpp=0.5, channel_names=["A", "B", "C"])
     perch_max = out.raw.max(axis=(1, 2))
     np.testing.assert_allclose(perch_max, 1.0, atol=1e-6)
 
 
 def test_preprocess_fov_resamples_to_target_mpp():
     raw, mask = _fixture_raw_mask()
-    out = preprocess_fov(
-        raw, mask, native_mpp=1.0, channel_names=["x", "y", "z"]
-    )
+    out = preprocess_fov(raw, mask, native_mpp=1.0, channel_names=["x", "y", "z"])
     # native=1.0, target=0.5 → upsample 2x
     assert out.scale_factor == pytest.approx(2.0)
     assert out.raw.shape[1] == 40
@@ -127,9 +121,7 @@ def test_preprocess_fov_resamples_to_target_mpp():
 
 def test_preprocess_fov_no_resample_when_mpp_matches():
     raw, mask = _fixture_raw_mask()
-    out = preprocess_fov(
-        raw, mask, native_mpp=0.5, channel_names=["a", "b", "c"]
-    )
+    out = preprocess_fov(raw, mask, native_mpp=0.5, channel_names=["a", "b", "c"])
     assert out.scale_factor == pytest.approx(1.0)
     assert out.raw.shape == raw.shape
     assert out.mask.shape == mask.shape
@@ -137,9 +129,7 @@ def test_preprocess_fov_no_resample_when_mpp_matches():
 
 def test_preprocess_fov_centroids_match_resampled_mask():
     raw, mask = _fixture_raw_mask()
-    out = preprocess_fov(
-        raw, mask, native_mpp=0.5, channel_names=["a", "b", "c"]
-    )
+    out = preprocess_fov(raw, mask, native_mpp=0.5, channel_names=["a", "b", "c"])
     assert "1" in out.centroids
     r, c = out.centroids["1"]
     # Cell 1 occupies rows 5..10, cols 5..10
@@ -152,9 +142,7 @@ def test_preprocess_fov_handles_all_zero_channel():
     raw[0] = 5.0  # channel 0 has signal
     # channel 1 is all zero
     mask = np.zeros((8, 8), dtype=np.int32)
-    out = preprocess_fov(
-        raw, mask, native_mpp=0.5, channel_names=["A", "B"]
-    )
+    out = preprocess_fov(raw, mask, native_mpp=0.5, channel_names=["A", "B"])
     # Channel 0: signal (constant 5) gets clipped + min-max → 0
     # because min == max → ptp=0 → output is 0
     assert (out.raw[1] == 0.0).all()
@@ -165,26 +153,20 @@ def test_preprocess_fov_rejects_shape_mismatches():
     mask = np.zeros((8, 8), dtype=np.int32)
 
     with pytest.raises(ValueError, match="raw must be"):
-        preprocess_fov(
-            raw[0], mask, native_mpp=0.5, channel_names=["x"]
-        )
+        preprocess_fov(raw[0], mask, native_mpp=0.5, channel_names=["x"])
     with pytest.raises(ValueError, match="mask must be"):
-        preprocess_fov(
-            raw, mask[None], native_mpp=0.5, channel_names=["a", "b", "c"]
-        )
+        preprocess_fov(raw, mask[None], native_mpp=0.5, channel_names=["a", "b", "c"])
     with pytest.raises(ValueError, match="raw spatial"):
         preprocess_fov(
-            raw, np.zeros((4, 4), dtype=np.int32), native_mpp=0.5,
-            channel_names=["a", "b", "c"]
+            raw,
+            np.zeros((4, 4), dtype=np.int32),
+            native_mpp=0.5,
+            channel_names=["a", "b", "c"],
         )
     with pytest.raises(ValueError, match=r"len\(channel_names\)"):
-        preprocess_fov(
-            raw, mask, native_mpp=0.5, channel_names=["only-two", "names"]
-        )
+        preprocess_fov(raw, mask, native_mpp=0.5, channel_names=["only-two", "names"])
     with pytest.raises(ValueError, match="native_mpp must be positive"):
-        preprocess_fov(
-            raw, mask, native_mpp=0.0, channel_names=["a", "b", "c"]
-        )
+        preprocess_fov(raw, mask, native_mpp=0.0, channel_names=["a", "b", "c"])
 
 
 @pytest.mark.parametrize("name", ["native_mpp", "target_mpp"])
@@ -203,12 +185,8 @@ def test_preprocess_fov_rejects_invalid_resolution(name, value):
 
 def test_preprocess_fov_deterministic():
     raw, mask = _fixture_raw_mask()
-    out1 = preprocess_fov(
-        raw, mask, native_mpp=0.7, channel_names=["a", "b", "c"]
-    )
-    out2 = preprocess_fov(
-        raw, mask, native_mpp=0.7, channel_names=["a", "b", "c"]
-    )
+    out1 = preprocess_fov(raw, mask, native_mpp=0.7, channel_names=["a", "b", "c"])
+    out2 = preprocess_fov(raw, mask, native_mpp=0.7, channel_names=["a", "b", "c"])
     np.testing.assert_array_equal(out1.raw, out2.raw)
     np.testing.assert_array_equal(out1.mask, out2.mask)
     assert out1.centroids == out2.centroids
@@ -240,6 +218,7 @@ def test_snapshot_against_production():
     max per-channel mean drift on HBM222 ≈ 0.046, so we assert < 0.06.
     """
     import zarr
+
     z = zarr.open(PRODUCTION_ARCHIVE, mode="r")
     if SNAPSHOT_DATASET not in z:
         pytest.skip(f"{SNAPSHOT_DATASET} not in production archive")
@@ -250,9 +229,7 @@ def test_snapshot_against_production():
     img = g["image"]
     pp = g["preprocessed/raw"]
     native_mpp = float(img.attrs.get("mpp", 0.5))
-    ch_raw = list(
-        img.attrs.get("standardized_channels", img.attrs.get("channels", []))
-    )
+    ch_raw = list(img.attrs.get("standardized_channels", img.attrs.get("channels", [])))
     ch_pp = list(g["preprocessed"].attrs.get("channel_names", []))
     if not ch_raw or not ch_pp:
         pytest.skip(f"{SNAPSHOT_DATASET} missing channel attrs")
@@ -268,8 +245,10 @@ def test_snapshot_against_production():
 
     fake_mask = np.zeros(selected_raw.shape[1:], dtype=np.int32)
     out = preprocess_fov(
-        selected_raw, fake_mask,
-        native_mpp=native_mpp, channel_names=selected_channels,
+        selected_raw,
+        fake_mask,
+        native_mpp=native_mpp,
+        channel_names=selected_channels,
     )
 
     # Bound 1: shape matches within ±1 pixel.
@@ -306,5 +285,5 @@ def test_snapshot_against_production():
     # Bound 4: ≥85% of pixels match within 1e-2 (resampling boundary).
     pixel_match = (np.abs(ours - prod) < 1e-2).mean()
     assert pixel_match > 0.85, (
-        f"only {pixel_match*100:.1f}% of pixels match within 1e-2"
+        f"only {pixel_match * 100:.1f}% of pixels match within 1e-2"
     )

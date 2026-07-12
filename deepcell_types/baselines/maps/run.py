@@ -151,7 +151,10 @@ def evaluate(
     device: torch.device,
     batch_size: int = 1024,
     criterion=None,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray] | Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+) -> (
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
+    | Tuple[np.ndarray, np.ndarray, np.ndarray, float]
+):
     """
     Evaluate model on dataset.
 
@@ -177,7 +180,9 @@ def evaluate(
         logits, probs = model(X_batch)
         all_prob.append(probs.cpu().numpy())
         if criterion is not None:
-            y_batch = torch.from_numpy(y[i : i + batch_size].astype(np.int64)).to(device)
+            y_batch = torch.from_numpy(y[i : i + batch_size].astype(np.int64)).to(
+                device
+            )
             total_loss += criterion(logits, y_batch).item() * len(y_batch)
 
     y_prob = np.concatenate(all_prob, axis=0)
@@ -474,7 +479,10 @@ def main(
         inner_train_idx, inner_val_idx = next(
             gss.split(X_train, y_train, groups=train_fov_array)
         )
-        X_inner_train, y_inner_train = X_train[inner_train_idx], y_train[inner_train_idx]
+        X_inner_train, y_inner_train = (
+            X_train[inner_train_idx],
+            y_train[inner_train_idx],
+        )
         X_inner_val, y_inner_val = X_train[inner_val_idx], y_train[inner_val_idx]
         select_on_macro_f1 = False
         print(

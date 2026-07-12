@@ -101,7 +101,8 @@ def test_background_subtract_per_channel_can_target_named_channel():
     x += 1000.0  # both channels on a pedestal
     names = ["CD15", "CD8"]
     out = apply_config(
-        x, names,
+        x,
+        names,
         [{"op": "background_subtract_per_channel", "p": 50.0, "names": ["CD15"]}],
     )
     # only CD15 is corrected; CD8 is untouched

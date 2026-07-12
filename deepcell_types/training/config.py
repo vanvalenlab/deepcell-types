@@ -44,7 +44,6 @@ CONFIG_DIR = Path(__file__).parent / "config"
 WARMUP_PCT = 0.05  # Warmup percentage for OneCycleLR scheduler
 
 
-
 class TissueNetConfig:
     """
     Configuration loaded from TissueNet zarr archive.
@@ -274,7 +273,12 @@ class TissueNetConfig:
             # try/except is needed around it.
             mp_json_path = f"{zarr_dir_str}/{key}/marker_positivity/zarr.json"
             result["has_mp"] = os.path.exists(mp_json_path)
-        except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+        except (
+            FileNotFoundError,
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+        ) as e:
             logger.warning("_read_dataset_metadata failed for %s: %s", key, e)
         return result
 
@@ -646,7 +650,9 @@ class TissueNetConfig:
                 "Failed to read marker_positivity attrs for %s (%s: %s); "
                 "MP signal will be unavailable for this dataset. Likely an "
                 "archive schema drift — rerun the archive-ingestion pipeline.",
-                dataset_key, type(e).__name__, e,
+                dataset_key,
+                type(e).__name__,
+                e,
                 exc_info=True,
             )
             return None
@@ -665,7 +671,9 @@ class TissueNetConfig:
                     "marker_positivity has %d row label(s) not in ct2idx (dead-code rows; "
                     "first seen in dataset %s): %s. Rerun the archive-ingestion "
                     "pipeline to repopulate the standardized labels.",
-                    len(new_rows), dataset_key, new_rows,
+                    len(new_rows),
+                    dataset_key,
+                    new_rows,
                 )
 
         try:
@@ -674,7 +682,8 @@ class TissueNetConfig:
             logger.warning(
                 "marker_positivity matrix for %s is malformed (%s); "
                 "MP signal disabled for this dataset.",
-                dataset_key, e,
+                dataset_key,
+                e,
                 exc_info=True,
             )
             return None
@@ -709,7 +718,9 @@ class TissueNetConfig:
             logger.warning(
                 "tissue attr read failed for %s (%s: %s) — tissue-aware "
                 "masking disabled for this dataset",
-                dataset_key, type(e).__name__, e,
+                dataset_key,
+                type(e).__name__,
+                e,
                 exc_info=True,
             )
             return None
@@ -719,7 +730,9 @@ class TissueNetConfig:
             logger.warning(
                 "tissue attr for %s has unexpected type %s (value=%r) — "
                 "tissue-aware masking disabled",
-                dataset_key, type(raw).__name__, raw,
+                dataset_key,
+                type(raw).__name__,
+                raw,
             )
             return None
         return self._normalize_tissue_name(raw)

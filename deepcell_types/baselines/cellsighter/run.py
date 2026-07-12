@@ -677,9 +677,7 @@ def main(
         with open(split_file) as _f:
             _sj = _json.load(_f)
         _kept = set(keep_datasets) if keep_datasets else None
-        _train_fovs = [
-            k for k in _sj["train"] if (_kept is None or k in _kept)
-        ]
+        _train_fovs = [k for k in _sj["train"] if (_kept is None or k in _kept)]
         print(f"Active datasets: {metadata['active_datasets']}")
         print(f"Number of samples: {metadata['num_samples']}")
         print(
@@ -702,8 +700,7 @@ def main(
         print(f"Active datasets: {metadata['active_datasets']}")
         print(f"Number of samples: {metadata['num_samples']}")
         print(
-            f"Inner-val cells (FOV-grouped, for selection): "
-            f"{metadata['num_inner_val']}"
+            f"Inner-val cells (FOV-grouped, for selection): {metadata['num_inner_val']}"
         )
 
     # Create model
