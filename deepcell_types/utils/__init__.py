@@ -21,14 +21,26 @@ __all__ = [
 _latest = "2026-06-15"
 
 # Main model checkpoints. Values are ``(asset_filename, md5)``.
-# The headline release is the two-stage residual-MLP model
-# (``2026-06-15``): a sampler-trained backbone, frozen, with a residual-MLP
-# cell-type head retrained on the natural class distribution. It loads via
-# stock ``predict.py`` (the resMLP head is auto-detected).
+# Two released residual-MLP checkpoints share the current vocabulary (51 cell
+# types, 278 markers) and load via stock ``predict.py`` (the resMLP head is
+# auto-detected):
+#   - ``2026-06-15`` (default): the from-scratch resMLP (paper Fig-3c headline).
+#   - ``2026-06-23``: the pretrain -> finetune (SSL) resMLP arm.
+#
+# Each md5 tracks the vocab-bundled asset (carries ``ct2idx`` +
+# ``canonical_channels`` so ``validate_checkpoint_vocabulary`` can verify
+# ordering). The original un-bundled assets predated the guard and raised
+# ``ValueError: ... does not bundle a ct2idx`` on every ``predict()`` call;
+# they were re-packaged with ``scripts/repackage_release_checkpoint.py``. Each
+# bundled asset must be uploaded at its filename below before its md5 is served.
 _model_registry = {
     "2026-06-15": (
         "deepcell-types_2026-06-15_resmlp.pt",
-        "704616a1cfeb6f4718ffdb8d7ea64d65",
+        "b819a7e0b177ad5330394eab3c6c7ad8",
+    ),
+    "2026-06-23": (
+        "deepcell-types_2026-06-23_resmlp_ptft.pt",
+        "402e94c103c5e489a57433cd107009d3",
     ),
 }
 
