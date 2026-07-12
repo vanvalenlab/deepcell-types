@@ -26,7 +26,6 @@ Abstention
 .. autosummary::
    :toctree: _generated/
 
-   compute_iqr_fence
    ABSTENTION_LABEL
 
 Utilities

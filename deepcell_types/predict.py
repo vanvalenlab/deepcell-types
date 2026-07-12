@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 from tqdm import tqdm
 
-from .abstention import ABSTENTION_LABEL, compute_iqr_fence
+from .abstention import ABSTENTION_LABEL, _compute_iqr_fence
 from .config import DCTConfig
 
 __all__ = ["predict", "PredictionResult"]
@@ -501,7 +501,7 @@ def predict(
 
     # A custom model / preprocess hook can emit non-finite logits; softmax then
     # yields NaN and np.argmax silently labels the cell class 0. Fail loudly
-    # rather than return confident garbage. (compute_iqr_fence drops non-finite
+    # rather than return confident garbage. (_compute_iqr_fence drops non-finite
     # values, so abstention would not catch this on its own.)
     if full_probs.size and not np.isfinite(full_probs).all():
         raise ValueError(
@@ -511,12 +511,12 @@ def predict(
 
     # IQR-fence abstention on the FOV's max-softmax distribution. Abstention is
     # bucketed per FOV, and this API processes a single FOV, so the whole input
-    # is one bucket and no grouping column is needed — `compute_iqr_fence`
+    # is one bucket and no grouping column is needed — `_compute_iqr_fence`
     # returns None when n_cells < 4, in which case no cells are abstained.
     abstained = np.zeros(len(cell_types_raw), dtype=bool)
     cell_types = list(cell_types_raw)
     if ct_abstention_k is not None and ct_abstention_k > 0 and len(_top_probs) >= 4:
-        fence = compute_iqr_fence(_top_probs, float(ct_abstention_k))
+        fence = _compute_iqr_fence(_top_probs, float(ct_abstention_k))
         if fence is not None:
             abstained = _top_probs < fence
             cell_types = [
