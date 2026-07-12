@@ -31,6 +31,11 @@ class PatchDataset(IterableDataset):
             raise ValueError("raw must have shape (C, H, W).")
         if mask.ndim != 2:
             raise ValueError("mask must be a 2D label image.")
+        if raw.shape[1:] != mask.shape:
+            raise ValueError(
+                f"raw spatial shape {raw.shape[1:]} does not match mask shape "
+                f"{mask.shape}."
+            )
         if raw.shape[0] != len(channel_names):
             raise ValueError(
                 f"raw has {raw.shape[0]} channels, but {len(channel_names)} "

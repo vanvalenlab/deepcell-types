@@ -33,8 +33,9 @@ def validate_checkpoint_vocabulary(checkpoint, ct2idx, marker2idx):
 
     - The checkpoint must bundle its own ``ct2idx``, and it must match ``ct2idx``
       (name -> index mapping, order-independent).
-    - If the checkpoint bundles ``canonical_channels`` it must match the marker
-      ordering (compared by numeric marker index, not dict insertion order).
+    - The checkpoint must also bundle its own ``canonical_channels``, and it
+      must match the marker ordering (compared by numeric marker index, not
+      dict insertion order).
 
     Raises ``ValueError`` on any mismatch.
     """
@@ -56,8 +57,16 @@ def validate_checkpoint_vocabulary(checkpoint, ct2idx, marker2idx):
     ckpt_channels = (
         checkpoint.get("canonical_channels") if isinstance(checkpoint, dict) else None
     )
+    if ckpt_channels is None:
+        raise ValueError(
+            "Checkpoint does not bundle canonical_channels, so the marker "
+            "ordering cannot be verified and a permuted marker vocabulary "
+            "would silently mislabel every cell. Use a checkpoint that "
+            "bundles its own canonical_channels (scripts/train.py and "
+            "retrain_head.py record it)."
+        )
     marker_order = _names_ordered_by_index(marker2idx)
-    if ckpt_channels is not None and list(ckpt_channels) != marker_order:
+    if list(ckpt_channels) != marker_order:
         raise ValueError(
             "Checkpoint marker ordering (canonical_channels) does not match the "
             "inference vocabulary's marker2idx ordering."
