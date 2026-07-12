@@ -155,8 +155,7 @@ def test_validator_rejects_split_fov_absent_from_archive(tmp_path):
 # ---------------------------------------------------------------------------
 # Marker index-map guard: all_standardized_channels IS the released model's
 # frozen marker->index map. Reorder/resize silently breaks the checkpoint.
-# Regression guard for the 2026-06-01 incident (registry unioned to 327 +
-# re-sorted, which broke loading deepcell-types_2026-05-17.pt).
+# The validator must reject any reorder or resize before checkpoint loading.
 # ---------------------------------------------------------------------------
 
 
