@@ -351,7 +351,7 @@ def predict(
     num_workers=0,
     zarr_path=None,
     return_probabilities=False,
-    ct_abstention_k=None,
+    ct_abstention_k=0,
     preprocess=None,
 ) -> "list[str] | PredictionResult":
     """Run the cell-type prediction pipeline.
@@ -403,17 +403,17 @@ def predict(
         If False (default, back-compat), returns a list of cell-type names.
         If True, returns a :class:`PredictionResult` with the full per-cell
         softmax probability matrix and the cell indices.
-    ct_abstention_k : float or None, default=None
+    ct_abstention_k : float, default=0
         IQR-fence post-hoc abstention multiplier. Abstention is **opt-in**:
-        the default ``None`` returns the raw argmax cell-type label for every
-        cell and never relabels to ``"Unknown"``. When set to a float, the
-        fence is ``Q1 - k*IQR`` on the per-FOV cell-wise max-softmax
-        distribution and cells below it are relabelled to ``"Unknown"``
-        (``k=0.2`` is a historical opt-in ablation; the paper headline is
-        full-coverage with no abstention). Pass ``return_probabilities=True``
-        to recover the pre-abstention labels and the ``abstained`` mask. Has
-        no effect on FOVs with fewer than 4 cells
-        (the IQR is undefined).
+        the default ``0`` (any ``k <= 0``) returns the raw argmax cell-type
+        label for every cell and never relabels to ``"Unknown"``. Pass a
+        positive float to enable it: the fence is ``Q1 - k*IQR`` on the
+        per-FOV cell-wise max-softmax distribution and cells below it are
+        relabelled to ``"Unknown"`` (``k=0.2`` is a historical opt-in
+        ablation; the paper headline is full-coverage with no abstention).
+        Pass ``return_probabilities=True`` to recover the pre-abstention
+        labels and the ``abstained`` mask. Has no effect on FOVs with fewer
+        than 4 cells (the IQR is undefined).
     preprocess : callable, optional, default=None
         Custom per-FOV preprocessing hook. Called as
         ``preprocess(raw, channel_names) -> raw`` where ``raw`` is a
@@ -433,7 +433,7 @@ def predict(
         (default) Predicted cell-type name for each unique cell index in
         ``mask``, ordered by ascending cell index. Cells flagged by the
         IQR-fence abstention carry the sentinel ``"Unknown"`` — but only
-        when ``ct_abstention_k`` is set; with the default ``None`` every
+        when ``ct_abstention_k > 0``; with the default ``0`` every
         cell carries its raw argmax label.
     PredictionResult
         (when ``return_probabilities=True``) Full per-cell probabilities,
