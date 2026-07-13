@@ -61,11 +61,9 @@ for a complete walk-through.
 
 ## TissueNet zarr archive (optional)
 
-Only needed to override the packaged registry (e.g. a custom marker panel) or for
-[training](#training). When present, `predict` reads the registry from it instead
-of `vocab.json` — pass `zarr_path=...` or set `DEEPCELL_TYPES_ZARR_PATH`.
-Registered users can download a public archive from `https://users.deepcell.org`
-(see [`docs/site/API-key.md`](docs/site/API-key.md)):
+Only needed for [training](#training) — inference runs entirely from the packaged
+`vocab.json` and never requires it. Registered users can download a public archive
+from `https://users.deepcell.org` (see [`docs/site/API-key.md`](docs/site/API-key.md)):
 
 ```bash
 export DEEPCELL_TYPES_ZARR_PATH=/absolute/path/to/tissuenet.zarr
@@ -125,10 +123,6 @@ Entry points under `scripts/`:
   inference.
 - `pretrain.py` — masked-marker pretraining.
 - `predict.py` — batched evaluation over a zarr archive.
-- `evaluate_on_test.sh` — canonical evaluation on the held-out 129-FOV test split
-  (`splits/fov_split_test_current.json`), where the two-stage resMLP recipe reaches
-  **80.27 hierarchical macro-F1** (full-coverage, no abstention), ahead of a tuned
-  XGBoost baseline (79.03) and the other paper baselines.
 
 Training scripts read config from a TissueNet zarr v3 archive; pass `--zarr_dir`
 or set `DEEPCELL_TYPES_ZARR_PATH`. The `deepcell_types.training` modules
