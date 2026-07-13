@@ -27,42 +27,49 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+  <link href="_static/styles/theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
   
   <!-- So that users can add custom icons -->
-  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="_static/documentation_options.js?v=03180e26"></script>
-    <script src="_static/doctools.js?v=9bcbadda"></script>
-    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/documentation_options.js?v=01f34227"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Tutorial" href="site/tutorial.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
   </head>
-  
-  
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
-
+  <body data-default-mode="">
   
   
   <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
   
   <div id="pst-scroll-pixel-helper"></div>
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
+  
+  
+  
   
   <dialog id="pst-search-dialog">
     
@@ -88,7 +95,7 @@
 </div>
 
   
-    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
   <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
     <span class="fa-solid fa-bars"></span>
@@ -165,11 +172,18 @@
       
         <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
       
         <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -182,8 +196,7 @@
           
           
           
-          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">GitHub</span></a>
+          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
         </li>
 </ul></div>
       
@@ -267,11 +280,18 @@
         
           <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
         
           <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -284,8 +304,7 @@
           
           
           
-          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">GitHub</span></a>
+          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
         </li>
 </ul></div>
         
@@ -339,7 +358,7 @@ varying marker panels.</p>
 <section id="pre-trained-models">
 <h2>Pre-trained models<a class="headerlink" href="#pre-trained-models" title="Link to this heading">#</a></h2>
 <p>A pre-trained model is required to run the cell-type inference pipeline.
-Pre-trained models are available via the <a class="reference external" href="https://vanvalenlab.github.io/deepcell-types/site/API-key.html#">users.deepcell.org</a> portal
+Pre-trained models are available via the <a class="reference external" href="https://users.deepcell.org/login/">users.deepcell.org</a> portal
 according to the <a class="reference external" href="https://github.com/vanvalenlab/deepcell-types/blob/master/LICENSE">license terms</a>.
 See <a class="reference internal" href="site/API-key.html"><span class="doc">Model and Datasets</span></a> for details.</p>
 <p>The latest version can be downloaded like so:</p>
@@ -349,12 +368,36 @@ See <a class="reference internal" href="site/API-key.html"><span class="doc">Mod
 </pre></div>
 </div>
 </section>
+<section id="tissuenet-archive-optional">
+<h2>TissueNet archive (optional)<a class="headerlink" href="#tissuenet-archive-optional" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">predict()</span></code> does <strong>not</strong> require the TissueNet archive: the marker / cell-type
+registry it needs ships with the package as a small <code class="docutils literal notranslate"><span class="pre">vocab.json</span></code> snapshot, so
+the base install above + <code class="docutils literal notranslate"><span class="pre">download_model()</span></code> is enough to run inference.</p>
+<p>The (multi-GB) <code class="docutils literal notranslate"><span class="pre">tissuenet-v*.zarr</span></code> archive is only needed if you want the
+tissue→cell-type mapping or are reproducing the training pipeline. It is
+distributed as a <code class="docutils literal notranslate"><span class="pre">.zip</span></code> that must be extracted before use:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">deepcell_types.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">download_training_data</span>
+
+<span class="c1"># Downloads the .zip and extracts it; returns the extraction directory</span>
+<span class="c1"># containing the tissuenet-v*.zarr archive. (Large download — see API-key page.)</span>
+<span class="n">archive_dir</span> <span class="o">=</span> <span class="n">download_training_data</span><span class="p">(</span><span class="n">extract</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>When you do have an archive, point <code class="docutils literal notranslate"><span class="pre">predict</span></code> at it with the <code class="docutils literal notranslate"><span class="pre">zarr_path=</span></code>
+argument, or set it once for the session:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DEEPCELL_TYPES_ZARR_PATH</span><span class="o">=</span>/path/to/tissuenet-v10.zarr
+</pre></div>
+</div>
+<p>An explicit <code class="docutils literal notranslate"><span class="pre">zarr_path=</span></code> that doesn’t contain an archive raises
+<code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code>; the checkpoint and registry must agree on the marker and
+cell-type ordering, otherwise loading fails early with a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>.</p>
+</section>
 <section id="running">
 <h2>Running<a class="headerlink" href="#running" title="Link to this heading">#</a></h2>
 <p>The <a class="reference internal" href="site/tutorial.html"><span class="doc">Tutorial</span></a> demonstrates how to set up, run, and visualize the
 outputs of the cell-type inference pipeline.</p>
 <p>This tutorial can also be run locally with <code class="docutils literal notranslate"><span class="pre">jupyter</span></code>.</p>
-<p>Start by cloning the sorce repository:</p>
+<p>Start by cloning the source repository:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/vanvalenlab/deepcell-types.git<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>deepcell-types
 </pre></div>
 </div>
@@ -378,32 +421,53 @@ and select <code class="docutils literal notranslate"><span class="pre">Open</sp
 <h2>Limitations<a class="headerlink" href="#limitations" title="Link to this heading">#</a></h2>
 <ol class="arabic">
 <li><p><strong>Maximum channel limit</strong></p>
-<p>The model currently supports a maximum of <strong>75</strong> channels per dataset. If you
-have a dataset with more than 75 marker channels, it will be necessary to
-remove channels to get below this limit. Note that (by default) nuclear and
-non-recognized channel names are automatically dropped.</p>
+<p>The model supports a maximum of <strong>80</strong> channels per dataset. If your data has
+more channels than this limit, it will be necessary to remove channels to get
+below it. Note that (by default) nuclear and non-recognized channel names are
+automatically dropped.</p>
 </li>
 <li><p><strong>Recognized channels</strong></p>
-<p>The model maintains a registry of natively-supported channels at
-<a class="reference external" href="https://github.com/vanvalenlab/deepcell-types/blob/master/deepcell_types/dct_kit/config/master_channels.yaml"><code class="docutils literal notranslate"><span class="pre">deepcell_types/dct_kit/config/master_channels.yaml</span></code></a>.
-If your data contains markers not found in this listing, they will be
-ignored at inference time.
-There are two ways to add support for additional channels:</p>
+<p>By default the model reads its registry of natively-supported channels and
+cell types from the <code class="docutils literal notranslate"><span class="pre">vocab.json</span></code> snapshot shipped with the package, so
+inference needs no archive download. The recognized channels are the markers
+listed in that snapshot. You can override it by pointing inference at a
+TissueNet zarr archive (pass <code class="docutils literal notranslate"><span class="pre">zarr_path=...</span></code> or set the
+<code class="docutils literal notranslate"><span class="pre">DEEPCELL_TYPES_ZARR_PATH</span></code> environment variable), in which case the
+recognized channels are whatever the selected archive exposes in its root
+<code class="docutils literal notranslate"><span class="pre">attrs.all_standardized_channels</span></code>. Either way, markers not found in the
+active registry are ignored at inference time.</p>
+<p>To inspect the canonical marker registry before downloading a checkpoint,
+call <code class="docutils literal notranslate"><span class="pre">list_supported_markers()</span></code> (and <code class="docutils literal notranslate"><span class="pre">list_supported_cell_types()</span></code> for the
+recognized cell-type labels). To check a panel name using the same alias
+and capitalization handling as inference, call
+<code class="docutils literal notranslate"><span class="pre">resolve_supported_marker()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">deepcell_types</span>
+
+<span class="n">deepcell_types</span><span class="o">.</span><span class="n">list_supported_markers</span><span class="p">()</span>
+<span class="n">deepcell_types</span><span class="o">.</span><span class="n">resolve_supported_marker</span><span class="p">(</span><span class="s2">&quot;Pan-Cytokeratin&quot;</span><span class="p">)</span>  <span class="c1"># &quot;PanCK&quot;</span>
+</pre></div>
+</div>
+<p>There are two ways to add support for additional channels:</p>
 <ul>
 <li><p>To add a new alias for a marker name that is currently supported, add the
-alias to <code class="docutils literal notranslate"><span class="pre">deepcell_types/dct_kit/config/channel_mapping.yaml</span></code>. For example,
+alias to <code class="docutils literal notranslate"><span class="pre">deepcell_types/channel_mapping.yaml</span></code>. For example,
 if your data contains a channel named <code class="docutils literal notranslate"><span class="pre">FP3</span></code> representing the <code class="docutils literal notranslate"><span class="pre">FoxP3</span></code> marker,
 add the following line to <code class="docutils literal notranslate"><span class="pre">channel_mapping.yaml</span></code>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>FP3: FoxP3
 </pre></div>
 </div>
 <p>Note that the target name (<code class="docutils literal notranslate"><span class="pre">FoxP3</span></code> in this example) must be one of the
-names already found in <code class="docutils literal notranslate"><span class="pre">master_channels.yaml</span></code></p>
+names already found in the selected checkpoint’s channel registry.</p>
 </li>
 <li><p>Adding new markers to the model can be achieved by manually acquiring
-embeddings for additional channels via DeepSeek (model and prompt details
-can be found in the paper).</p></li>
+embeddings for additional channels via OpenAI’s <code class="docutils literal notranslate"><span class="pre">text-embedding-3-large</span></code>
+model. The reference helper that generates these embeddings from a
+channel’s plain-English name is <code class="docutils literal notranslate"><span class="pre">scripts/generate_openai_embeddings.py</span></code>
+(model and prompt details can be found in the paper).</p></li>
 </ul>
+<p>Checkpoint loading validates that the archive and checkpoint agree on marker
+count and cell-type count. If they do not, inference fails early with a
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code>.</p>
 </li>
 <li><p><strong>Image preprocessing</strong></p>
 <p>The model requires users to preprocess input images to align with the
@@ -411,6 +475,33 @@ distribution of our training data for optimal performance and generalization.
 See the paper for details.</p>
 </li>
 </ol>
+</section>
+<section id="training">
+<h2>Training<a class="headerlink" href="#training" title="Link to this heading">#</a></h2>
+<p>The repository also ships the training pipeline used to produce the canonical
+checkpoints. Training-only code lives under <code class="docutils literal notranslate"><span class="pre">deepcell_types.training</span></code> and is
+gated behind the <code class="docutils literal notranslate"><span class="pre">[train]</span></code> install extra so plain inference users don’t pull
+in <code class="docutils literal notranslate"><span class="pre">zarr</span></code>, <code class="docutils literal notranslate"><span class="pre">pandas</span></code>, <code class="docutils literal notranslate"><span class="pre">scikit-learn</span></code>, etc.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;deepcell-types[train] @ git+https://github.com/vanvalenlab/deepcell-types@master&quot;</span>
+</pre></div>
+</div>
+<p>The end-to-end training and evaluation scripts live under <code class="docutils literal notranslate"><span class="pre">scripts/</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">scripts/train.py</span></code> — main training entry point (DCTConfig + FullImageDataset</p>
+<ul>
+<li><p>FocalLoss / HierarchicalLoss + OneCycleLR; supports the FOV-grouped
+sampler and the conditioned marker-positivity head).</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scripts/predict.py</span></code> — batched predictions over a zarr archive, with
+optional hierarchy-aware evaluation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scripts/pretrain.py</span></code> — masked-marker pretraining stage.</p></li>
+</ul>
+<p>All training scripts read mappings and metadata from a TissueNet zarr v3
+archive (<code class="docutils literal notranslate"><span class="pre">tissuenet-v10.zarr</span></code> is the current canonical release; v8 and v9
+are also accepted). Pass the archive path with
+<code class="docutils literal notranslate"><span class="pre">--zarr_dir</span></code> (training scripts) or via the <code class="docutils literal notranslate"><span class="pre">DEEPCELL_TYPES_ZARR_PATH</span></code>
+environment variable (<code class="docutils literal notranslate"><span class="pre">deepcell_types.predict</span></code>).</p>
 <div class="toctree-wrapper compound">
 </div>
 </section>
@@ -452,23 +543,25 @@ See the paper for details.</p>
     class="page-toc tocsection onthispage">
     <i class="fa-solid fa-list"></i> On this page
   </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pre-trained-models">Pre-trained models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tissuenet-archive-optional">TissueNet archive (optional)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running">Running</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#limitations">Limitations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#training">Training</a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="_sources/index.md.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div></div>
+
+  <div class="tocsection sourcelink">
+    <a href="_sources/index.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
 
 </div></div>
               
@@ -483,8 +576,8 @@ See the paper for details.</p>
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="_static/scripts/bootstrap.js?digest=0790524f97105ba85085"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -495,7 +588,7 @@ See the paper for details.</p>
 
   <p class="copyright">
     
-      © Copyright 2025, Van Valen Lab at the California Institute of Technology (Caltech).
+      © Copyright 2026, Van Valen Lab at the California Institute of Technology (Caltech).
       <br/>
     
   </p>
@@ -504,7 +597,7 @@ See the paper for details.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>
@@ -518,7 +611,7 @@ See the paper for details.</p>
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.18.0.
 </p></div>
       
     </div>

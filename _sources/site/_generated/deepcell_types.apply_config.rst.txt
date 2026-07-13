@@ -1,0 +1,6 @@
+﻿deepcell\_types.apply\_config
+=============================
+
+.. currentmodule:: deepcell_types
+
+.. autofunction:: apply_config

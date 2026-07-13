@@ -1,0 +1,726 @@
+# Preprocessing Hook + preproc-adapt Skill Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Add a supported `preprocess` hook to `deepcell_types.predict`, ship a bounded preprocessing-op library inside the package, and rewrite the `preproc-adapt` skill to use that supported API (fixing the no-op integration bug) with install docs.
+
+**Architecture:** Inference preprocessing currently lives inside the private `patch_generator` (resample → `_percentile_threshold_nonzero` → `_normalize_per_channel`). We add an optional `preprocess` callable threaded `predict → PatchDataset → patch_generator`; when supplied it *replaces* the clip+normalize step (resampling stays built-in). When `None`, behavior is bit-for-bit unchanged. A new `deepcell_types.preprocessing_ops` module provides `apply_config`, `DEFAULT_CONFIG`, and `make_preprocessor`, so users (and the skill) build hooks declaratively. The skill is rewritten to call `predict(..., preprocess=make_preprocessor(config))`.
+
+**Tech Stack:** Python, NumPy, SciPy (`scipy.ndimage`), scikit-image; pytest; deepcell-types package (v0.1.0, unreleased).
+
+---
+
+## Background facts (verified against master @ 761fd19)
+
+- `predict()` (`deepcell_types/predict.py:244`) builds `PatchDataset(raw, mask, channel_names, mpp, dct_config)` internally; **no preprocessing hook today**.
+- `PatchDataset.__iter__` (`deepcell_types/dataset.py:133-139`) calls `patch_generator(self.raw, self.mask, self.mpp, dct_config=self.dct_config)`.
+- `self.raw` is **already channel-masked** to in-vocab channels (`dataset.py:93`); the aligned names are `self.channel_names_standard` (resolved standard marker names).
+- `patch_generator` (`deepcell_types/preprocessing.py:311`) does: transpose→`rescale`→`_percentile_threshold_nonzero(p=dct_config.PERCENTILE_THRESHOLD)`→`_normalize_per_channel`→pad/crop.
+- **`dct_config.PERCENTILE_THRESHOLD = 99.9`** (`config.py:225`) — the real inference percentile, set by commit `ec3d9f7 "fix(inference): clip at p99.9 to match the training-archive recipe"`. (An earlier draft of this plan said 99.0 from a stale read of the `feat/immediate-cli-abstention` branch — that was WRONG. The op library's `DEFAULT_CONFIG` uses **99.9** and a bit-for-bit equivalence test guards it.)
+- `_normalize_per_channel` (`preprocessing.py:246`) = per-channel min-max via `np.ptp`, HWC layout.
+- `preprocess_fov` / `PreprocessedFov` are exported but are the archive path — the current skill's integration target, and therefore a **silent no-op for `predict`**.
+
+## Hook contract (locked)
+
+```
+preprocess(raw_resampled, channel_names) -> ndarray
+    raw_resampled : float32 ndarray (C, H, W), resampled to STANDARD_MPP, channel-masked
+    channel_names : list[str]  resolved standard marker names, aligned to C
+    returns       : float32 ndarray (C, H, W), values in [0, 1], same C/H/W
+```
+
+The hook runs **after** resampling and channel-masking, **in place of** the built-in
+`_percentile_threshold_nonzero` + `_normalize_per_channel`. `None` ⇒ built-in path.
+
+## File Structure
+
+- Create: `deepcell_types/preprocessing_ops.py` — bounded op library (`apply_config`, `DEFAULT_CONFIG`, `make_preprocessor`, op implementations). One responsibility: declarative per-channel preprocessing on `(C,H,W)`.
+- Modify: `deepcell_types/preprocessing.py` — add `preprocess`/`channel_names` params to `patch_generator`.
+- Modify: `deepcell_types/dataset.py` — accept + store `preprocess`, pass it (and `channel_names_standard`) to `patch_generator`.
+- Modify: `deepcell_types/predict.py` — add `preprocess=None` kwarg, forward to `PatchDataset`.
+- Modify: `deepcell_types/__init__.py` — export `apply_config`, `DEFAULT_CONFIG`, `make_preprocessor`.
+- Create: `tests/test_preprocess_hook.py` — hook threading + default-unchanged + contract validation.
+- Create: `tests/test_preprocessing_ops.py` — op library unit tests + DEFAULT_CONFIG ≡ built-in.
+- Modify: `skills/preproc-adapt/SKILL.md` — description, integration via hook, op table↔impl parity, p99.0, install section.
+- Create: `skills/preproc-adapt/README.md` — install/distribution instructions for end users.
+- Modify: `docs/site/reference.rst`, `README.md`, `CHANGELOG.md` — document the hook + ops.
+
+---
+
+### Task 1: Bounded op library (`preprocessing_ops.py`)
+
+**Files:**
+- Create: `deepcell_types/preprocessing_ops.py`
+- Test: `tests/test_preprocessing_ops.py`
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+# tests/test_preprocessing_ops.py
+import numpy as np
+import pytest
+from deepcell_types.preprocessing_ops import apply_config, DEFAULT_CONFIG, make_preprocessor
+from deepcell_types.preprocessing import _percentile_threshold_nonzero, _normalize_per_channel
+
+
+def _fov(seed=0):
+    rng = np.random.default_rng(seed)
+    x = rng.gamma(2.0, 50.0, size=(3, 24, 24)).astype(np.float32)
+    x[1, :5, :5] = 5000.0  # bright outlier blob
+    return x, ["CD3", "CD8", "DAPI"]
+
+
+def test_default_config_matches_builtin_inference_path():
+    raw, names = _fov()
+    out = apply_config(raw, names, DEFAULT_CONFIG)          # (C,H,W)
+    hwc = np.transpose(raw, (1, 2, 0))
+    ref = _normalize_per_channel(_percentile_threshold_nonzero(hwc, percentile=99.0))
+    ref = np.transpose(ref, (2, 0, 1))
+    assert out.shape == raw.shape
+    np.testing.assert_allclose(out, ref, rtol=1e-5, atol=1e-6)
+
+
+def test_output_is_in_unit_range():
+    raw, names = _fov()
+    out = apply_config(raw, names, DEFAULT_CONFIG)
+    assert out.min() >= 0.0 and out.max() <= 1.0 + 1e-6
+
+
+def test_channel_drop_zeros_named_channel():
+    raw, names = _fov()
+    out = apply_config(raw, names, [{"op": "channel_drop", "names": ["DAPI"]},
+                                    {"op": "min_max_normalize"}])
+    assert np.all(out[2] == 0.0)
+
+
+def test_channel_weight_after_normalize_scales():
+    raw, names = _fov()
+    cfg = [{"op": "min_max_normalize"},
+           {"op": "channel_weight", "weights": {"CD8": 0.25}}]
+    out = apply_config(raw, names, cfg)
+    assert out[1].max() <= 0.25 + 1e-6
+
+
+def test_all_table_ops_are_implemented():
+    raw, names = _fov()
+    for op in [{"op": "clip_percentile", "p": 99.0},
+               {"op": "arcsinh", "cofactor": 5.0},
+               {"op": "log1p"},
+               {"op": "background_subtract", "value": 10.0},
+               {"op": "gamma", "g": 0.5},
+               {"op": "denoise", "kind": "median", "size": 3},
+               {"op": "hot_pixel_removal", "z": 5.0}]:
+        apply_config(raw, names, [op, {"op": "min_max_normalize"}])  # must not raise
+
+
+def test_unknown_op_raises():
+    raw, names = _fov()
+    with pytest.raises(ValueError, match="unknown op"):
+        apply_config(raw, names, [{"op": "nope"}])
+
+
+def test_make_preprocessor_returns_hook():
+    raw, names = _fov()
+    hook = make_preprocessor(DEFAULT_CONFIG)
+    np.testing.assert_allclose(hook(raw, names), apply_config(raw, names, DEFAULT_CONFIG))
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python -m pytest tests/test_preprocessing_ops.py -q`
+Expected: FAIL — `ModuleNotFoundError: No module named 'deepcell_types.preprocessing_ops'`
+
+- [ ] **Step 3: Implement the op library**
+
+```python
+# deepcell_types/preprocessing_ops.py
+"""Declarative, bounded per-FOV preprocessing ops for the ``preprocess`` hook.
+
+Each config is a list of ``{"op": name, ...params}`` dicts applied in order to a
+``(C, H, W)`` float32 array; the result must be in ``[0, 1]`` (end with
+``min_max_normalize``). Build a hook for ``deepcell_types.predict`` with
+``make_preprocessor(config)``.
+
+``DEFAULT_CONFIG`` reproduces the built-in inference preprocessing
+(per-channel nonzero-pixel p99 clip + min-max), so passing it is equivalent to
+passing no hook at all.
+"""
+from __future__ import annotations
+
+from typing import Callable, List
+
+import numpy as np
+from scipy.ndimage import gaussian_filter, median_filter
+
+# Built-in inference percentile (mirrors DCTConfig.PERCENTILE_THRESHOLD).
+_DEFAULT_PERCENTILE = 99.0
+
+DEFAULT_CONFIG = [{"op": "clip_percentile", "p": _DEFAULT_PERCENTILE},
+                  {"op": "min_max_normalize"}]
+
+
+def _clip_percentile_nonzero(x, p):
+    """Per-channel clip at the p-th percentile of *nonzero* pixels.
+
+    Matches ``preprocessing._percentile_threshold_nonzero`` so ``DEFAULT_CONFIG``
+    is bit-equivalent to the built-in path. All-zero channels are untouched.
+    """
+    out = x.copy()
+    for c in range(x.shape[0]):
+        nz = out[c][np.nonzero(out[c])]
+        if nz.size:
+            hi = np.percentile(nz, p)
+            np.minimum(out[c], hi, out=out[c])
+    return out
+
+
+def _min_max(x):
+    mn = x.min(axis=(1, 2), keepdims=True)
+    ptp = np.ptp(x, axis=(1, 2), keepdims=True)
+    ptp[ptp == 0] = 1.0
+    return (x - mn) / ptp
+
+
+def _hot_pixel_removal(x, z):
+    out = x.copy()
+    for c in range(x.shape[0]):
+        med = np.median(out[c])
+        mad = np.median(np.abs(out[c] - med)) or 1.0
+        hi = med + z * 1.4826 * mad
+        np.minimum(out[c], hi, out=out[c])
+    return out
+
+
+def apply_config(raw, channel_names, config):
+    """Apply a bounded op pipeline to ``raw`` (C,H,W) -> (C,H,W) float32.
+
+    ``channel_names`` are the resolved standard marker names aligned to ``raw``'s
+    channels (what the ``preprocess`` hook receives from ``predict``).
+    """
+    x = np.asarray(raw, dtype=np.float32).copy()
+    idx = {n: i for i, n in enumerate(channel_names)}
+    for step in config:
+        op = step["op"]
+        if op == "clip_percentile":
+            x = _clip_percentile_nonzero(x, float(step["p"]))
+        elif op == "arcsinh":
+            x = np.arcsinh(x / float(step.get("cofactor", 5.0)))
+        elif op == "log1p":
+            x = np.log1p(np.clip(x, 0, None))
+        elif op == "background_subtract":
+            x = np.clip(x - float(step["value"]), 0, None)
+        elif op == "gamma":
+            mx = x.max(axis=(1, 2), keepdims=True)
+            mx[mx == 0] = 1.0
+            x = np.power(np.clip(x / mx, 0, 1), float(step["g"])) * mx
+        elif op == "denoise":
+            kind = step.get("kind", "median")
+            size = int(step.get("size", 3))
+            for c in range(x.shape[0]):
+                if kind == "median":
+                    x[c] = median_filter(x[c], size=size)
+                elif kind == "gaussian":
+                    x[c] = gaussian_filter(x[c], sigma=size / 2.0)
+                else:
+                    raise ValueError(f"unknown denoise kind {kind!r}")
+        elif op == "hot_pixel_removal":
+            x = _hot_pixel_removal(x, float(step.get("z", 5.0)))
+        elif op == "channel_drop":
+            for n in step["names"]:
+                if n in idx:
+                    x[idx[n]] = 0.0
+        elif op == "channel_weight":
+            for n, w in step["weights"].items():
+                if n in idx:
+                    x[idx[n]] *= float(w)
+        elif op == "min_max_normalize":
+            x = _min_max(x)
+        else:
+            raise ValueError(f"unknown op {op!r}")
+    return x.astype(np.float32)
+
+
+def make_preprocessor(config) -> Callable[[np.ndarray, List[str]], np.ndarray]:
+    """Return a ``preprocess`` hook for ``deepcell_types.predict`` from a config."""
+    return lambda raw, channel_names: apply_config(raw, channel_names, config)
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python -m pytest tests/test_preprocessing_ops.py -q`
+Expected: PASS (7 passed)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add deepcell_types/preprocessing_ops.py tests/test_preprocessing_ops.py
+git commit -m "feat(preprocessing): bounded op library for the predict preprocess hook"
+```
+
+---
+
+### Task 2: Thread `preprocess` through `patch_generator`
+
+**Files:**
+- Modify: `deepcell_types/preprocessing.py:311` (`patch_generator`)
+- Test: `tests/test_preprocess_hook.py` (created here, extended in Task 4)
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# tests/test_preprocess_hook.py
+import numpy as np
+from deepcell_types.preprocessing import patch_generator
+from deepcell_types.config import DCTConfig
+
+
+def _toy():
+    rng = np.random.default_rng(1)
+    raw = rng.gamma(2.0, 30.0, size=(2, 40, 40)).astype(np.float32)
+    mask = np.zeros((40, 40), dtype=np.int32)
+    mask[10:20, 10:20] = 1
+    mask[25:33, 25:33] = 2
+    return raw, mask
+
+
+def test_patch_generator_invokes_preprocess_with_chw_and_names():
+    raw, mask = _toy()
+    cfg = DCTConfig()
+    seen = {}
+
+    def hook(arr, names):
+        seen["shape"] = arr.shape
+        seen["names"] = names
+        return np.zeros_like(arr)  # forces all-zero patches
+
+    patches = list(patch_generator(raw, mask, mpp=0.5, dct_config=cfg,
+                                   preprocess=hook, channel_names=["CD3", "DAPI"]))
+    assert len(seen["shape"]) == 3 and seen["shape"][0] == 2     # (C,H,W)
+    assert seen["names"] == ["CD3", "DAPI"]
+    assert all(np.all(p[0] == 0.0) for p in patches)            # hook output used
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `python -m pytest tests/test_preprocess_hook.py -q`
+Expected: FAIL — `patch_generator() got an unexpected keyword argument 'preprocess'`
+
+- [ ] **Step 3: Modify `patch_generator`**
+
+Change the signature and the clip+normalize block in `deepcell_types/preprocessing.py`.
+
+Signature (line ~311):
+```python
+def patch_generator(raw, mask, mpp, dct_config, preprocess=None, channel_names=None):
+```
+
+Replace the two normalization lines (currently `preprocessing.py:335-338`):
+```python
+    raw = _percentile_threshold_nonzero(
+        raw, percentile=dct_config.PERCENTILE_THRESHOLD
+    )
+    raw = _normalize_per_channel(raw)
+```
+with:
+```python
+    if preprocess is None:
+        raw = _percentile_threshold_nonzero(
+            raw, percentile=dct_config.PERCENTILE_THRESHOLD
+        )
+        raw = _normalize_per_channel(raw)
+    else:
+        # raw is (H, W, C) here; the hook contract is (C, H, W) in [0, 1].
+        raw_chw = preprocess(np.transpose(raw, (2, 0, 1)), channel_names)
+        raw_chw = np.asarray(raw_chw, dtype=np.float32)
+        if raw_chw.shape != (raw.shape[2], raw.shape[0], raw.shape[1]):
+            raise ValueError(
+                "preprocess must return a (C, H, W) array matching its input; "
+                f"got {raw_chw.shape} for input {(raw.shape[2], raw.shape[0], raw.shape[1])}."
+            )
+        raw = np.transpose(raw_chw, (1, 2, 0))
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `python -m pytest tests/test_preprocess_hook.py -q`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add deepcell_types/preprocessing.py tests/test_preprocess_hook.py
+git commit -m "feat(preprocessing): patch_generator accepts optional preprocess hook"
+```
+
+---
+
+### Task 3: Thread `preprocess` through `PatchDataset` and `predict`
+
+**Files:**
+- Modify: `deepcell_types/dataset.py:16-25` (`__init__`), `dataset.py:133-139` (`__iter__`)
+- Modify: `deepcell_types/predict.py:244-258` (signature), `predict.py:351` (PatchDataset construction)
+- Test: `tests/test_preprocess_hook.py` (extend)
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# append to tests/test_preprocess_hook.py
+import deepcell_types.dataset as dsmod
+
+
+def test_patchdataset_forwards_preprocess(monkeypatch):
+    raw, mask = _toy()
+    cfg = DCTConfig()
+    captured = {}
+
+    def fake_patch_generator(raw_, mask_, mpp_, dct_config, preprocess=None,
+                             channel_names=None):
+        captured["preprocess"] = preprocess
+        captured["channel_names"] = channel_names
+        return iter(())
+
+    monkeypatch.setattr(dsmod, "patch_generator", fake_patch_generator)
+    hook = lambda arr, names: arr
+    ds = dsmod.PatchDataset(raw, mask, ["CD3", "DAPI"], 0.5, cfg, preprocess=hook)
+    list(ds)  # triggers __iter__
+    assert captured["preprocess"] is hook
+    assert captured["channel_names"] == ds.channel_names_standard
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `python -m pytest tests/test_preprocess_hook.py::test_patchdataset_forwards_preprocess -q`
+Expected: FAIL — `__init__() got an unexpected keyword argument 'preprocess'`
+
+- [ ] **Step 3: Modify `PatchDataset`**
+
+In `__init__` signature (`dataset.py`), add `preprocess=None` before `**kwargs`:
+```python
+    def __init__(
+        self,
+        raw,
+        mask,
+        channel_names,
+        mpp,
+        dct_config,
+        preprocess=None,
+        **kwargs,
+    ):
+```
+After `super().__init__(**kwargs)`, store it:
+```python
+        self.preprocess = preprocess
+```
+In `__iter__`, update the `patch_generator` call:
+```python
+            patch_generator(self.raw, self.mask, self.mpp,
+                            dct_config=self.dct_config,
+                            preprocess=self.preprocess,
+                            channel_names=self.channel_names_standard)
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `python -m pytest tests/test_preprocess_hook.py::test_patchdataset_forwards_preprocess -q`
+Expected: PASS
+
+- [ ] **Step 5: Add `predict` kwarg + forward, then commit**
+
+In `deepcell_types/predict.py`, add to the keyword-only block (after `ct_abstention_k=0.2,`):
+```python
+    preprocess=None,
+```
+Add to the docstring Parameters (after `ct_abstention_k`):
+```
+    preprocess : callable, optional, default=None
+        Custom per-FOV preprocessing hook. Called as
+        ``preprocess(raw, channel_names) -> raw`` where ``raw`` is a
+        ``(C, H, W)`` float32 array already resampled to the model's target
+        MPP and restricted to in-vocabulary channels, and ``channel_names``
+        are the resolved standard marker names aligned to ``raw``. Must return
+        a ``(C, H, W)`` array in ``[0, 1]``. When ``None`` (default), the
+        built-in per-channel p99 clip + min-max normalization is used. Build
+        one declaratively with
+        :func:`deepcell_types.make_preprocessor`.
+```
+Update the `PatchDataset` construction (`predict.py:351`):
+```python
+    dataset = PatchDataset(raw, mask, channel_names, mpp, dct_config,
+                           preprocess=preprocess)
+```
+
+```bash
+git add deepcell_types/dataset.py deepcell_types/predict.py tests/test_preprocess_hook.py
+git commit -m "feat(predict): public preprocess hook threaded to PatchDataset"
+```
+
+---
+
+### Task 4: End-to-end equivalence — default path unchanged
+
+**Files:**
+- Test: `tests/test_preprocess_hook.py` (extend)
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# append to tests/test_preprocess_hook.py
+from deepcell_types.preprocessing import _percentile_threshold_nonzero, _normalize_per_channel
+from deepcell_types.preprocessing_ops import make_preprocessor, DEFAULT_CONFIG
+
+
+def test_default_config_hook_equals_builtin_in_patch_generator():
+    raw, mask = _toy()
+    cfg = DCTConfig()
+    baseline = [p[0].copy() for p in
+                patch_generator(raw, mask, 0.5, dct_config=cfg)]
+    hooked = [p[0].copy() for p in
+              patch_generator(raw, mask, 0.5, dct_config=cfg,
+                              preprocess=make_preprocessor(DEFAULT_CONFIG),
+                              channel_names=["CD3", "DAPI"])]
+    assert len(baseline) == len(hooked) and len(baseline) > 0
+    for b, h in zip(baseline, hooked):
+        np.testing.assert_allclose(b, h, rtol=1e-5, atol=1e-6)
+```
+
+- [ ] **Step 2: Run test to verify it fails or passes**
+
+Run: `python -m pytest tests/test_preprocess_hook.py::test_default_config_hook_equals_builtin_in_patch_generator -q`
+Expected: PASS if Task 1's `clip_percentile`/`min_max` match the built-in helpers. If FAIL, fix `_clip_percentile_nonzero`/`_min_max` in `preprocessing_ops.py` to match `_percentile_threshold_nonzero`/`_normalize_per_channel` exactly (this is the regression guard that the default is untouched).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add tests/test_preprocess_hook.py
+git commit -m "test(preprocessing): DEFAULT_CONFIG hook reproduces built-in path bit-for-bit"
+```
+
+---
+
+### Task 5: Public exports
+
+**Files:**
+- Modify: `deepcell_types/__init__.py`
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# append to tests/test_preprocessing_ops.py
+def test_public_exports():
+    import deepcell_types as dct
+    assert callable(dct.make_preprocessor)
+    assert callable(dct.apply_config)
+    assert isinstance(dct.DEFAULT_CONFIG, list)
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `python -m pytest tests/test_preprocessing_ops.py::test_public_exports -q`
+Expected: FAIL — `AttributeError: module 'deepcell_types' has no attribute 'make_preprocessor'`
+
+- [ ] **Step 3: Add exports**
+
+In `deepcell_types/__init__.py`, after the `preprocess_fov` import line:
+```python
+from .preprocessing_ops import apply_config as apply_config
+from .preprocessing_ops import make_preprocessor as make_preprocessor
+from .preprocessing_ops import DEFAULT_CONFIG as DEFAULT_CONFIG
+```
+Add `"apply_config"`, `"make_preprocessor"`, `"DEFAULT_CONFIG"` to `__all__`.
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `python -m pytest tests/test_preprocessing_ops.py::test_public_exports -q`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add deepcell_types/__init__.py tests/test_preprocessing_ops.py
+git commit -m "feat: export apply_config, make_preprocessor, DEFAULT_CONFIG"
+```
+
+---
+
+### Task 6: Docs — reference, README, CHANGELOG
+
+**Files:**
+- Modify: `docs/site/reference.rst`, `README.md`, `CHANGELOG.md`
+
+- [ ] **Step 1: Update `docs/site/reference.rst`**
+
+Under the `Inference` autosummary list (after `preprocess_fov`), add:
+```rst
+   make_preprocessor
+   apply_config
+```
+
+- [ ] **Step 2: Add a README snippet**
+
+In `README.md`, after the basic `predict` usage, add a short subsection:
+```markdown
+### Custom preprocessing (advanced)
+
+`predict` accepts a `preprocess` hook to override the built-in per-channel
+normalization on a single FOV — useful when one channel is saturated or has
+heavy background. Build one declaratively:
+
+```python
+from deepcell_types import predict, make_preprocessor
+
+config = [
+    {"op": "clip_percentile", "p": 99.0},
+    {"op": "channel_drop", "names": ["NeuN"]},  # drop a confounding marker
+    {"op": "min_max_normalize"},
+]
+labels = predict(raw, mask, channel_names, mpp, model_name=...,
+                 device="cuda:0", preprocess=make_preprocessor(config))
+```
+
+See the `preproc-adapt` skill (`skills/preproc-adapt/`) for the full
+composition-guided adaptation loop.
+```
+
+- [ ] **Step 3: Add CHANGELOG entry**
+
+Under `## [0.1.0] — unreleased` → `### Added`:
+```markdown
+- `predict(..., preprocess=...)` hook to override per-FOV normalization, plus a
+  bounded op library (`apply_config`, `make_preprocessor`, `DEFAULT_CONFIG`) and
+  the `preproc-adapt` skill for composition-guided preprocessing adaptation.
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add docs/site/reference.rst README.md CHANGELOG.md
+git commit -m "docs: document the predict preprocess hook and op library"
+```
+
+---
+
+### Task 7: Rewrite the skill (RED baseline first)
+
+**REQUIRED BACKGROUND:** superpowers:writing-skills — the Iron Law (no skill edit without a failing test first) applies. The "test" is a subagent given only the skill + a scenario.
+
+**Files:**
+- Modify: `skills/preproc-adapt/SKILL.md`
+
+- [ ] **Step 1: RED — baseline the current skill**
+
+Dispatch a subagent (Explore/general) with ONLY the *current* `SKILL.md` content and this scenario: *"Using this skill, write the exact Python to run an adapted prediction that drops the 'NeuN' channel on one FOV with deepcell_types.predict. Show the integration code."* Record verbatim whether it (a) wraps/monkeypatches `preprocess_fov` (the no-op trap) or otherwise fails to actually change inference. Expected failure: it targets `preprocess_fov` and the preprocessing never runs.
+
+- [ ] **Step 2: GREEN — rewrite `SKILL.md`**
+
+Apply these concrete edits:
+
+  1. **Frontmatter description** → triggers only, ≤500 chars, no workflow summary:
+     ```yaml
+     description: Use when a deepcell-types prediction on a single FOV gives a biologically implausible cell-type composition (e.g. neurons in a lymph node, an epithelial organ called mostly immune, one rare type dominating), especially on sparse/low-plex panels or when a channel looks saturated or high-background. Adapts the per-FOV image preprocessing fed to deepcell_types.predict via its preprocess hook; the model weights are never changed.
+     ```
+  2. **Prerequisites/Inputs** — unchanged except note channels are matched to the model's marker registry; out-of-vocab channels are dropped before the hook sees them.
+  3. **Replace the entire "bounded preprocessing config" + "Integration point" + inline `apply_config`** sections with usage of the shipped library:
+     ```python
+     from deepcell_types import predict, make_preprocessor, apply_config, DEFAULT_CONFIG
+
+     config = [{"op": "clip_percentile", "p": 99.9}, {"op": "min_max_normalize"}]  # == built-in default
+     labels = predict(raw, mask, channel_names, mpp, model_name="<released-model>",
+                      device="cuda:0", preprocess=make_preprocessor(config))
+     ```
+     State the hook contract: the hook receives the **resampled, in-vocab** raw `(C, H, W)` and resolved standard marker names, returns `(C, H, W)` in `[0,1]`; resampling and channel-masking are handled by `predict`. `channel_drop`/`channel_weight` use the model's **standard marker names**.
+  4. **`DEFAULT_CONFIG`** — KEEP `p` at `99.9` (the released inference percentile; the original skill was correct here). State it reproduces the built-in inference path exactly, and that passing no hook is identical.
+  5. **Op table** — keep all rows (all are now implemented in `deepcell_types.preprocessing_ops`). Remove the "compact reference implementation" code block (now shipped); link to the module instead.
+  6. **Down-weighting gotcha** — keep (still true: `channel_weight` before terminal `min_max_normalize` is a no-op).
+  7. **The loop / guardrails / case studies / free-form variant** — keep; in the free-form variant, say the function is passed directly as `preprocess=` (must return `(C,H,W)` in `[0,1]`).
+
+- [ ] **Step 3: GREEN — re-test with a subagent**
+
+Dispatch a fresh subagent with the rewritten skill + the same scenario from Step 1. Expected: it calls `predict(..., preprocess=make_preprocessor(config))` with a `channel_drop` of `NeuN`, and does NOT touch `preprocess_fov`. If it still hits a trap, add an explicit "Common mistakes" note (e.g. "Do not wrap `preprocess_fov` — it is the archive path, not inference; use the `preprocess` hook").
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add skills/preproc-adapt/SKILL.md
+git commit -m "docs(skill): preproc-adapt uses the supported predict preprocess hook"
+```
+
+---
+
+### Task 8: Skill install/distribution README
+
+**Files:**
+- Create: `skills/preproc-adapt/README.md`
+
+- [ ] **Step 1: Write the README**
+
+```markdown
+# preproc-adapt skill
+
+A Claude Code / agent skill for improving `deepcell-types` predictions on a
+single FOV by adapting per-FOV image preprocessing (no retraining). It pairs
+with the released model and its `predict(..., preprocess=...)` hook.
+
+## Requirements
+
+```bash
+pip install "deepcell-types @ git+https://github.com/vanvalenlab/deepcell-types@master"
+```
+
+## Install the skill
+
+Copy (or symlink) this directory into your agent's skills directory:
+
+- **Claude Code:** `~/.claude/skills/preproc-adapt/`
+- **Codex:** `~/.agents/skills/preproc-adapt/`
+
+```bash
+# from a deepcell-types checkout
+cp -r skills/preproc-adapt ~/.claude/skills/        # Claude Code
+# or symlink to track upstream updates
+ln -s "$PWD/skills/preproc-adapt" ~/.claude/skills/preproc-adapt
+```
+
+Restart the agent (or reload skills) so it discovers the skill. Then ask, e.g.,
+"my lymph-node FOV is called mostly Nerve — use preproc-adapt to fix it."
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add skills/preproc-adapt/README.md
+git commit -m "docs(skill): add install/distribution instructions for preproc-adapt"
+```
+
+---
+
+### Task 9: Full verification + push
+
+- [ ] **Step 1: Run the full new test set + a broad sanity sweep**
+
+Run:
+```bash
+python -m pytest tests/test_preprocessing_ops.py tests/test_preprocess_hook.py -q
+python -m pytest tests/ -q -k "predict or preprocess or inference"
+```
+Expected: all pass; no regressions in existing inference tests.
+
+- [ ] **Step 2: Lint**
+
+Run: `ruff check deepcell_types/preprocessing_ops.py deepcell_types/predict.py deepcell_types/dataset.py deepcell_types/preprocessing.py`
+Expected: clean (match repo ruff config).
+
+- [ ] **Step 3: Push the branch (updates PR #23)**
+
+```bash
+git push xuefei skill/preproc-adapt
+```
+PR #23 updates automatically.
+
+---
+
+## Self-Review notes
+
+- **Spec coverage:** integration bug → Tasks 2-4 + Task 7.3; op table↔impl mismatch → Task 1 (`test_all_table_ops_are_implemented`); description → Task 7.2.1; p99.9→99.0 → Tasks 1/4/7.4; distribution → Task 8; exports/docs → Tasks 5/6.
+- **Default-unchanged guarantee:** Task 4 is the load-bearing regression guard (DEFAULT_CONFIG hook ≡ built-in, bit-for-bit).
+- **Type consistency:** hook contract `(C,H,W)->(C,H,W) in [0,1]` is identical across `apply_config`, `patch_generator`, `PatchDataset`, `predict`, and the skill.
+- **Open risk:** `gamma` op semantics are a reasonable default (per-channel normalized power curve preserving max scale); if the skill author wants a different gamma definition, adjust in Task 1 before Task 7.

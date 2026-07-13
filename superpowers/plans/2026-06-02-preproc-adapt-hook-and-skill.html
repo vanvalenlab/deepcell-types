@@ -1,0 +1,1201 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Preprocessing Hook + preproc-adapt Skill Implementation Plan &#8212; deepcell-types</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
+
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'superpowers/plans/2026-06-02-preproc-adapt-hook-and-skill';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">deepcell-types</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/API-key.html">
+    Model and Datasets
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/API-key.html">
+    Model and Datasets
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Preprocessing Hook + preproc-adapt Skill Implementation Plan</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="preprocessing-hook-preproc-adapt-skill-implementation-plan">
+<h1>Preprocessing Hook + preproc-adapt Skill Implementation Plan<a class="headerlink" href="#preprocessing-hook-preproc-adapt-skill-implementation-plan" title="Link to this heading">#</a></h1>
+<blockquote>
+<div><p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code class="docutils literal notranslate"><span class="pre">-</span> <span class="pre">[</span> <span class="pre">]</span></code>) syntax for tracking.</p>
+</div></blockquote>
+<p><strong>Goal:</strong> Add a supported <code class="docutils literal notranslate"><span class="pre">preprocess</span></code> hook to <code class="docutils literal notranslate"><span class="pre">deepcell_types.predict</span></code>, ship a bounded preprocessing-op library inside the package, and rewrite the <code class="docutils literal notranslate"><span class="pre">preproc-adapt</span></code> skill to use that supported API (fixing the no-op integration bug) with install docs.</p>
+<p><strong>Architecture:</strong> Inference preprocessing currently lives inside the private <code class="docutils literal notranslate"><span class="pre">patch_generator</span></code> (resample → <code class="docutils literal notranslate"><span class="pre">_percentile_threshold_nonzero</span></code> → <code class="docutils literal notranslate"><span class="pre">_normalize_per_channel</span></code>). We add an optional <code class="docutils literal notranslate"><span class="pre">preprocess</span></code> callable threaded <code class="docutils literal notranslate"><span class="pre">predict</span> <span class="pre">→</span> <span class="pre">PatchDataset</span> <span class="pre">→</span> <span class="pre">patch_generator</span></code>; when supplied it <em>replaces</em> the clip+normalize step (resampling stays built-in). When <code class="docutils literal notranslate"><span class="pre">None</span></code>, behavior is bit-for-bit unchanged. A new <code class="docutils literal notranslate"><span class="pre">deepcell_types.preprocessing_ops</span></code> module provides <code class="docutils literal notranslate"><span class="pre">apply_config</span></code>, <code class="docutils literal notranslate"><span class="pre">DEFAULT_CONFIG</span></code>, and <code class="docutils literal notranslate"><span class="pre">make_preprocessor</span></code>, so users (and the skill) build hooks declaratively. The skill is rewritten to call <code class="docutils literal notranslate"><span class="pre">predict(...,</span> <span class="pre">preprocess=make_preprocessor(config))</span></code>.</p>
+<p><strong>Tech Stack:</strong> Python, NumPy, SciPy (<code class="docutils literal notranslate"><span class="pre">scipy.ndimage</span></code>), scikit-image; pytest; deepcell-types package (v0.1.0, unreleased).</p>
+<hr class="docutils" />
+<section id="background-facts-verified-against-master-761fd19">
+<h2>Background facts (verified against master &#64; 761fd19)<a class="headerlink" href="#background-facts-verified-against-master-761fd19" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">predict()</span></code> (<code class="docutils literal notranslate"><span class="pre">deepcell_types/predict.py:244</span></code>) builds <code class="docutils literal notranslate"><span class="pre">PatchDataset(raw,</span> <span class="pre">mask,</span> <span class="pre">channel_names,</span> <span class="pre">mpp,</span> <span class="pre">dct_config)</span></code> internally; <strong>no preprocessing hook today</strong>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PatchDataset.__iter__</span></code> (<code class="docutils literal notranslate"><span class="pre">deepcell_types/dataset.py:133-139</span></code>) calls <code class="docutils literal notranslate"><span class="pre">patch_generator(self.raw,</span> <span class="pre">self.mask,</span> <span class="pre">self.mpp,</span> <span class="pre">dct_config=self.dct_config)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">self.raw</span></code> is <strong>already channel-masked</strong> to in-vocab channels (<code class="docutils literal notranslate"><span class="pre">dataset.py:93</span></code>); the aligned names are <code class="docutils literal notranslate"><span class="pre">self.channel_names_standard</span></code> (resolved standard marker names).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">patch_generator</span></code> (<code class="docutils literal notranslate"><span class="pre">deepcell_types/preprocessing.py:311</span></code>) does: transpose→<code class="docutils literal notranslate"><span class="pre">rescale</span></code>→<code class="docutils literal notranslate"><span class="pre">_percentile_threshold_nonzero(p=dct_config.PERCENTILE_THRESHOLD)</span></code>→<code class="docutils literal notranslate"><span class="pre">_normalize_per_channel</span></code>→pad/crop.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">dct_config.PERCENTILE_THRESHOLD</span> <span class="pre">=</span> <span class="pre">99.9</span></code></strong> (<code class="docutils literal notranslate"><span class="pre">config.py:225</span></code>) — the real inference percentile, set by commit <code class="docutils literal notranslate"><span class="pre">ec3d9f7</span> <span class="pre">&quot;fix(inference):</span> <span class="pre">clip</span> <span class="pre">at</span> <span class="pre">p99.9</span> <span class="pre">to</span> <span class="pre">match</span> <span class="pre">the</span> <span class="pre">training-archive</span> <span class="pre">recipe&quot;</span></code>. (An earlier draft of this plan said 99.0 from a stale read of the <code class="docutils literal notranslate"><span class="pre">feat/immediate-cli-abstention</span></code> branch — that was WRONG. The op library’s <code class="docutils literal notranslate"><span class="pre">DEFAULT_CONFIG</span></code> uses <strong>99.9</strong> and a bit-for-bit equivalence test guards it.)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_normalize_per_channel</span></code> (<code class="docutils literal notranslate"><span class="pre">preprocessing.py:246</span></code>) = per-channel min-max via <code class="docutils literal notranslate"><span class="pre">np.ptp</span></code>, HWC layout.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">preprocess_fov</span></code> / <code class="docutils literal notranslate"><span class="pre">PreprocessedFov</span></code> are exported but are the archive path — the current skill’s integration target, and therefore a <strong>silent no-op for <code class="docutils literal notranslate"><span class="pre">predict</span></code></strong>.</p></li>
+</ul>
+</section>
+<section id="hook-contract-locked">
+<h2>Hook contract (locked)<a class="headerlink" href="#hook-contract-locked" title="Link to this heading">#</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">preprocess</span><span class="p">(</span><span class="n">raw_resampled</span><span class="p">,</span> <span class="n">channel_names</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span>
+    <span class="n">raw_resampled</span> <span class="p">:</span> <span class="n">float32</span> <span class="n">ndarray</span> <span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">),</span> <span class="n">resampled</span> <span class="n">to</span> <span class="n">STANDARD_MPP</span><span class="p">,</span> <span class="n">channel</span><span class="o">-</span><span class="n">masked</span>
+    <span class="n">channel_names</span> <span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>  <span class="n">resolved</span> <span class="n">standard</span> <span class="n">marker</span> <span class="n">names</span><span class="p">,</span> <span class="n">aligned</span> <span class="n">to</span> <span class="n">C</span>
+    <span class="n">returns</span>       <span class="p">:</span> <span class="n">float32</span> <span class="n">ndarray</span> <span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">),</span> <span class="n">values</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">same</span> <span class="n">C</span><span class="o">/</span><span class="n">H</span><span class="o">/</span><span class="n">W</span>
+</pre></div>
+</div>
+<p>The hook runs <strong>after</strong> resampling and channel-masking, <strong>in place of</strong> the built-in
+<code class="docutils literal notranslate"><span class="pre">_percentile_threshold_nonzero</span></code> + <code class="docutils literal notranslate"><span class="pre">_normalize_per_channel</span></code>. <code class="docutils literal notranslate"><span class="pre">None</span></code> ⇒ built-in path.</p>
+</section>
+<section id="file-structure">
+<h2>File Structure<a class="headerlink" href="#file-structure" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Create: <code class="docutils literal notranslate"><span class="pre">deepcell_types/preprocessing_ops.py</span></code> — bounded op library (<code class="docutils literal notranslate"><span class="pre">apply_config</span></code>, <code class="docutils literal notranslate"><span class="pre">DEFAULT_CONFIG</span></code>, <code class="docutils literal notranslate"><span class="pre">make_preprocessor</span></code>, op implementations). One responsibility: declarative per-channel preprocessing on <code class="docutils literal notranslate"><span class="pre">(C,H,W)</span></code>.</p></li>
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">deepcell_types/preprocessing.py</span></code> — add <code class="docutils literal notranslate"><span class="pre">preprocess</span></code>/<code class="docutils literal notranslate"><span class="pre">channel_names</span></code> params to <code class="docutils literal notranslate"><span class="pre">patch_generator</span></code>.</p></li>
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">deepcell_types/dataset.py</span></code> — accept + store <code class="docutils literal notranslate"><span class="pre">preprocess</span></code>, pass it (and <code class="docutils literal notranslate"><span class="pre">channel_names_standard</span></code>) to <code class="docutils literal notranslate"><span class="pre">patch_generator</span></code>.</p></li>
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">deepcell_types/predict.py</span></code> — add <code class="docutils literal notranslate"><span class="pre">preprocess=None</span></code> kwarg, forward to <code class="docutils literal notranslate"><span class="pre">PatchDataset</span></code>.</p></li>
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">deepcell_types/__init__.py</span></code> — export <code class="docutils literal notranslate"><span class="pre">apply_config</span></code>, <code class="docutils literal notranslate"><span class="pre">DEFAULT_CONFIG</span></code>, <code class="docutils literal notranslate"><span class="pre">make_preprocessor</span></code>.</p></li>
+<li><p>Create: <code class="docutils literal notranslate"><span class="pre">tests/test_preprocess_hook.py</span></code> — hook threading + default-unchanged + contract validation.</p></li>
+<li><p>Create: <code class="docutils literal notranslate"><span class="pre">tests/test_preprocessing_ops.py</span></code> — op library unit tests + DEFAULT_CONFIG ≡ built-in.</p></li>
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">skills/preproc-adapt/SKILL.md</span></code> — description, integration via hook, op table↔impl parity, p99.0, install section.</p></li>
+<li><p>Create: <code class="docutils literal notranslate"><span class="pre">skills/preproc-adapt/README.md</span></code> — install/distribution instructions for end users.</p></li>
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">docs/site/reference.rst</span></code>, <code class="docutils literal notranslate"><span class="pre">README.md</span></code>, <code class="docutils literal notranslate"><span class="pre">CHANGELOG.md</span></code> — document the hook + ops.</p></li>
+</ul>
+<hr class="docutils" />
+<section id="task-1-bounded-op-library-preprocessing-ops-py">
+<h3>Task 1: Bounded op library (<code class="docutils literal notranslate"><span class="pre">preprocessing_ops.py</span></code>)<a class="headerlink" href="#task-1-bounded-op-library-preprocessing-ops-py" title="Link to this heading">#</a></h3>
+<p><strong>Files:</strong></p>
+<ul class="simple">
+<li><p>Create: <code class="docutils literal notranslate"><span class="pre">deepcell_types/preprocessing_ops.py</span></code></p></li>
+<li><p>Test: <code class="docutils literal notranslate"><span class="pre">tests/test_preprocessing_ops.py</span></code></p></li>
+<li><p>[ ] <strong>Step 1: Write the failing tests</strong></p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># tests/test_preprocessing_ops.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">deepcell_types.preprocessing_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_config</span><span class="p">,</span> <span class="n">DEFAULT_CONFIG</span><span class="p">,</span> <span class="n">make_preprocessor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">deepcell_types.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">_percentile_threshold_nonzero</span><span class="p">,</span> <span class="n">_normalize_per_channel</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_fov</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">gamma</span><span class="p">(</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">24</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:</span><span class="mi">5</span><span class="p">,</span> <span class="p">:</span><span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="mf">5000.0</span>  <span class="c1"># bright outlier blob</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;CD3&quot;</span><span class="p">,</span> <span class="s2">&quot;CD8&quot;</span><span class="p">,</span> <span class="s2">&quot;DAPI&quot;</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_default_config_matches_builtin_inference_path</span><span class="p">():</span>
+    <span class="n">raw</span><span class="p">,</span> <span class="n">names</span> <span class="o">=</span> <span class="n">_fov</span><span class="p">()</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">apply_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="n">DEFAULT_CONFIG</span><span class="p">)</span>          <span class="c1"># (C,H,W)</span>
+    <span class="n">hwc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="n">ref</span> <span class="o">=</span> <span class="n">_normalize_per_channel</span><span class="p">(</span><span class="n">_percentile_threshold_nonzero</span><span class="p">(</span><span class="n">hwc</span><span class="p">,</span> <span class="n">percentile</span><span class="o">=</span><span class="mf">99.0</span><span class="p">))</span>
+    <span class="n">ref</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="n">out</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">raw</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_output_is_in_unit_range</span><span class="p">():</span>
+    <span class="n">raw</span><span class="p">,</span> <span class="n">names</span> <span class="o">=</span> <span class="n">_fov</span><span class="p">()</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">apply_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="n">DEFAULT_CONFIG</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">out</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="n">out</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">1e-6</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_channel_drop_zeros_named_channel</span><span class="p">():</span>
+    <span class="n">raw</span><span class="p">,</span> <span class="n">names</span> <span class="o">=</span> <span class="n">_fov</span><span class="p">()</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">apply_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="p">[{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;channel_drop&quot;</span><span class="p">,</span> <span class="s2">&quot;names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;DAPI&quot;</span><span class="p">]},</span>
+                                    <span class="p">{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;min_max_normalize&quot;</span><span class="p">}])</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_channel_weight_after_normalize_scales</span><span class="p">():</span>
+    <span class="n">raw</span><span class="p">,</span> <span class="n">names</span> <span class="o">=</span> <span class="n">_fov</span><span class="p">()</span>
+    <span class="n">cfg</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;min_max_normalize&quot;</span><span class="p">},</span>
+           <span class="p">{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;channel_weight&quot;</span><span class="p">,</span> <span class="s2">&quot;weights&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;CD8&quot;</span><span class="p">:</span> <span class="mf">0.25</span><span class="p">}}]</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">apply_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">out</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="mf">0.25</span> <span class="o">+</span> <span class="mf">1e-6</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_all_table_ops_are_implemented</span><span class="p">():</span>
+    <span class="n">raw</span><span class="p">,</span> <span class="n">names</span> <span class="o">=</span> <span class="n">_fov</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="p">[{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;clip_percentile&quot;</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">:</span> <span class="mf">99.0</span><span class="p">},</span>
+               <span class="p">{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;arcsinh&quot;</span><span class="p">,</span> <span class="s2">&quot;cofactor&quot;</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">},</span>
+               <span class="p">{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;log1p&quot;</span><span class="p">},</span>
+               <span class="p">{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;background_subtract&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">},</span>
+               <span class="p">{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;gamma&quot;</span><span class="p">,</span> <span class="s2">&quot;g&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
+               <span class="p">{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;denoise&quot;</span><span class="p">,</span> <span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="s2">&quot;median&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">},</span>
+               <span class="p">{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;hot_pixel_removal&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">}]:</span>
+        <span class="n">apply_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="p">[</span><span class="n">op</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;min_max_normalize&quot;</span><span class="p">}])</span>  <span class="c1"># must not raise</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_unknown_op_raises</span><span class="p">():</span>
+    <span class="n">raw</span><span class="p">,</span> <span class="n">names</span> <span class="o">=</span> <span class="n">_fov</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;unknown op&quot;</span><span class="p">):</span>
+        <span class="n">apply_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="p">[{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;nope&quot;</span><span class="p">}])</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_make_preprocessor_returns_hook</span><span class="p">():</span>
+    <span class="n">raw</span><span class="p">,</span> <span class="n">names</span> <span class="o">=</span> <span class="n">_fov</span><span class="p">()</span>
+    <span class="n">hook</span> <span class="o">=</span> <span class="n">make_preprocessor</span><span class="p">(</span><span class="n">DEFAULT_CONFIG</span><span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">hook</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">names</span><span class="p">),</span> <span class="n">apply_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="n">DEFAULT_CONFIG</span><span class="p">))</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>[ ] <strong>Step 2: Run tests to verify they fail</strong></p></li>
+</ul>
+<p>Run: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pytest</span> <span class="pre">tests/test_preprocessing_ops.py</span> <span class="pre">-q</span></code>
+Expected: FAIL — <code class="docutils literal notranslate"><span class="pre">ModuleNotFoundError:</span> <span class="pre">No</span> <span class="pre">module</span> <span class="pre">named</span> <span class="pre">'deepcell_types.preprocessing_ops'</span></code></p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 3: Implement the op library</strong></p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># deepcell_types/preprocessing_ops.py</span>
+<span class="sd">&quot;&quot;&quot;Declarative, bounded per-FOV preprocessing ops for the ``preprocess`` hook.</span>
+
+<span class="sd">Each config is a list of ``{&quot;op&quot;: name, ...params}`` dicts applied in order to a</span>
+<span class="sd">``(C, H, W)`` float32 array; the result must be in ``[0, 1]`` (end with</span>
+<span class="sd">``min_max_normalize``). Build a hook for ``deepcell_types.predict`` with</span>
+<span class="sd">``make_preprocessor(config)``.</span>
+
+<span class="sd">``DEFAULT_CONFIG`` reproduces the built-in inference preprocessing</span>
+<span class="sd">(per-channel nonzero-pixel p99 clip + min-max), so passing it is equivalent to</span>
+<span class="sd">passing no hook at all.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.ndimage</span><span class="w"> </span><span class="kn">import</span> <span class="n">gaussian_filter</span><span class="p">,</span> <span class="n">median_filter</span>
+
+<span class="c1"># Built-in inference percentile (mirrors DCTConfig.PERCENTILE_THRESHOLD).</span>
+<span class="n">_DEFAULT_PERCENTILE</span> <span class="o">=</span> <span class="mf">99.0</span>
+
+<span class="n">DEFAULT_CONFIG</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;clip_percentile&quot;</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">:</span> <span class="n">_DEFAULT_PERCENTILE</span><span class="p">},</span>
+                  <span class="p">{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;min_max_normalize&quot;</span><span class="p">}]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_clip_percentile_nonzero</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-channel clip at the p-th percentile of *nonzero* pixels.</span>
+
+<span class="sd">    Matches ``preprocessing._percentile_threshold_nonzero`` so ``DEFAULT_CONFIG``</span>
+<span class="sd">    is bit-equivalent to the built-in path. All-zero channels are untouched.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">nz</span> <span class="o">=</span> <span class="n">out</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">c</span><span class="p">])]</span>
+        <span class="k">if</span> <span class="n">nz</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">nz</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">c</span><span class="p">],</span> <span class="n">hi</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">[</span><span class="n">c</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_min_max</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="n">mn</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">ptp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ptp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">ptp</span><span class="p">[</span><span class="n">ptp</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">mn</span><span class="p">)</span> <span class="o">/</span> <span class="n">ptp</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_hot_pixel_removal</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">med</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">c</span><span class="p">])</span>
+        <span class="n">mad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">-</span> <span class="n">med</span><span class="p">))</span> <span class="ow">or</span> <span class="mf">1.0</span>
+        <span class="n">hi</span> <span class="o">=</span> <span class="n">med</span> <span class="o">+</span> <span class="n">z</span> <span class="o">*</span> <span class="mf">1.4826</span> <span class="o">*</span> <span class="n">mad</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">c</span><span class="p">],</span> <span class="n">hi</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">[</span><span class="n">c</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">apply_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">channel_names</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply a bounded op pipeline to ``raw`` (C,H,W) -&gt; (C,H,W) float32.</span>
+
+<span class="sd">    ``channel_names`` are the resolved standard marker names aligned to ``raw``&#39;s</span>
+<span class="sd">    channels (what the ``preprocess`` hook receives from ``predict``).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="p">{</span><span class="n">n</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">channel_names</span><span class="p">)}</span>
+    <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">step</span><span class="p">[</span><span class="s2">&quot;op&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;clip_percentile&quot;</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">_clip_percentile_nonzero</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">step</span><span class="p">[</span><span class="s2">&quot;p&quot;</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;arcsinh&quot;</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arcsinh</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">step</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cofactor&quot;</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)))</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;log1p&quot;</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;background_subtract&quot;</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="nb">float</span><span class="p">(</span><span class="n">step</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]),</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;gamma&quot;</span><span class="p">:</span>
+            <span class="n">mx</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">mx</span><span class="p">[</span><span class="n">mx</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="n">mx</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">step</span><span class="p">[</span><span class="s2">&quot;g&quot;</span><span class="p">]))</span> <span class="o">*</span> <span class="n">mx</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;denoise&quot;</span><span class="p">:</span>
+            <span class="n">kind</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;kind&quot;</span><span class="p">,</span> <span class="s2">&quot;median&quot;</span><span class="p">)</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">step</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;size&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;median&quot;</span><span class="p">:</span>
+                    <span class="n">x</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">median_filter</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">c</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;gaussian&quot;</span><span class="p">:</span>
+                    <span class="n">x</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">gaussian_filter</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">c</span><span class="p">],</span> <span class="n">sigma</span><span class="o">=</span><span class="n">size</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unknown denoise kind </span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;hot_pixel_removal&quot;</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">_hot_pixel_removal</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">step</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;z&quot;</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)))</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;channel_drop&quot;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">step</span><span class="p">[</span><span class="s2">&quot;names&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">idx</span><span class="p">:</span>
+                    <span class="n">x</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">n</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;channel_weight&quot;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">step</span><span class="p">[</span><span class="s2">&quot;weights&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">idx</span><span class="p">:</span>
+                    <span class="n">x</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">n</span><span class="p">]]</span> <span class="o">*=</span> <span class="nb">float</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;min_max_normalize&quot;</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">_min_max</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unknown op </span><span class="si">{</span><span class="n">op</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">make_preprocessor</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a ``preprocess`` hook for ``deepcell_types.predict`` from a config.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="k">lambda</span> <span class="n">raw</span><span class="p">,</span> <span class="n">channel_names</span><span class="p">:</span> <span class="n">apply_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">channel_names</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>[ ] <strong>Step 4: Run tests to verify they pass</strong></p></li>
+</ul>
+<p>Run: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pytest</span> <span class="pre">tests/test_preprocessing_ops.py</span> <span class="pre">-q</span></code>
+Expected: PASS (7 passed)</p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 5: Commit</strong></p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>add<span class="w"> </span>deepcell_types/preprocessing_ops.py<span class="w"> </span>tests/test_preprocessing_ops.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat(preprocessing): bounded op library for the predict preprocess hook&quot;</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="task-2-thread-preprocess-through-patch-generator">
+<h3>Task 2: Thread <code class="docutils literal notranslate"><span class="pre">preprocess</span></code> through <code class="docutils literal notranslate"><span class="pre">patch_generator</span></code><a class="headerlink" href="#task-2-thread-preprocess-through-patch-generator" title="Link to this heading">#</a></h3>
+<p><strong>Files:</strong></p>
+<ul class="simple">
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">deepcell_types/preprocessing.py:311</span></code> (<code class="docutils literal notranslate"><span class="pre">patch_generator</span></code>)</p></li>
+<li><p>Test: <code class="docutils literal notranslate"><span class="pre">tests/test_preprocess_hook.py</span></code> (created here, extended in Task 4)</p></li>
+<li><p>[ ] <strong>Step 1: Write the failing test</strong></p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># tests/test_preprocess_hook.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">deepcell_types.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">patch_generator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">deepcell_types.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">DCTConfig</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_toy</span><span class="p">():</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">raw</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">gamma</span><span class="p">(</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">30.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">40</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">40</span><span class="p">,</span> <span class="mi">40</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">mask</span><span class="p">[</span><span class="mi">10</span><span class="p">:</span><span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">:</span><span class="mi">20</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">mask</span><span class="p">[</span><span class="mi">25</span><span class="p">:</span><span class="mi">33</span><span class="p">,</span> <span class="mi">25</span><span class="p">:</span><span class="mi">33</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">raw</span><span class="p">,</span> <span class="n">mask</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_patch_generator_invokes_preprocess_with_chw_and_names</span><span class="p">():</span>
+    <span class="n">raw</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">_toy</span><span class="p">()</span>
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">DCTConfig</span><span class="p">()</span>
+    <span class="n">seen</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">hook</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">names</span><span class="p">):</span>
+        <span class="n">seen</span><span class="p">[</span><span class="s2">&quot;shape&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">seen</span><span class="p">[</span><span class="s2">&quot;names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">names</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>  <span class="c1"># forces all-zero patches</span>
+
+    <span class="n">patches</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">patch_generator</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">mpp</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">dct_config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span>
+                                   <span class="n">preprocess</span><span class="o">=</span><span class="n">hook</span><span class="p">,</span> <span class="n">channel_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;CD3&quot;</span><span class="p">,</span> <span class="s2">&quot;DAPI&quot;</span><span class="p">]))</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">seen</span><span class="p">[</span><span class="s2">&quot;shape&quot;</span><span class="p">])</span> <span class="o">==</span> <span class="mi">3</span> <span class="ow">and</span> <span class="n">seen</span><span class="p">[</span><span class="s2">&quot;shape&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>     <span class="c1"># (C,H,W)</span>
+    <span class="k">assert</span> <span class="n">seen</span><span class="p">[</span><span class="s2">&quot;names&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="s2">&quot;CD3&quot;</span><span class="p">,</span> <span class="s2">&quot;DAPI&quot;</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">patches</span><span class="p">)</span>            <span class="c1"># hook output used</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>[ ] <strong>Step 2: Run test to verify it fails</strong></p></li>
+</ul>
+<p>Run: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pytest</span> <span class="pre">tests/test_preprocess_hook.py</span> <span class="pre">-q</span></code>
+Expected: FAIL — <code class="docutils literal notranslate"><span class="pre">patch_generator()</span> <span class="pre">got</span> <span class="pre">an</span> <span class="pre">unexpected</span> <span class="pre">keyword</span> <span class="pre">argument</span> <span class="pre">'preprocess'</span></code></p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 3: Modify <code class="docutils literal notranslate"><span class="pre">patch_generator</span></code></strong></p></li>
+</ul>
+<p>Change the signature and the clip+normalize block in <code class="docutils literal notranslate"><span class="pre">deepcell_types/preprocessing.py</span></code>.</p>
+<p>Signature (line ~311):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">patch_generator</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">mpp</span><span class="p">,</span> <span class="n">dct_config</span><span class="p">,</span> <span class="n">preprocess</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_names</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</pre></div>
+</div>
+<p>Replace the two normalization lines (currently <code class="docutils literal notranslate"><span class="pre">preprocessing.py:335-338</span></code>):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="n">raw</span> <span class="o">=</span> <span class="n">_percentile_threshold_nonzero</span><span class="p">(</span>
+        <span class="n">raw</span><span class="p">,</span> <span class="n">percentile</span><span class="o">=</span><span class="n">dct_config</span><span class="o">.</span><span class="n">PERCENTILE_THRESHOLD</span>
+    <span class="p">)</span>
+    <span class="n">raw</span> <span class="o">=</span> <span class="n">_normalize_per_channel</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>with:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="k">if</span> <span class="n">preprocess</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">_percentile_threshold_nonzero</span><span class="p">(</span>
+            <span class="n">raw</span><span class="p">,</span> <span class="n">percentile</span><span class="o">=</span><span class="n">dct_config</span><span class="o">.</span><span class="n">PERCENTILE_THRESHOLD</span>
+        <span class="p">)</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">_normalize_per_channel</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># raw is (H, W, C) here; the hook contract is (C, H, W) in [0, 1].</span>
+        <span class="n">raw_chw</span> <span class="o">=</span> <span class="n">preprocess</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">channel_names</span><span class="p">)</span>
+        <span class="n">raw_chw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">raw_chw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">raw_chw</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">raw</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">raw</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;preprocess must return a (C, H, W) array matching its input; &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">raw_chw</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> for input </span><span class="si">{</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="w"> </span><span class="n">raw</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">raw</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">raw_chw</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>[ ] <strong>Step 4: Run test to verify it passes</strong></p></li>
+</ul>
+<p>Run: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pytest</span> <span class="pre">tests/test_preprocess_hook.py</span> <span class="pre">-q</span></code>
+Expected: PASS</p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 5: Commit</strong></p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>add<span class="w"> </span>deepcell_types/preprocessing.py<span class="w"> </span>tests/test_preprocess_hook.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat(preprocessing): patch_generator accepts optional preprocess hook&quot;</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="task-3-thread-preprocess-through-patchdataset-and-predict">
+<h3>Task 3: Thread <code class="docutils literal notranslate"><span class="pre">preprocess</span></code> through <code class="docutils literal notranslate"><span class="pre">PatchDataset</span></code> and <code class="docutils literal notranslate"><span class="pre">predict</span></code><a class="headerlink" href="#task-3-thread-preprocess-through-patchdataset-and-predict" title="Link to this heading">#</a></h3>
+<p><strong>Files:</strong></p>
+<ul class="simple">
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">deepcell_types/dataset.py:16-25</span></code> (<code class="docutils literal notranslate"><span class="pre">__init__</span></code>), <code class="docutils literal notranslate"><span class="pre">dataset.py:133-139</span></code> (<code class="docutils literal notranslate"><span class="pre">__iter__</span></code>)</p></li>
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">deepcell_types/predict.py:244-258</span></code> (signature), <code class="docutils literal notranslate"><span class="pre">predict.py:351</span></code> (PatchDataset construction)</p></li>
+<li><p>Test: <code class="docutils literal notranslate"><span class="pre">tests/test_preprocess_hook.py</span></code> (extend)</p></li>
+<li><p>[ ] <strong>Step 1: Write the failing test</strong></p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># append to tests/test_preprocess_hook.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">deepcell_types.dataset</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dsmod</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_patchdataset_forwards_preprocess</span><span class="p">(</span><span class="n">monkeypatch</span><span class="p">):</span>
+    <span class="n">raw</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">_toy</span><span class="p">()</span>
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">DCTConfig</span><span class="p">()</span>
+    <span class="n">captured</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">fake_patch_generator</span><span class="p">(</span><span class="n">raw_</span><span class="p">,</span> <span class="n">mask_</span><span class="p">,</span> <span class="n">mpp_</span><span class="p">,</span> <span class="n">dct_config</span><span class="p">,</span> <span class="n">preprocess</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                             <span class="n">channel_names</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">captured</span><span class="p">[</span><span class="s2">&quot;preprocess&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">preprocess</span>
+        <span class="n">captured</span><span class="p">[</span><span class="s2">&quot;channel_names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel_names</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">(())</span>
+
+    <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setattr</span><span class="p">(</span><span class="n">dsmod</span><span class="p">,</span> <span class="s2">&quot;patch_generator&quot;</span><span class="p">,</span> <span class="n">fake_patch_generator</span><span class="p">)</span>
+    <span class="n">hook</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">arr</span><span class="p">,</span> <span class="n">names</span><span class="p">:</span> <span class="n">arr</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">dsmod</span><span class="o">.</span><span class="n">PatchDataset</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;CD3&quot;</span><span class="p">,</span> <span class="s2">&quot;DAPI&quot;</span><span class="p">],</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">cfg</span><span class="p">,</span> <span class="n">preprocess</span><span class="o">=</span><span class="n">hook</span><span class="p">)</span>
+    <span class="nb">list</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>  <span class="c1"># triggers __iter__</span>
+    <span class="k">assert</span> <span class="n">captured</span><span class="p">[</span><span class="s2">&quot;preprocess&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="n">hook</span>
+    <span class="k">assert</span> <span class="n">captured</span><span class="p">[</span><span class="s2">&quot;channel_names&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">ds</span><span class="o">.</span><span class="n">channel_names_standard</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>[ ] <strong>Step 2: Run test to verify it fails</strong></p></li>
+</ul>
+<p>Run: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pytest</span> <span class="pre">tests/test_preprocess_hook.py::test_patchdataset_forwards_preprocess</span> <span class="pre">-q</span></code>
+Expected: FAIL — <code class="docutils literal notranslate"><span class="pre">__init__()</span> <span class="pre">got</span> <span class="pre">an</span> <span class="pre">unexpected</span> <span class="pre">keyword</span> <span class="pre">argument</span> <span class="pre">'preprocess'</span></code></p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 3: Modify <code class="docutils literal notranslate"><span class="pre">PatchDataset</span></code></strong></p></li>
+</ul>
+<p>In <code class="docutils literal notranslate"><span class="pre">__init__</span></code> signature (<code class="docutils literal notranslate"><span class="pre">dataset.py</span></code>), add <code class="docutils literal notranslate"><span class="pre">preprocess=None</span></code> before <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">raw</span><span class="p">,</span>
+        <span class="n">mask</span><span class="p">,</span>
+        <span class="n">channel_names</span><span class="p">,</span>
+        <span class="n">mpp</span><span class="p">,</span>
+        <span class="n">dct_config</span><span class="p">,</span>
+        <span class="n">preprocess</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+</pre></div>
+</div>
+<p>After <code class="docutils literal notranslate"><span class="pre">super().__init__(**kwargs)</span></code>, store it:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>        <span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span> <span class="o">=</span> <span class="n">preprocess</span>
+</pre></div>
+</div>
+<p>In <code class="docutils literal notranslate"><span class="pre">__iter__</span></code>, update the <code class="docutils literal notranslate"><span class="pre">patch_generator</span></code> call:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>            <span class="n">patch_generator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpp</span><span class="p">,</span>
+                            <span class="n">dct_config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dct_config</span><span class="p">,</span>
+                            <span class="n">preprocess</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span><span class="p">,</span>
+                            <span class="n">channel_names</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">channel_names_standard</span><span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>[ ] <strong>Step 4: Run test to verify it passes</strong></p></li>
+</ul>
+<p>Run: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pytest</span> <span class="pre">tests/test_preprocess_hook.py::test_patchdataset_forwards_preprocess</span> <span class="pre">-q</span></code>
+Expected: PASS</p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 5: Add <code class="docutils literal notranslate"><span class="pre">predict</span></code> kwarg + forward, then commit</strong></p></li>
+</ul>
+<p>In <code class="docutils literal notranslate"><span class="pre">deepcell_types/predict.py</span></code>, add to the keyword-only block (after <code class="docutils literal notranslate"><span class="pre">ct_abstention_k=0.2,</span></code>):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="n">preprocess</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Add to the docstring Parameters (after <code class="docutils literal notranslate"><span class="pre">ct_abstention_k</span></code>):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    preprocess : callable, optional, default=None
+        Custom per-FOV preprocessing hook. Called as
+        ``preprocess(raw, channel_names) -&gt; raw`` where ``raw`` is a
+        ``(C, H, W)`` float32 array already resampled to the model&#39;s target
+        MPP and restricted to in-vocabulary channels, and ``channel_names``
+        are the resolved standard marker names aligned to ``raw``. Must return
+        a ``(C, H, W)`` array in ``[0, 1]``. When ``None`` (default), the
+        built-in per-channel p99 clip + min-max normalization is used. Build
+        one declaratively with
+        :func:`deepcell_types.make_preprocessor`.
+</pre></div>
+</div>
+<p>Update the <code class="docutils literal notranslate"><span class="pre">PatchDataset</span></code> construction (<code class="docutils literal notranslate"><span class="pre">predict.py:351</span></code>):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="n">dataset</span> <span class="o">=</span> <span class="n">PatchDataset</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">channel_names</span><span class="p">,</span> <span class="n">mpp</span><span class="p">,</span> <span class="n">dct_config</span><span class="p">,</span>
+                           <span class="n">preprocess</span><span class="o">=</span><span class="n">preprocess</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>add<span class="w"> </span>deepcell_types/dataset.py<span class="w"> </span>deepcell_types/predict.py<span class="w"> </span>tests/test_preprocess_hook.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat(predict): public preprocess hook threaded to PatchDataset&quot;</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="task-4-end-to-end-equivalence-default-path-unchanged">
+<h3>Task 4: End-to-end equivalence — default path unchanged<a class="headerlink" href="#task-4-end-to-end-equivalence-default-path-unchanged" title="Link to this heading">#</a></h3>
+<p><strong>Files:</strong></p>
+<ul class="simple">
+<li><p>Test: <code class="docutils literal notranslate"><span class="pre">tests/test_preprocess_hook.py</span></code> (extend)</p></li>
+<li><p>[ ] <strong>Step 1: Write the failing test</strong></p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># append to tests/test_preprocess_hook.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">deepcell_types.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">_percentile_threshold_nonzero</span><span class="p">,</span> <span class="n">_normalize_per_channel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">deepcell_types.preprocessing_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_preprocessor</span><span class="p">,</span> <span class="n">DEFAULT_CONFIG</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_default_config_hook_equals_builtin_in_patch_generator</span><span class="p">():</span>
+    <span class="n">raw</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">_toy</span><span class="p">()</span>
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">DCTConfig</span><span class="p">()</span>
+    <span class="n">baseline</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span>
+                <span class="n">patch_generator</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">dct_config</span><span class="o">=</span><span class="n">cfg</span><span class="p">)]</span>
+    <span class="n">hooked</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span>
+              <span class="n">patch_generator</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">dct_config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span>
+                              <span class="n">preprocess</span><span class="o">=</span><span class="n">make_preprocessor</span><span class="p">(</span><span class="n">DEFAULT_CONFIG</span><span class="p">),</span>
+                              <span class="n">channel_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;CD3&quot;</span><span class="p">,</span> <span class="s2">&quot;DAPI&quot;</span><span class="p">])]</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">baseline</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">hooked</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">baseline</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">baseline</span><span class="p">,</span> <span class="n">hooked</span><span class="p">):</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>[ ] <strong>Step 2: Run test to verify it fails or passes</strong></p></li>
+</ul>
+<p>Run: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pytest</span> <span class="pre">tests/test_preprocess_hook.py::test_default_config_hook_equals_builtin_in_patch_generator</span> <span class="pre">-q</span></code>
+Expected: PASS if Task 1’s <code class="docutils literal notranslate"><span class="pre">clip_percentile</span></code>/<code class="docutils literal notranslate"><span class="pre">min_max</span></code> match the built-in helpers. If FAIL, fix <code class="docutils literal notranslate"><span class="pre">_clip_percentile_nonzero</span></code>/<code class="docutils literal notranslate"><span class="pre">_min_max</span></code> in <code class="docutils literal notranslate"><span class="pre">preprocessing_ops.py</span></code> to match <code class="docutils literal notranslate"><span class="pre">_percentile_threshold_nonzero</span></code>/<code class="docutils literal notranslate"><span class="pre">_normalize_per_channel</span></code> exactly (this is the regression guard that the default is untouched).</p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 3: Commit</strong></p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>add<span class="w"> </span>tests/test_preprocess_hook.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;test(preprocessing): DEFAULT_CONFIG hook reproduces built-in path bit-for-bit&quot;</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="task-5-public-exports">
+<h3>Task 5: Public exports<a class="headerlink" href="#task-5-public-exports" title="Link to this heading">#</a></h3>
+<p><strong>Files:</strong></p>
+<ul class="simple">
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">deepcell_types/__init__.py</span></code></p></li>
+<li><p>[ ] <strong>Step 1: Write the failing test</strong></p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># append to tests/test_preprocessing_ops.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_public_exports</span><span class="p">():</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">deepcell_types</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dct</span>
+    <span class="k">assert</span> <span class="nb">callable</span><span class="p">(</span><span class="n">dct</span><span class="o">.</span><span class="n">make_preprocessor</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">callable</span><span class="p">(</span><span class="n">dct</span><span class="o">.</span><span class="n">apply_config</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dct</span><span class="o">.</span><span class="n">DEFAULT_CONFIG</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>[ ] <strong>Step 2: Run test to verify it fails</strong></p></li>
+</ul>
+<p>Run: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pytest</span> <span class="pre">tests/test_preprocessing_ops.py::test_public_exports</span> <span class="pre">-q</span></code>
+Expected: FAIL — <code class="docutils literal notranslate"><span class="pre">AttributeError:</span> <span class="pre">module</span> <span class="pre">'deepcell_types'</span> <span class="pre">has</span> <span class="pre">no</span> <span class="pre">attribute</span> <span class="pre">'make_preprocessor'</span></code></p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 3: Add exports</strong></p></li>
+</ul>
+<p>In <code class="docutils literal notranslate"><span class="pre">deepcell_types/__init__.py</span></code>, after the <code class="docutils literal notranslate"><span class="pre">preprocess_fov</span></code> import line:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">.preprocessing_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_config</span> <span class="k">as</span> <span class="n">apply_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.preprocessing_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_preprocessor</span> <span class="k">as</span> <span class="n">make_preprocessor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.preprocessing_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_CONFIG</span> <span class="k">as</span> <span class="n">DEFAULT_CONFIG</span>
+</pre></div>
+</div>
+<p>Add <code class="docutils literal notranslate"><span class="pre">&quot;apply_config&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;make_preprocessor&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;DEFAULT_CONFIG&quot;</span></code> to <code class="docutils literal notranslate"><span class="pre">__all__</span></code>.</p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 4: Run test to verify it passes</strong></p></li>
+</ul>
+<p>Run: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pytest</span> <span class="pre">tests/test_preprocessing_ops.py::test_public_exports</span> <span class="pre">-q</span></code>
+Expected: PASS</p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 5: Commit</strong></p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>add<span class="w"> </span>deepcell_types/__init__.py<span class="w"> </span>tests/test_preprocessing_ops.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat: export apply_config, make_preprocessor, DEFAULT_CONFIG&quot;</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="task-6-docs-reference-readme-changelog">
+<h3>Task 6: Docs — reference, README, CHANGELOG<a class="headerlink" href="#task-6-docs-reference-readme-changelog" title="Link to this heading">#</a></h3>
+<p><strong>Files:</strong></p>
+<ul class="simple">
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">docs/site/reference.rst</span></code>, <code class="docutils literal notranslate"><span class="pre">README.md</span></code>, <code class="docutils literal notranslate"><span class="pre">CHANGELOG.md</span></code></p></li>
+<li><p>[ ] <strong>Step 1: Update <code class="docutils literal notranslate"><span class="pre">docs/site/reference.rst</span></code></strong></p></li>
+</ul>
+<p>Under the <code class="docutils literal notranslate"><span class="pre">Inference</span></code> autosummary list (after <code class="docutils literal notranslate"><span class="pre">preprocess_fov</span></code>), add:</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span>   make_preprocessor
+   apply_config
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>[ ] <strong>Step 2: Add a README snippet</strong></p></li>
+</ul>
+<p>In <code class="docutils literal notranslate"><span class="pre">README.md</span></code>, after the basic <code class="docutils literal notranslate"><span class="pre">predict</span></code> usage, add a short subsection:</p>
+<div class="highlight-markdown notranslate"><div class="highlight"><pre><span></span><span class="gu">### Custom preprocessing (advanced)</span>
+
+<span class="sb">`predict`</span> accepts a <span class="sb">`preprocess`</span> hook to override the built-in per-channel
+normalization on a single FOV — useful when one channel is saturated or has
+heavy background. Build one declaratively:
+
+```python
+from deepcell_types import predict, make_preprocessor
+
+config = [
+    {&quot;op&quot;: &quot;clip_percentile&quot;, &quot;p&quot;: 99.0},
+    {&quot;op&quot;: &quot;channel_drop&quot;, &quot;names&quot;: [&quot;NeuN&quot;]},  # drop a confounding marker
+    {&quot;op&quot;: &quot;min_max_normalize&quot;},
+]
+labels = predict(raw, mask, channel_names, mpp, model_name=...,
+                 device=&quot;cuda:0&quot;, preprocess=make_preprocessor(config))
+</pre></div>
+</div>
+<p>See the <code class="docutils literal notranslate"><span class="pre">preproc-adapt</span></code> skill (<code class="docutils literal notranslate"><span class="pre">skills/preproc-adapt/</span></code>) for the full
+composition-guided adaptation loop.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
+- [ ] **Step 3: Add CHANGELOG entry**
+
+Under `## [0.1.0] — unreleased` → `### Added`:
+```markdown
+- `predict(..., preprocess=...)` hook to override per-FOV normalization, plus a
+  bounded op library (`apply_config`, `make_preprocessor`, `DEFAULT_CONFIG`) and
+  the `preproc-adapt` skill for composition-guided preprocessing adaptation.
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>[ ] <strong>Step 4: Commit</strong></p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>add<span class="w"> </span>docs/site/reference.rst<span class="w"> </span>README.md<span class="w"> </span>CHANGELOG.md
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;docs: document the predict preprocess hook and op library&quot;</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="task-7-rewrite-the-skill-red-baseline-first">
+<h3>Task 7: Rewrite the skill (RED baseline first)<a class="headerlink" href="#task-7-rewrite-the-skill-red-baseline-first" title="Link to this heading">#</a></h3>
+<p><strong>REQUIRED BACKGROUND:</strong> superpowers:writing-skills — the Iron Law (no skill edit without a failing test first) applies. The “test” is a subagent given only the skill + a scenario.</p>
+<p><strong>Files:</strong></p>
+<ul class="simple">
+<li><p>Modify: <code class="docutils literal notranslate"><span class="pre">skills/preproc-adapt/SKILL.md</span></code></p></li>
+<li><p>[ ] <strong>Step 1: RED — baseline the current skill</strong></p></li>
+</ul>
+<p>Dispatch a subagent (Explore/general) with ONLY the <em>current</em> <code class="docutils literal notranslate"><span class="pre">SKILL.md</span></code> content and this scenario: <em>“Using this skill, write the exact Python to run an adapted prediction that drops the ‘NeuN’ channel on one FOV with deepcell_types.predict. Show the integration code.”</em> Record verbatim whether it (a) wraps/monkeypatches <code class="docutils literal notranslate"><span class="pre">preprocess_fov</span></code> (the no-op trap) or otherwise fails to actually change inference. Expected failure: it targets <code class="docutils literal notranslate"><span class="pre">preprocess_fov</span></code> and the preprocessing never runs.</p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 2: GREEN — rewrite <code class="docutils literal notranslate"><span class="pre">SKILL.md</span></code></strong></p></li>
+</ul>
+<p>Apply these concrete edits:</p>
+<ol class="arabic">
+<li><p><strong>Frontmatter description</strong> → triggers only, ≤500 chars, no workflow summary:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Use when a deepcell-types prediction on a single FOV gives a biologically implausible cell-type composition (e.g. neurons in a lymph node, an epithelial organ called mostly immune, one rare type dominating), especially on sparse/low-plex panels or when a channel looks saturated or high-background. Adapts the per-FOV image preprocessing fed to deepcell_types.predict via its preprocess hook; the model weights are never changed.</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Prerequisites/Inputs</strong> — unchanged except note channels are matched to the model’s marker registry; out-of-vocab channels are dropped before the hook sees them.</p></li>
+<li><p><strong>Replace the entire “bounded preprocessing config” + “Integration point” + inline <code class="docutils literal notranslate"><span class="pre">apply_config</span></code></strong> sections with usage of the shipped library:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">deepcell_types</span><span class="w"> </span><span class="kn">import</span> <span class="n">predict</span><span class="p">,</span> <span class="n">make_preprocessor</span><span class="p">,</span> <span class="n">apply_config</span><span class="p">,</span> <span class="n">DEFAULT_CONFIG</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;clip_percentile&quot;</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">:</span> <span class="mf">99.9</span><span class="p">},</span> <span class="p">{</span><span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="s2">&quot;min_max_normalize&quot;</span><span class="p">}]</span>  <span class="c1"># == built-in default</span>
+<span class="n">labels</span> <span class="o">=</span> <span class="n">predict</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">channel_names</span><span class="p">,</span> <span class="n">mpp</span><span class="p">,</span> <span class="n">model_name</span><span class="o">=</span><span class="s2">&quot;&lt;released-model&gt;&quot;</span><span class="p">,</span>
+                 <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span> <span class="n">preprocess</span><span class="o">=</span><span class="n">make_preprocessor</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>State the hook contract: the hook receives the <strong>resampled, in-vocab</strong> raw <code class="docutils literal notranslate"><span class="pre">(C,</span> <span class="pre">H,</span> <span class="pre">W)</span></code> and resolved standard marker names, returns <code class="docutils literal notranslate"><span class="pre">(C,</span> <span class="pre">H,</span> <span class="pre">W)</span></code> in <code class="docutils literal notranslate"><span class="pre">[0,1]</span></code>; resampling and channel-masking are handled by <code class="docutils literal notranslate"><span class="pre">predict</span></code>. <code class="docutils literal notranslate"><span class="pre">channel_drop</span></code>/<code class="docutils literal notranslate"><span class="pre">channel_weight</span></code> use the model’s <strong>standard marker names</strong>.</p>
+</li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">DEFAULT_CONFIG</span></code></strong> — KEEP <code class="docutils literal notranslate"><span class="pre">p</span></code> at <code class="docutils literal notranslate"><span class="pre">99.9</span></code> (the released inference percentile; the original skill was correct here). State it reproduces the built-in inference path exactly, and that passing no hook is identical.</p></li>
+<li><p><strong>Op table</strong> — keep all rows (all are now implemented in <code class="docutils literal notranslate"><span class="pre">deepcell_types.preprocessing_ops</span></code>). Remove the “compact reference implementation” code block (now shipped); link to the module instead.</p></li>
+<li><p><strong>Down-weighting gotcha</strong> — keep (still true: <code class="docutils literal notranslate"><span class="pre">channel_weight</span></code> before terminal <code class="docutils literal notranslate"><span class="pre">min_max_normalize</span></code> is a no-op).</p></li>
+<li><p><strong>The loop / guardrails / case studies / free-form variant</strong> — keep; in the free-form variant, say the function is passed directly as <code class="docutils literal notranslate"><span class="pre">preprocess=</span></code> (must return <code class="docutils literal notranslate"><span class="pre">(C,H,W)</span></code> in <code class="docutils literal notranslate"><span class="pre">[0,1]</span></code>).</p></li>
+</ol>
+<ul class="simple">
+<li><p>[ ] <strong>Step 3: GREEN — re-test with a subagent</strong></p></li>
+</ul>
+<p>Dispatch a fresh subagent with the rewritten skill + the same scenario from Step 1. Expected: it calls <code class="docutils literal notranslate"><span class="pre">predict(...,</span> <span class="pre">preprocess=make_preprocessor(config))</span></code> with a <code class="docutils literal notranslate"><span class="pre">channel_drop</span></code> of <code class="docutils literal notranslate"><span class="pre">NeuN</span></code>, and does NOT touch <code class="docutils literal notranslate"><span class="pre">preprocess_fov</span></code>. If it still hits a trap, add an explicit “Common mistakes” note (e.g. “Do not wrap <code class="docutils literal notranslate"><span class="pre">preprocess_fov</span></code> — it is the archive path, not inference; use the <code class="docutils literal notranslate"><span class="pre">preprocess</span></code> hook”).</p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 4: Commit</strong></p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>add<span class="w"> </span>skills/preproc-adapt/SKILL.md
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;docs(skill): preproc-adapt uses the supported predict preprocess hook&quot;</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="task-8-skill-install-distribution-readme">
+<h3>Task 8: Skill install/distribution README<a class="headerlink" href="#task-8-skill-install-distribution-readme" title="Link to this heading">#</a></h3>
+<p><strong>Files:</strong></p>
+<ul class="simple">
+<li><p>Create: <code class="docutils literal notranslate"><span class="pre">skills/preproc-adapt/README.md</span></code></p></li>
+<li><p>[ ] <strong>Step 1: Write the README</strong></p></li>
+</ul>
+<div class="highlight-markdown notranslate"><div class="highlight"><pre><span></span><span class="gh"># preproc-adapt skill</span>
+
+A Claude Code / agent skill for improving <span class="sb">`deepcell-types`</span> predictions on a
+single FOV by adapting per-FOV image preprocessing (no retraining). It pairs
+with the released model and its <span class="sb">`predict(..., preprocess=...)`</span> hook.
+
+<span class="gu">## Requirements</span>
+
+```bash
+pip install &quot;deepcell-types @ git+https://github.com/vanvalenlab/deepcell-types@master&quot;
+</pre></div>
+</div>
+</section>
+</section>
+<section id="install-the-skill">
+<h2>Install the skill<a class="headerlink" href="#install-the-skill" title="Link to this heading">#</a></h2>
+<p>Copy (or symlink) this directory into your agent’s skills directory:</p>
+<ul class="simple">
+<li><p><strong>Claude Code:</strong> <code class="docutils literal notranslate"><span class="pre">~/.claude/skills/preproc-adapt/</span></code></p></li>
+<li><p><strong>Codex:</strong> <code class="docutils literal notranslate"><span class="pre">~/.agents/skills/preproc-adapt/</span></code></p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># from a deepcell-types checkout</span>
+cp<span class="w"> </span>-r<span class="w"> </span>skills/preproc-adapt<span class="w"> </span>~/.claude/skills/<span class="w">        </span><span class="c1"># Claude Code</span>
+<span class="c1"># or symlink to track upstream updates</span>
+ln<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$PWD</span><span class="s2">/skills/preproc-adapt&quot;</span><span class="w"> </span>~/.claude/skills/preproc-adapt
+</pre></div>
+</div>
+<p>Restart the agent (or reload skills) so it discovers the skill. Then ask, e.g.,
+“my lymph-node FOV is called mostly Nerve — use preproc-adapt to fix it.”</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
+- [ ] **Step 2: Commit**
+
+```bash
+git add skills/preproc-adapt/README.md
+git commit -m &quot;docs(skill): add install/distribution instructions for preproc-adapt&quot;
+</pre></div>
+</div>
+<hr class="docutils" />
+<section id="task-9-full-verification-push">
+<h3>Task 9: Full verification + push<a class="headerlink" href="#task-9-full-verification-push" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>[ ] <strong>Step 1: Run the full new test set + a broad sanity sweep</strong></p></li>
+</ul>
+<p>Run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/test_preprocessing_ops.py<span class="w"> </span>tests/test_preprocess_hook.py<span class="w"> </span>-q
+python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/<span class="w"> </span>-q<span class="w"> </span>-k<span class="w"> </span><span class="s2">&quot;predict or preprocess or inference&quot;</span>
+</pre></div>
+</div>
+<p>Expected: all pass; no regressions in existing inference tests.</p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 2: Lint</strong></p></li>
+</ul>
+<p>Run: <code class="docutils literal notranslate"><span class="pre">ruff</span> <span class="pre">check</span> <span class="pre">deepcell_types/preprocessing_ops.py</span> <span class="pre">deepcell_types/predict.py</span> <span class="pre">deepcell_types/dataset.py</span> <span class="pre">deepcell_types/preprocessing.py</span></code>
+Expected: clean (match repo ruff config).</p>
+<ul class="simple">
+<li><p>[ ] <strong>Step 3: Push the branch (updates PR #23)</strong></p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>push<span class="w"> </span>xuefei<span class="w"> </span>skill/preproc-adapt
+</pre></div>
+</div>
+<p>PR #23 updates automatically.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="self-review-notes">
+<h2>Self-Review notes<a class="headerlink" href="#self-review-notes" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Spec coverage:</strong> integration bug → Tasks 2-4 + Task 7.3; op table↔impl mismatch → Task 1 (<code class="docutils literal notranslate"><span class="pre">test_all_table_ops_are_implemented</span></code>); description → Task 7.2.1; p99.9→99.0 → Tasks 1/4/7.4; distribution → Task 8; exports/docs → Tasks 5/6.</p></li>
+<li><p><strong>Default-unchanged guarantee:</strong> Task 4 is the load-bearing regression guard (DEFAULT_CONFIG hook ≡ built-in, bit-for-bit).</p></li>
+<li><p><strong>Type consistency:</strong> hook contract <code class="docutils literal notranslate"><span class="pre">(C,H,W)-&gt;(C,H,W)</span> <span class="pre">in</span> <span class="pre">[0,1]</span></code> is identical across <code class="docutils literal notranslate"><span class="pre">apply_config</span></code>, <code class="docutils literal notranslate"><span class="pre">patch_generator</span></code>, <code class="docutils literal notranslate"><span class="pre">PatchDataset</span></code>, <code class="docutils literal notranslate"><span class="pre">predict</span></code>, and the skill.</p></li>
+<li><p><strong>Open risk:</strong> <code class="docutils literal notranslate"><span class="pre">gamma</span></code> op semantics are a reasonable default (per-channel normalized power curve preserving max scale); if the skill author wants a different gamma definition, adjust in Task 1 before Task 7.</p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#background-facts-verified-against-master-761fd19">Background facts (verified against master @ 761fd19)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hook-contract-locked">Hook contract (locked)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#file-structure">File Structure</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-1-bounded-op-library-preprocessing-ops-py">Task 1: Bounded op library (<code class="docutils literal notranslate"><span class="pre">preprocessing_ops.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-2-thread-preprocess-through-patch-generator">Task 2: Thread <code class="docutils literal notranslate"><span class="pre">preprocess</span></code> through <code class="docutils literal notranslate"><span class="pre">patch_generator</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-3-thread-preprocess-through-patchdataset-and-predict">Task 3: Thread <code class="docutils literal notranslate"><span class="pre">preprocess</span></code> through <code class="docutils literal notranslate"><span class="pre">PatchDataset</span></code> and <code class="docutils literal notranslate"><span class="pre">predict</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-4-end-to-end-equivalence-default-path-unchanged">Task 4: End-to-end equivalence — default path unchanged</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-5-public-exports">Task 5: Public exports</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-6-docs-reference-readme-changelog">Task 6: Docs — reference, README, CHANGELOG</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-7-rewrite-the-skill-red-baseline-first">Task 7: Rewrite the skill (RED baseline first)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-8-skill-install-distribution-readme">Task 8: Skill install/distribution README</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-the-skill">Install the skill</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-9-full-verification-push">Task 9: Full verification + push</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#self-review-notes">Self-Review notes</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../../_sources/superpowers/plans/2026-06-02-preproc-adapt-hook-and-skill.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=0790524f97105ba85085"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Van Valen Lab at the California Institute of Technology (Caltech).
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.18.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

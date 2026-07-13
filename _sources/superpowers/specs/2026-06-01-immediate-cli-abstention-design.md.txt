@@ -1,0 +1,158 @@
+# Single-write, per-FOV CLI abstention — design
+
+**Date:** 2026-06-01
+**Status:** Approved (pending implementation)
+**Scope:** `scripts/predict.py` abstention block + a small `PredLogger` extraction in
+`deepcell_types/training/utils.py`. The Python API (`deepcell_types/predict.py`) is
+**not** changed.
+
+## Problem
+
+The CLI prediction pipeline (`scripts/predict.py`) currently applies cell-type
+abstention as a **post-hoc rewrite**:
+
+1. Inference accumulates per-class probabilities in a `PredLogger`.
+2. **Write #1** (`scripts/predict.py:445`): the CSV is saved with raw probability
+   columns only — no `predicted_ct`, no `"Unknown"`.
+3. **Post-hoc** (`scripts/predict.py:456-536`): the CSV is read *back*,
+   `predicted_ct`/`_max_softmax` are reconstructed from the probability columns,
+   `(tissue, modality)` is joined in from the zarr archive, an IQR-fence abstention
+   is applied **per `(tissue, modality)` group**, and **Write #2** overwrites the
+   file with `"Unknown"` labels.
+
+Two issues with this:
+
+- The file is written, read back, and overwritten — a fragile write→read→overwrite
+  loop. If abstention is disabled or the process dies between the two writes, the
+  on-disk file never gains the `predicted_ct`/`"Unknown"` labels.
+- The grouping key differs from the Python API. The Python API
+  (`deepcell_types/predict.py:298-311`) applies the IQR fence **per FOV** (the whole
+  FOV is one group, no `tissue`/`modality`); the CLI uses `(tissue, modality)`.
+
+## Goal
+
+1. **Single write with unknowns baked in.** The prediction CSV should be assembled
+   in memory with abstention already applied and written exactly once. No read-back.
+2. **Per-FOV grouping** to match the Python API's semantics, dropping the
+   `(tissue, modality)` join (and therefore the zarr re-open).
+
+## Non-goals
+
+- No change to the Python API (`deepcell_types/predict.py`) — it is already
+  immediate + per-FOV.
+- No change to the abstention algorithm (`compute_iqr_fence`), to
+  `apply_abstention`'s internals, or to the default `k=0.2`.
+- No change to the **abstention-disabled** code path (`k <= 0`): it already does a
+  single write of probability + metadata columns with no `predicted_ct`. There are
+  no unknowns to bake in when abstention is off, so it stays as-is.
+
+## Approach (chosen: A)
+
+**A. Extract `to_dataframe()` from `PredLogger`; abstain in-memory in the CLI; write
+once.**
+
+Considered and rejected:
+- **B. Push abstention into `PredLogger.save(path, abstention_k, group_cols)`.**
+  Couples the training-side logger to `[train]` extras (pandas/sklearn) and changes
+  behavior for every other `save()` caller. Over-reach.
+- **C. Minimal inline** (reorder the CLI without extracting `to_dataframe()`).
+  Duplicates `PredLogger`'s DataFrame-assembly inside the CLI — drift risk for
+  barely less work than A.
+
+### Component changes
+
+#### `deepcell_types/training/utils.py` — `PredLogger`
+
+`save()` currently both assembles the DataFrame and atomic-writes it
+(`utils.py:203-236`). Split the two responsibilities:
+
+- **`to_dataframe() -> pd.DataFrame`** — assemble and return the frame (the current
+  body of `save()` up through building `df` with the probability columns,
+  `cell_type_actual`, `cell_index`, `dataset_name`, `fov_name`).
+- **Atomic-write helper** — extract the existing tempfile + `fsync` + `replace`
+  logic (`utils.py:216-236`) into a reusable function (module-level
+  `_atomic_write_csv(df, path)` or a `PredLogger` staticmethod) so both `save()` and
+  the CLI write through the same atomic path.
+- **`save(path)`** becomes `to_dataframe()` → atomic write. Behavior for existing
+  callers is unchanged.
+
+#### `scripts/predict.py` — abstention block (replaces lines ~443-546)
+
+1. `df = predlogger.to_dataframe()`.
+2. Compute `predicted_ct` (argmax over the class columns, in the canonical
+   `ct2idx`-sorted order) and `_max_softmax` (the argmax probability).
+3. **If `ct_abstention_k > 0`:** call
+   ```python
+   apply_abstention(
+       df,
+       k=float(ct_abstention_k),
+       group_cols=("dataset_name", "fov_name"),
+       max_softmax_col="_max_softmax",
+       pred_col="predicted_ct",
+       sentinel="Unknown",
+   )
+   ```
+   then compute the pre/post hierarchical macro-F1 summary in memory and print it
+   (same wording as today). Drop `_max_softmax`. Write **once** via the atomic-write
+   helper.
+4. **If `ct_abstention_k <= 0` / `None`:** unchanged — `predlogger.save(path)` writes
+   the probability + metadata frame once, with no `predicted_ct`.
+5. **Delete** the `pd.read_csv` read-back, `zarr.open(zarr_dir)`,
+   `_discover_fov_keys`, the per-dataset `tissue`/`modality` attr loop, and the merge.
+
+### Grouping key
+
+Per-FOV abstention groups on **`(dataset_name, fov_name)`**, not `fov_name` alone:
+`fov_name` can collide across datasets, and the Python API's per-FOV scope is really
+per-dataset-per-FOV (each `predict()` call processes one FOV of one dataset).
+
+### Data flow (after)
+
+```
+inference loop → PredLogger.log(...)            # unchanged
+              → df = PredLogger.to_dataframe()  # in memory
+              → predicted_ct, _max_softmax      # argmax over class cols
+              → apply_abstention(group=(dataset_name, fov_name))   # if k>0
+              → drop _max_softmax
+              → atomic write ONCE               # file already has "Unknown"
+```
+
+### Output columns
+
+- **Abstention ON (default):** probability columns + `cell_type_actual`,
+  `cell_index`, `dataset_name`, `fov_name`, `predicted_ct` (`"Unknown"` for
+  abstained), `predicted_ct_raw`, `abstained`. Same final columns as today — only
+  the I/O flow and the grouping key change.
+- **Abstention OFF:** probability columns + `cell_type_actual`, `cell_index`,
+  `dataset_name`, `fov_name`. Unchanged from today.
+
+## Error handling
+
+- Atomic write (tempfile → `fsync` → `replace`) is preserved; a truncated CSV is
+  never observable.
+- `compute_iqr_fence` returns `None` for groups with `< 4` cells → those FOVs are
+  never abstained (existing contract, unchanged).
+- `apply_abstention` raises if an `abstained` column already exists (defensive
+  double-apply guard) — not reachable in the new single-pass flow, but retained.
+
+## Testing
+
+- **Existing** `tests/test_ct_abstention_cli.py` stays green: it unit-tests
+  `compute_iqr_fence` / `apply_abstention` directly and does not pin the CLI's
+  grouping key or the two-write pattern.
+- **Add:**
+  1. A `PredLogger.to_dataframe()` round-trip test — assert the returned frame has
+     the expected columns/values and that `save()` writes an identical frame.
+  2. An `apply_abstention` test with `group_cols=("dataset_name", "fov_name")`
+     proving per-FOV fence independence (two FOVs with far-apart max-softmax
+     distributions are abstained on their own local fences).
+
+## Risks
+
+- Downstream consumers that relied on the CLI's `(tissue, modality)` grouping will
+  see different cells flagged. This is the intended behavior change (per-FOV matches
+  the Python API). Flagged in the commit message.
+- Removing the zarr re-open means `tissue`/`modality` are no longer added to the
+  output CSV. If any downstream analysis read those columns from this file, it must
+  source them elsewhere. (They were only ever added as a side effect of the
+  abstention join.)

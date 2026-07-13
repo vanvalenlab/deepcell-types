@@ -1,0 +1,6 @@
+﻿deepcell\_types.abstention.ABSTENTION\_LABEL
+============================================
+
+.. currentmodule:: deepcell_types.abstention
+
+.. autodata:: ABSTENTION_LABEL

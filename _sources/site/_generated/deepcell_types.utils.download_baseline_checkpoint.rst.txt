@@ -1,0 +1,6 @@
+﻿deepcell\_types.utils.download\_baseline\_checkpoint
+====================================================
+
+.. currentmodule:: deepcell_types.utils
+
+.. autofunction:: download_baseline_checkpoint

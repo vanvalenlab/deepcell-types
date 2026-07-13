@@ -1,0 +1,6 @@
+﻿deepcell\_types.DEFAULT\_CONFIG
+===============================
+
+.. currentmodule:: deepcell_types
+
+.. autodata:: DEFAULT_CONFIG

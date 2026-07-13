@@ -1,0 +1,6 @@
+﻿deepcell\_types.utils.resolve\_supported\_marker
+================================================
+
+.. currentmodule:: deepcell_types.utils
+
+.. autofunction:: resolve_supported_marker

@@ -1,0 +1,6 @@
+﻿deepcell\_types.make\_preprocessor
+==================================
+
+.. currentmodule:: deepcell_types
+
+.. autofunction:: make_preprocessor

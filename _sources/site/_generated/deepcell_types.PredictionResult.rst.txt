@@ -1,0 +1,32 @@
+﻿deepcell\_types.PredictionResult
+================================
+
+.. currentmodule:: deepcell_types
+
+.. autoclass:: PredictionResult
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~PredictionResult.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~PredictionResult.cell_types
+      ~PredictionResult.probabilities
+      ~PredictionResult.cell_indices
+      ~PredictionResult.abstained
+      ~PredictionResult.cell_types_raw
+   
+   

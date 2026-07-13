@@ -1,0 +1,35 @@
+﻿deepcell\_types.DCTConfig
+=========================
+
+.. currentmodule:: deepcell_types
+
+.. autoclass:: DCTConfig
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DCTConfig.__init__
+      ~DCTConfig.get_tct_mapping
+      ~DCTConfig.resolve_channel_name
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DCTConfig.ARCHIVE_ENV_VAR
+      ~DCTConfig.CHANNEL_ALIASES
+      ~DCTConfig.ct2idx
+      ~DCTConfig.domain2idx
+      ~DCTConfig.marker2idx
+      ~DCTConfig.master_channels
+   
+   

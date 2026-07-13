@@ -27,42 +27,50 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+  <link href="../../_static/styles/theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
   
   <!-- So that users can add custom icons -->
-  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../../_static/documentation_options.js?v=03180e26"></script>
-    <script src="../../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'site/_generated/deepcell_types.predict';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="deepcell_types.PredictionResult" href="deepcell_types.PredictionResult.html" />
     <link rel="prev" title="Reference" href="../reference.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
   </head>
-  
-  
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
-
+  <body data-default-mode="">
   
   
   <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
   
   <div id="pst-scroll-pixel-helper"></div>
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
+  
+  
+  
   
   <dialog id="pst-search-dialog">
     
@@ -88,7 +96,7 @@
 </div>
 
   
-    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
   <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
     <span class="fa-solid fa-bars"></span>
@@ -165,11 +173,18 @@
       
         <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
       
         <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -182,8 +197,7 @@
           
           
           
-          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">GitHub</span></a>
+          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
         </li>
 </ul></div>
       
@@ -265,11 +279,18 @@
         
           <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
         
           <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -282,8 +303,7 @@
           
           
           
-          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">GitHub</span></a>
+          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
         </li>
 </ul></div>
         
@@ -292,12 +312,39 @@
   </div>
   
     <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item pst-sidebar-collapse"><button id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar"><svg class="pst-icon svg-inline--fa" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" d="M3 15.5C2.36232 15.5 1.74874 15.2564 1.28478 14.8189C0.820828 14.3815 0.541576 13.7832 0.504167 13.1467L0.5 13L0.5 3C0.499965 2.36232 0.743605 1.74874 1.18107 1.28478C1.61854 0.820828 2.21676 0.541576 2.85333 0.504167L3 0.5L13 0.5C13.6377 0.499965 14.2513 0.743605 14.7152 1.18107C15.1792 1.61854 15.4584 2.21676 15.4958 2.85333L15.5 3L15.5 13C15.5 13.6377 15.2564 14.2513 14.8189 14.7152C14.3815 15.1792 13.7832 15.4584 13.1467 15.4958L13 15.5L3 15.5ZM3 13.8333L10.5 13.8333L10.5 2.16667L3 2.16667C2.79589 2.16669 2.59889 2.24163 2.44636 2.37726C2.29383 2.5129 2.19638 2.69979 2.1725 2.9025L2.16667 3L2.16667 13C2.16669 13.2041 2.24163 13.4011 2.37726 13.5536C2.5129 13.7062 2.69979 13.8036 2.9025 13.8275L3 13.8333ZM6.65583 10.325L6.5775 10.2558L4.91083 8.58917C4.76735 8.44567 4.68116 8.25476 4.66843 8.05223C4.65569 7.84971 4.71729 7.6495 4.84167 7.48917L4.91083 7.41083L6.5775 5.74417C6.72747 5.59471 6.9287 5.50794 7.14032 5.50148C7.35194 5.49502 7.55809 5.56935 7.7169 5.70937C7.8757 5.8494 7.97525 6.04463 7.99533 6.25539C8.01541 6.46616 7.95451 6.67667 7.825 6.84417L7.75583 6.9225L6.67917 8L7.75583 9.0775C7.89931 9.22099 7.98551 9.41191 7.99824 9.61443C8.01097 9.81695 7.94938 10.0172 7.825 10.1775L7.75583 10.2558C7.61234 10.3993 7.42142 10.4855 7.2189 10.4982C7.01638 10.511 6.81617 10.4494 6.65583 10.325Z"/>
+  </svg>
+  <span class="pst-collapse-sidebar-label">Collapse Sidebar</span>
+  <span class="pst-expand-sidebar-label">Expand Sidebar</span>
+</button></div>
         <div class="sidebar-primary-item">
+
 <nav class="bd-docs-nav bd-links"
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">deepcell_types.predict</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.PredictionResult.html">deepcell_types.PredictionResult</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.DCTConfig.html">deepcell_types.DCTConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.preprocess_fov.html">deepcell_types.preprocess_fov</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.PreprocessedFov.html">deepcell_types.PreprocessedFov</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.make_preprocessor.html">deepcell_types.make_preprocessor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.apply_config.html">deepcell_types.apply_config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.DEFAULT_CONFIG.html">deepcell_types.DEFAULT_CONFIG</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.abstention.ABSTENTION_LABEL.html">deepcell_types.abstention.ABSTENTION_LABEL</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.utils.download_model.html">deepcell_types.utils.download_model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.utils.download_baseline_checkpoint.html">deepcell_types.utils.download_baseline_checkpoint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.utils.download_training_data.html">deepcell_types.utils.download_training_data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.utils.list_model_versions.html">deepcell_types.utils.list_model_versions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.utils.list_baseline_names.html">deepcell_types.utils.list_baseline_names</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.utils.list_supported_markers.html">deepcell_types.utils.list_supported_markers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.utils.list_supported_cell_types.html">deepcell_types.utils.list_supported_cell_types</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deepcell_types.utils.resolve_supported_marker.html">deepcell_types.utils.resolve_supported_marker</a></li>
 </ul>
 </div>
 </nav></div>
@@ -362,7 +409,7 @@
 <h1>deepcell_types.predict<a class="headerlink" href="#deepcell-types-predict" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="deepcell_types.predict">
-<span class="sig-prename descclassname"><span class="pre">deepcell_types.</span></span><span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_names</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device_num</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tissue_exclude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#deepcell_types.predict" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">deepcell_types.</span></span><span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_names</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mpp</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zarr_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_probabilities</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ct_abstention_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preprocess</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="deepcell_types.PredictionResult.html#deepcell_types.PredictionResult" title="deepcell_types.predict.PredictionResult"><span class="pre">PredictionResult</span></a></span></span><a class="headerlink" href="#deepcell_types.predict" title="Link to this definition">#</a></dt>
 <dd><p>Run the cell-type prediction pipeline.</p>
 <p>Given a spatial proteomics image <cite>raw</cite>, a corresponding segmentation <cite>mask</cite>,
 and a list of markers (<cite>channel_names</cite>) corresponding to the channels of <cite>raw</cite>,
@@ -370,10 +417,10 @@ predict the cell type associated with each index in <cite>mask</cite>.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>raw</strong><span class="classifier">A spatial proteomic image as an <cite>numpy.ndarray</cite> with shape <code class="docutils literal notranslate"><span class="pre">(C,</span> <span class="pre">W,</span> <span class="pre">H)</span></code>.</span></dt><dd><p>A 2D multiplexed image in channel-first format. The image will be converted
+<dt><strong>raw</strong><span class="classifier">A spatial proteomic image as an <cite>numpy.ndarray</cite> with shape <code class="docutils literal notranslate"><span class="pre">(C,</span> <span class="pre">H,</span> <span class="pre">W)</span></code>.</span></dt><dd><p>A 2D multiplexed image in channel-first format. The image will be converted
 internally to <code class="docutils literal notranslate"><span class="pre">dtype=np.float32</span></code>.</p>
 </dd>
-<dt><strong>mask</strong><span class="classifier">2D label image</span></dt><dd><p>Segmentation mask of <cite>raw</cite> as a 2D label image with shape <code class="docutils literal notranslate"><span class="pre">(W,</span> <span class="pre">H)</span></code>.</p>
+<dt><strong>mask</strong><span class="classifier">2D label image</span></dt><dd><p>Segmentation mask of <cite>raw</cite> as a 2D label image with shape <code class="docutils literal notranslate"><span class="pre">(H,</span> <span class="pre">W)</span></code>.</p>
 </dd>
 <dt><strong>channel_names</strong><span class="classifier">list of str</span></dt><dd><p>A list of channel markers. Must have the same length as the number of channels
 in <cite>raw</cite> and be given in the same order as the channels in <cite>raw</cite>.</p>
@@ -381,30 +428,72 @@ in <cite>raw</cite> and be given in the same order as the channels in <cite>raw<
 <dt><strong>mpp</strong><span class="classifier">float</span></dt><dd><p>The image resolution in microns-per-pixel. Improves prediction performance by
 removing scale variability.</p>
 </dd>
-<dt><strong>model_name</strong><span class="classifier">str</span></dt><dd><p>Name of the pre-trained model to use for inference. Models are searched for
-at <code class="docutils literal notranslate"><span class="pre">Path.home()</span> <span class="pre">/</span> <span class="pre">&quot;.deepcell/models&quot;</span></code>.</p>
+<dt><strong>model_name</strong><span class="classifier">str</span></dt><dd><p>Which pre-trained model to use. Accepts a registry version string
+(see <code class="xref py py-func docutils literal notranslate"><span class="pre">list_model_versions()</span></code>, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;2026-06-15&quot;</span></code>) or the
+sentinel <code class="docutils literal notranslate"><span class="pre">&quot;latest&quot;</span></code>, either of which is downloaded and cached
+automatically. A bare name is searched for at
+<code class="docutils literal notranslate"><span class="pre">Path.home()</span> <span class="pre">/</span> <span class="pre">&quot;.deepcell/models&quot;</span></code>, and a filesystem path to a
+<code class="docutils literal notranslate"><span class="pre">.pt</span></code> file is also accepted.</p>
 </dd>
-<dt><strong>device_num</strong><span class="classifier"><cite>torch.device</cite> or <cite>str</cite></span></dt><dd><p>Which device to run inference on. For example, <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;cuda&quot;</span></code>.
-To specify a specific GPU on multi-GPU systems, try <code class="docutils literal notranslate"><span class="pre">&quot;cuda:&lt;device_num&gt;</span></code>,
-e.g. <code class="docutils literal notranslate"><span class="pre">&quot;cuda:0&quot;</span></code>.</p>
+<dt><strong>device</strong><span class="classifier"><cite>torch.device</cite> or <cite>str</cite></span></dt><dd><p>Which device to run inference on, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;cuda&quot;</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">&quot;cuda:0&quot;</span></code> to select a specific GPU. All arguments after <cite>mpp</cite> are
+keyword-only.</p>
 </dd>
 <dt><strong>batch_size</strong><span class="classifier">int, default=256</span></dt><dd><p>Batch size to be used for inference. Larger <cite>batch_size</cite> will increase
 performance by increasing VRAM usage. Default value of 256 is conservative
 and should be appropriate for systems with &lt;16GB VRAM.</p>
 </dd>
-<dt><strong>num_workers</strong><span class="classifier">int, default=24</span></dt><dd><p>Number of threads to use for loading data. Increasing <cite>num_workers</cite> may result
-in large increases in CPU memory footprint. Only recommended for systems with
-<code class="docutils literal notranslate"><span class="pre">&gt;64</span> <span class="pre">GB</span></code> RAM.</p>
+<dt><strong>num_workers</strong><span class="classifier">int, default=0</span></dt><dd><p>Number of DataLoader worker processes. Default <code class="docutils literal notranslate"><span class="pre">0</span></code> runs the patch
+generator in-process (safe on all machines). <code class="docutils literal notranslate"><span class="pre">PatchDataset</span></code> is an
+<code class="docutils literal notranslate"><span class="pre">IterableDataset</span></code> that holds the full FOV in memory, so each worker
+is an extra copy AND re-runs the per-FOV preprocessing — only raise
+this on machines with abundant RAM and CPU.</p>
 </dd>
-<dt><strong>tissue_exclude</strong><span class="classifier">str, optional, default=None</span></dt><dd><p>If provided, limit the cell type prediction to only those categories known to
-be associated with the specified tissue type.</p>
+<dt><strong>zarr_path</strong><span class="classifier">str or pathlib.Path, optional, default=None</span></dt><dd><p>Optional path to a TissueNet zarr archive to read the marker / cell-type
+registry from (or set <code class="docutils literal notranslate"><span class="pre">DEEPCELL_TYPES_ZARR_PATH</span></code>). When omitted, the
+registry is read from the vocabulary snapshot shipped with the package,
+so inference does not require the archive.</p>
+</dd>
+<dt><strong>return_probabilities</strong><span class="classifier">bool, default=False</span></dt><dd><p>If False (default, back-compat), returns a list of cell-type names.
+If True, returns a <a class="reference internal" href="deepcell_types.PredictionResult.html#deepcell_types.PredictionResult" title="deepcell_types.PredictionResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">PredictionResult</span></code></a> with the full per-cell
+softmax probability matrix and the cell indices.</p>
+</dd>
+<dt><strong>ct_abstention_k</strong><span class="classifier">float or None, default=None</span></dt><dd><p>IQR-fence post-hoc abstention multiplier. Abstention is <strong>opt-in</strong>:
+the default <code class="docutils literal notranslate"><span class="pre">None</span></code> returns the raw argmax cell-type label for every
+cell and never relabels to <code class="docutils literal notranslate"><span class="pre">&quot;Unknown&quot;</span></code>. When set to a float, the
+fence is <code class="docutils literal notranslate"><span class="pre">Q1</span> <span class="pre">-</span> <span class="pre">k*IQR</span></code> on the per-FOV cell-wise max-softmax
+distribution and cells below it are relabelled to <code class="docutils literal notranslate"><span class="pre">&quot;Unknown&quot;</span></code>
+(<code class="docutils literal notranslate"><span class="pre">k=0.2</span></code> is a historical opt-in ablation; the paper headline is
+full-coverage with no abstention). Pass <code class="docutils literal notranslate"><span class="pre">return_probabilities=True</span></code>
+to recover the pre-abstention labels and the <code class="docutils literal notranslate"><span class="pre">abstained</span></code> mask. Has
+no effect on FOVs with fewer than 4 cells
+(the IQR is undefined).</p>
+</dd>
+<dt><strong>preprocess</strong><span class="classifier">callable, optional, default=None</span></dt><dd><p>Custom per-FOV preprocessing hook. Called as
+<code class="docutils literal notranslate"><span class="pre">preprocess(raw,</span> <span class="pre">channel_names)</span> <span class="pre">-&gt;</span> <span class="pre">raw</span></code> where <code class="docutils literal notranslate"><span class="pre">raw</span></code> is a
+<code class="docutils literal notranslate"><span class="pre">(C,</span> <span class="pre">H,</span> <span class="pre">W)</span></code> float32 array already resampled to the model’s target
+MPP and restricted to in-vocabulary channels, and <code class="docutils literal notranslate"><span class="pre">channel_names</span></code>
+are the resolved standard marker names aligned to <code class="docutils literal notranslate"><span class="pre">raw</span></code>. Must return
+a <code class="docutils literal notranslate"><span class="pre">(C,</span> <span class="pre">H,</span> <span class="pre">W)</span></code> array in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>. When <code class="docutils literal notranslate"><span class="pre">None</span></code> (default), the
+built-in per-channel p99.9 clip + min-max normalization is used. Build
+one declaratively with <a class="reference internal" href="deepcell_types.make_preprocessor.html#deepcell_types.make_preprocessor" title="deepcell_types.make_preprocessor"><code class="xref py py-func docutils literal notranslate"><span class="pre">deepcell_types.make_preprocessor()</span></code></a>.
+Note: <a class="reference internal" href="deepcell_types.preprocess_fov.html#deepcell_types.preprocess_fov" title="deepcell_types.preprocess_fov"><code class="xref py py-func docutils literal notranslate"><span class="pre">deepcell_types.preprocess_fov()</span></code></a> is NOT a valid hook — it has
+a different signature (takes <code class="docutils literal notranslate"><span class="pre">mask</span></code> / keyword-only <code class="docutils literal notranslate"><span class="pre">native_mpp</span></code>) and
+returns a <a class="reference internal" href="deepcell_types.PreprocessedFov.html#deepcell_types.PreprocessedFov" title="deepcell_types.PreprocessedFov"><code class="xref py py-class docutils literal notranslate"><span class="pre">PreprocessedFov</span></code></a>, not a bare <code class="docutils literal notranslate"><span class="pre">(C,</span> <span class="pre">H,</span> <span class="pre">W)</span></code> array.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><dl class="simple">
-<dt>list of str</dt><dd><p>A list whose <code class="docutils literal notranslate"><span class="pre">len</span></code> is equal to the number of unique cell indices in <cite>mask</cite>,
-ordered by ascending cell index.</p>
+<dt>list of str</dt><dd><p>(default) Predicted cell-type name for each unique cell index in
+<code class="docutils literal notranslate"><span class="pre">mask</span></code>, ordered by ascending cell index. Cells flagged by the
+IQR-fence abstention carry the sentinel <code class="docutils literal notranslate"><span class="pre">&quot;Unknown&quot;</span></code> — but only
+when <code class="docutils literal notranslate"><span class="pre">ct_abstention_k</span></code> is set; with the default <code class="docutils literal notranslate"><span class="pre">None</span></code> every
+cell carries its raw argmax label.</p>
+</dd>
+<dt>PredictionResult</dt><dd><p>(when <code class="docutils literal notranslate"><span class="pre">return_probabilities=True</span></code>) Full per-cell probabilities,
+cell indices, predicted names, and an <code class="docutils literal notranslate"><span class="pre">abstained</span></code> boolean
+mask. See <a class="reference internal" href="deepcell_types.PredictionResult.html#deepcell_types.PredictionResult" title="deepcell_types.PredictionResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">PredictionResult</span></code></a>.</p>
 </dd>
 </dl>
 </dd>
@@ -432,6 +521,15 @@ ordered by ascending cell index.</p>
         <p class="prev-next-title">Reference</p>
       </div>
     </a>
+    <a class="right-next"
+       href="deepcell_types.PredictionResult.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">deepcell_types.PredictionResult</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
 </div>
                 </footer>
               
@@ -449,20 +547,20 @@ ordered by ascending cell index.</p>
     class="page-toc tocsection onthispage">
     <i class="fa-solid fa-list"></i> On this page
   </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#deepcell_types.predict"><code class="docutils literal notranslate"><span class="pre">predict()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="../../_sources/site/_generated/deepcell_types.predict.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div></div>
+
+  <div class="tocsection sourcelink">
+    <a href="../../_sources/site/_generated/deepcell_types.predict.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
 
 </div></div>
               
@@ -477,8 +575,8 @@ ordered by ascending cell index.</p>
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../../_static/scripts/bootstrap.js?digest=0790524f97105ba85085"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -489,7 +587,7 @@ ordered by ascending cell index.</p>
 
   <p class="copyright">
     
-      © Copyright 2025, Van Valen Lab at the California Institute of Technology (Caltech).
+      © Copyright 2026, Van Valen Lab at the California Institute of Technology (Caltech).
       <br/>
     
   </p>
@@ -498,7 +596,7 @@ ordered by ascending cell index.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>
@@ -512,7 +610,7 @@ ordered by ascending cell index.</p>
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.18.0.
 </p></div>
       
     </div>

@@ -27,22 +27,23 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+  <link href="../_static/styles/theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
   
   <!-- So that users can add custom icons -->
-  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=03180e26"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'site/tutorial';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Model and Datasets" href="API-key.html" />
@@ -50,20 +51,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
   </head>
-  
-  
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
-
+  <body data-default-mode="">
   
   
   <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
   
   <div id="pst-scroll-pixel-helper"></div>
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
+  
+  
+  
   
   <dialog id="pst-search-dialog">
     
@@ -89,7 +96,7 @@
 </div>
 
   
-    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
   <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
     <span class="fa-solid fa-bars"></span>
@@ -166,11 +173,18 @@
       
         <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
       
         <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -183,8 +197,7 @@
           
           
           
-          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">GitHub</span></a>
+          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
         </li>
 </ul></div>
       
@@ -266,11 +279,18 @@
         
           <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
         
           <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -283,8 +303,7 @@
           
           
           
-          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">GitHub</span></a>
+          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
         </li>
 </ul></div>
         
@@ -293,7 +312,14 @@
   </div>
   
     <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item pst-sidebar-collapse"><button id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar"><svg class="pst-icon svg-inline--fa" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" d="M3 15.5C2.36232 15.5 1.74874 15.2564 1.28478 14.8189C0.820828 14.3815 0.541576 13.7832 0.504167 13.1467L0.5 13L0.5 3C0.499965 2.36232 0.743605 1.74874 1.18107 1.28478C1.61854 0.820828 2.21676 0.541576 2.85333 0.504167L3 0.5L13 0.5C13.6377 0.499965 14.2513 0.743605 14.7152 1.18107C15.1792 1.61854 15.4584 2.21676 15.4958 2.85333L15.5 3L15.5 13C15.5 13.6377 15.2564 14.2513 14.8189 14.7152C14.3815 15.1792 13.7832 15.4584 13.1467 15.4958L13 15.5L3 15.5ZM3 13.8333L10.5 13.8333L10.5 2.16667L3 2.16667C2.79589 2.16669 2.59889 2.24163 2.44636 2.37726C2.29383 2.5129 2.19638 2.69979 2.1725 2.9025L2.16667 3L2.16667 13C2.16669 13.2041 2.24163 13.4011 2.37726 13.5536C2.5129 13.7062 2.69979 13.8036 2.9025 13.8275L3 13.8333ZM6.65583 10.325L6.5775 10.2558L4.91083 8.58917C4.76735 8.44567 4.68116 8.25476 4.66843 8.05223C4.65569 7.84971 4.71729 7.6495 4.84167 7.48917L4.91083 7.41083L6.5775 5.74417C6.72747 5.59471 6.9287 5.50794 7.14032 5.50148C7.35194 5.49502 7.55809 5.56935 7.7169 5.70937C7.8757 5.8494 7.97525 6.04463 7.99533 6.25539C8.01541 6.46616 7.95451 6.67667 7.825 6.84417L7.75583 6.9225L6.67917 8L7.75583 9.0775C7.89931 9.22099 7.98551 9.41191 7.99824 9.61443C8.01097 9.81695 7.94938 10.0172 7.825 10.1775L7.75583 10.2558C7.61234 10.3993 7.42142 10.4855 7.2189 10.4982C7.01638 10.511 6.81617 10.4494 6.65583 10.325Z"/>
+  </svg>
+  <span class="pst-collapse-sidebar-label">Collapse Sidebar</span>
+  <span class="pst-expand-sidebar-label">Expand Sidebar</span>
+</button></div>
         <div class="sidebar-primary-item">
+
 <nav class="bd-docs-nav bd-links"
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
@@ -372,16 +398,16 @@ Users are encouraged to explore the portal for data of interest.
 For convenience, a subset of the publicly-available spatial proteomic data
 has been converted to a remote <a class="reference external" href="https://zarr.readthedocs.io/en/stable/">zarr archive</a>.
 The datasets in the zarr archive reflect the original HuBMAP indexing scheme
-(i.e. <code class="docutils literal notranslate"><span class="pre">HBM###_????_###</span></code>, where <code class="docutils literal notranslate"><span class="pre">#</span></code> indicates a number nad <code class="docutils literal notranslate"><span class="pre">?</span></code> indicates an
+(i.e. <code class="docutils literal notranslate"><span class="pre">HBM###_????_###</span></code>, where <code class="docutils literal notranslate"><span class="pre">#</span></code> indicates a number and <code class="docutils literal notranslate"><span class="pre">?</span></code> indicates an
 upper-case alphabetical character).</p>
 <p>Interacting with the zarr hubmap data mirror requires a few additional
 dependencies:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>zarr<span class="se">\&gt;</span><span class="m">2</span><span class="w"> </span>s3fs<span class="w"> </span>rich
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;zarr&gt;=3&quot;</span><span class="w"> </span>s3fs
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The hubmap data mirror uses zarr format v3, thus requires <code class="docutils literal notranslate"><span class="pre">zarr&gt;2</span></code> to be
+<p>The hubmap data mirror uses zarr format v3, thus requires <code class="docutils literal notranslate"><span class="pre">zarr&gt;=3</span></code> to be
 installed.</p>
 </div>
 <div class="cell docutils container">
@@ -390,7 +416,7 @@ installed.</p>
 
 <span class="k">if</span> <span class="ow">not</span> <span class="n">zarr</span><span class="o">.</span><span class="n">__version__</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;3&quot;</span><span class="p">):</span>
     <span class="k">raise</span> <span class="ne">EnvironmentError</span><span class="p">(</span>
-        <span class="sa">f</span><span class="s2">&quot;The tutorial requires `zarr&gt;3`, version </span><span class="si">{</span><span class="n">zarr</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2"> found.&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;The tutorial requires `zarr&gt;=3`, version </span><span class="si">{</span><span class="n">zarr</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2"> found.&quot;</span>
     <span class="p">)</span>
 </pre></div>
 </div>
@@ -420,22 +446,22 @@ installed.</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output text_html"><pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="font-weight: bold">/</span>
-├── <span style="font-weight: bold">HBM267_BZKT_867</span>
-│   ├── <span style="font-weight: bold">image</span> (19, 9072, 9408) uint16
-│   └── <span style="font-weight: bold">segmentations</span>
-│       ├── <span style="font-weight: bold">cellsam</span> (9072, 9408) uint32
-│       └── <span style="font-weight: bold">torch_mesmer</span> (9072, 9408) uint32
-├── <span style="font-weight: bold">HBM685_PCCJ_427</span>
-│   ├── <span style="font-weight: bold">image</span> (54, 9510, 9993) uint16
-│   └── <span style="font-weight: bold">segmentations</span>
-│       ├── <span style="font-weight: bold">cellsam</span> (9510, 9993) uint32
-│       └── <span style="font-weight: bold">torch_mesmer</span> (9510, 9993) uint32
-└── <span style="font-weight: bold">HBM994_PDJN_987</span>
-    ├── <span style="font-weight: bold">image</span> (37, 2048, 2048) int16
-    └── <span style="font-weight: bold">segmentations</span>
-        ├── <span style="font-weight: bold">cellsam</span> (2048, 2048) uint32
-        └── <span style="font-weight: bold">torch_mesmer</span> (2048, 2048) uint32
+<div class="output text_html"><pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><b>/</b>
+├── <b>HBM267_BZKT_867</b>
+│   ├── <b>image</b> (19, 9072, 9408) uint16
+│   └── <b>segmentations</b>
+│       ├── <b>cellsam</b> (9072, 9408) uint32
+│       └── <b>torch_mesmer</b> (9072, 9408) uint32
+├── <b>HBM685_PCCJ_427</b>
+│   ├── <b>image</b> (54, 9510, 9993) uint16
+│   └── <b>segmentations</b>
+│       ├── <b>cellsam</b> (9510, 9993) uint32
+│       └── <b>torch_mesmer</b> (9510, 9993) uint32
+└── <b>HBM994_PDJN_987</b>
+    ├── <b>image</b> (37, 2048, 2048) int16
+    └── <b>segmentations</b>
+        ├── <b>cellsam</b> (2048, 2048) uint32
+        └── <b>torch_mesmer</b> (2048, 2048) uint32
 </pre>
 </div></div>
 </div>
@@ -599,12 +625,6 @@ models to construct a full cell-type inference pipeline.</p>
 </pre></div>
 </div>
 </div>
-<div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/cellSAM/model.py:12: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools&lt;81.
-  from pkg_resources import resource_filename
-</pre></div>
-</div>
-</div>
 </div>
 <p>For convenience, channels corresponding to nuclear markers and a whole-cell marker
 are stored in the dataset metadata.</p>
@@ -659,70 +679,74 @@ See the <a class="reference external" href="https://vanvalenlab.github.io/cellSA
 <p class="expanded admonition-title">Hide code cell output</p>
 </summary>
 <div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/data/xwang3/.cache/dct-docs-venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1054: UserWarning: Can&#39;t initialize NVML
+  uuids = _raw_device_uuid_nvml()
+</pre></div>
+</div>
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Total blocks: 16
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>0it [00:00, ?it/s]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>1it [00:01,  1.93s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>1it [00:01,  1.86s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2it [00:03,  1.70s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2it [00:03,  1.44s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>3it [00:05,  1.87s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>3it [00:04,  1.46s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>4it [00:07,  1.83s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>4it [00:05,  1.41s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>5it [00:08,  1.77s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>5it [00:07,  1.36s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>6it [00:10,  1.79s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>6it [00:08,  1.41s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>7it [00:12,  1.88s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>7it [00:10,  1.56s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>8it [00:14,  1.83s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>8it [00:11,  1.51s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>9it [00:16,  1.77s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>9it [00:13,  1.42s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>10it [00:18,  1.78s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>10it [00:14,  1.42s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>11it [00:19,  1.82s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>11it [00:15,  1.44s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>12it [00:21,  1.83s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>12it [00:17,  1.44s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>13it [00:23,  1.81s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>13it [00:18,  1.40s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>14it [00:25,  1.75s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>14it [00:19,  1.32s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>15it [00:26,  1.76s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>15it [00:21,  1.31s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>16it [00:28,  1.76s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>16it [00:22,  1.28s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>16it [00:28,  1.79s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>16it [00:22,  1.40s/it]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  0%|                                                                                                                     | 0/24 [00:00&lt;?, ?it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  0%|          | 0/24 [00:00&lt;?, ?it/s]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [00:00&lt;00:00, 461.11it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 24/24 [00:00&lt;00:00, 343.88it/s]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -733,7 +757,7 @@ See the <a class="reference external" href="https://vanvalenlab.github.io/cellSA
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Sanity check: the segmentation mask should have the same W, H dimensions as</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Sanity check: the segmentation mask should have the same H, W dimensions as</span>
 <span class="c1"># the input image</span>
 <span class="n">mask</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
 </pre></div>
@@ -769,7 +793,7 @@ visualization.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">napari</span>
-<span class="n">nim</span> <span class="o">=</span> <span class="n">napari</span><span class="o">.</span><span class="n">Viewer</span><span class="p">(</span><span class="n">show</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># Headless for CI; set show=True for interactive viz</span>
+<span class="n">nim</span> <span class="o">=</span> <span class="n">napari</span><span class="o">.</span><span class="n">Viewer</span><span class="p">(</span><span class="n">show</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># show=False for headless runs (screenshots may be blank)</span>
 
 <span class="c1"># Compute contrast limits</span>
 <span class="n">cl</span> <span class="o">=</span> <span class="p">[(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">ch</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">ch</span><span class="p">))</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">img</span><span class="p">]</span>
@@ -822,15 +846,32 @@ visualization.</p>
 </div>
 </div>
 </div>
-<p>To run the inference pipeline, you will need to download a trained model.
-See <a class="reference internal" href="API-key.html#download-models"><span class="std std-ref">Models</span></a> for details.</p>
+<p>To run the inference pipeline, you will need a trained model. The
+<code class="docutils literal notranslate"><span class="pre">download_model</span></code> helper fetches the checkpoint to <code class="docutils literal notranslate"><span class="pre">$HOME/.deepcell/models</span></code>
+and returns the local path (it requires a <code class="docutils literal notranslate"><span class="pre">DEEPCELL_ACCESS_TOKEN</span></code>; see
+<a class="reference internal" href="API-key.html#download-models"><span class="std std-ref">Models</span></a> for details). The returned path can be passed
+straight to <code class="docutils literal notranslate"><span class="pre">predict</span></code> as <code class="docutils literal notranslate"><span class="pre">model_name</span></code>.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Model &amp; system-specific configuration</span>
-<span class="n">model</span> <span class="o">=</span> <span class="s2">&quot;deepcell-types_2025-06-09&quot;</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">deepcell_types.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">download_model</span>
 
-<span class="c1"># NOTE: if you do not have a cuda-capable GPU, try &quot;cpu&quot;</span>
-<span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda:0&quot;</span>
+<span class="c1"># Downloads to $HOME/.deepcell/models on first call; subsequent calls reuse</span>
+<span class="c1"># the cached checkpoint and return its path immediately.</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">download_model</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="s2">&quot;2026-06-15&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># System-specific configuration</span>
+
+<span class="c1"># Pick a device: the default GPU if one is available, otherwise the CPU</span>
+<span class="c1"># (inference works the same on CPU, just slower). Use &quot;cuda:1&quot;, &quot;cuda:2&quot;,</span>
+<span class="c1"># etc. to target a specific GPU.</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
 <span class="c1"># NOTE: For machines with many cores &amp; large RAM (e.g. GPU nodes), consider</span>
 <span class="c1"># increasing for better performance.</span>
 <span class="n">num_data_loader_threads</span> <span class="o">=</span> <span class="mi">1</span>
@@ -838,6 +879,13 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 </div>
 </div>
 </div>
+<p>The marker and cell-type registry the model needs is shipped with the
+package, so no additional data is required to run inference.
+If you instead want to source the registry from a local TissueNet zarr
+archive, pass <code class="docutils literal notranslate"><span class="pre">zarr_path=&quot;/path/to/tissuenet.zarr&quot;</span></code> to <code class="docutils literal notranslate"><span class="pre">predict</span></code> (or set the
+<code class="docutils literal notranslate"><span class="pre">DEEPCELL_TYPES_ZARR_PATH</span></code> environment variable); the archive’s root attrs
+must define the same standardized marker and cell-type registry the
+checkpoint was trained against.</p>
 <p>With the system all configured, we can now run the pipeline:</p>
 <div class="cell tag_hide-output docutils container">
 <div class="cell_input above-output-prompt docutils container">
@@ -847,7 +895,7 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
     <span class="n">chnames</span><span class="p">,</span>
     <span class="n">mpp</span><span class="p">,</span>
     <span class="n">model_name</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
-    <span class="n">device_num</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
     <span class="n">num_workers</span><span class="o">=</span><span class="n">num_data_loader_threads</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -859,317 +907,30 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 <p class="expanded admonition-title">Hide code cell output</p>
 </summary>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel CD14 is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel CD80 is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel DCSIGN is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel ECAD is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel FOXP3 is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel GALECTIN9 is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel GRB is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel H3 is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel HLAG is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel HO1 is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel LCK is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel TIGIT is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel TIM3 is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel TRYPTASE is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel VIM is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
-/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/deepcell_types/dataset.py:42: UserWarning: Channel INOS is not in the channel mapping. This channel will be masked out.
-  warnings.warn(
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/data/xwang3/.cache/dct-docs-venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1054: UserWarning: Can&#39;t initialize NVML
+  uuids = _raw_device_uuid_nvml()
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 0it [00:00, ?it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/data/xwang3/Projects/deepcell-types/deepcell_types/predict.py:466: UserWarning: 5 of 37 input channels were masked out; prediction uses the remaining 32 marker(s). Masked: ECAD (not in the marker registry); GRB (not in the marker registry); H3 (not in the marker registry); HLAG (not in the marker registry); VIM (not in the marker registry).
+  dataset = PatchDataset(
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference):   0%|          | 0/7 [00:00&lt;?, ?it/s]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  0%|                                                                                                                   | 0/1646 [00:00&lt;?, ?it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference):  14%|█▍        | 1/7 [00:12&lt;01:15, 12.66s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference):  43%|████▎     | 3/7 [00:12&lt;00:13,  3.33s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference):  71%|███████▏  | 5/7 [00:12&lt;00:03,  1.65s/it]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  5%|█████▎                                                                                                   | 83/1646 [00:00&lt;00:01, 829.62it/s]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 100%|██████████| 7/7 [00:13&lt;00:00,  1.01it/s]
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 10%|██████████▍                                                                                             | 166/1646 [00:00&lt;00:02, 683.50it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 14%|██████████████▉                                                                                         | 236/1646 [00:00&lt;00:02, 665.85it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 18%|███████████████████▏                                                                                    | 304/1646 [00:01&lt;00:06, 197.05it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 22%|██████████████████████▉                                                                                 | 363/1646 [00:01&lt;00:05, 248.65it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 26%|██████████████████████████▊                                                                             | 425/1646 [00:01&lt;00:03, 306.61it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 30%|███████████████████████████████                                                                         | 491/1646 [00:01&lt;00:03, 371.33it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/administrator/repos/deepcell-types/dct13env/lib/python3.13/site-packages/torch/nn/modules/transformer.py:505: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at /pytorch/aten/src/ATen/NestedTensorImpl.cpp:178.)
-  output = torch._nested_tensor_from_mask(
-
-(inference): 1it [00:07,  7.62s/it]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 33%|██████████████████████████████████▋                                                                     | 549/1646 [00:02&lt;00:06, 178.18it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 37%|██████████████████████████████████████▌                                                                 | 611/1646 [00:02&lt;00:04, 228.00it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 41%|██████████████████████████████████████████▍                                                             | 671/1646 [00:02&lt;00:03, 279.36it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 45%|██████████████████████████████████████████████▍                                                         | 734/1646 [00:02&lt;00:02, 336.76it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 2it [00:08,  3.64s/it]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 48%|█████████████████████████████████████████████████▊                                                      | 789/1646 [00:03&lt;00:05, 169.79it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 52%|██████████████████████████████████████████████████████                                                  | 855/1646 [00:03&lt;00:03, 223.05it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 56%|█████████████████████████████████████████████████████████▋                                              | 914/1646 [00:03&lt;00:02, 272.20it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 59%|█████████████████████████████████████████████████████████████▊                                          | 978/1646 [00:03&lt;00:02, 330.80it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 3it [00:09,  2.45s/it]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 63%|████████████████████████████████████████████████████████████████▋                                      | 1033/1646 [00:04&lt;00:03, 165.81it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 67%|█████████████████████████████████████████████████████████████████████▏                                 | 1106/1646 [00:04&lt;00:02, 225.69it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 71%|████████████████████████████████████████████████████████████████████████▉                              | 1166/1646 [00:04&lt;00:01, 274.63it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 75%|████████████████████████████████████████████████████████████████████████████▉                          | 1229/1646 [00:04&lt;00:01, 330.23it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 4it [00:10,  1.92s/it]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 78%|████████████████████████████████████████████████████████████████████████████████▍                      | 1285/1646 [00:05&lt;00:02, 166.67it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 83%|█████████████████████████████████████████████████████████████████████████████████████                  | 1360/1646 [00:05&lt;00:01, 227.86it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 86%|████████████████████████████████████████████████████████████████████████████████████████▊              | 1420/1646 [00:05&lt;00:00, 276.06it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 90%|████████████████████████████████████████████████████████████████████████████████████████████▋          | 1482/1646 [00:05&lt;00:00, 329.58it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 5it [00:11,  1.60s/it]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 93%|████████████████████████████████████████████████████████████████████████████████████████████████▏      | 1538/1646 [00:06&lt;00:00, 175.44it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 96%|███████████████████████████████████████████████████████████████████████████████████████████████████    | 1583/1646 [00:06&lt;00:00, 205.50it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 1646/1646 [00:06&lt;00:00, 262.58it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 1646/1646 [00:06&lt;00:00, 251.05it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 6it [00:12,  1.43s/it]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 7it [00:13,  1.10s/it]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 7it [00:13,  1.89s/it]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(inference): 100%|██████████| 7/7 [00:13&lt;00:00,  1.88s/it]
 </pre></div>
 </div>
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
@@ -1179,10 +940,31 @@ See <a class="reference internal" href="API-key.html#download-models"><span clas
 </details>
 </div>
 <p>Predictions are provided in the form of list of strings, where the order of
-the list is given by the ordering of cell indices in the segmentation
+the list is given by the ascending order of cell indices in the segmentation
 mask.
 Since we ordered the mask indices above, it’s straightforward to make this
 mapping explicit:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Low-confidence abstention.</strong> Abstention is opt-in. By default
+(<code class="docutils literal notranslate"><span class="pre">ct_abstention_k=None</span></code>) <code class="docutils literal notranslate"><span class="pre">predict</span></code> returns the raw argmax label for <em>every</em>
+cell. To enable it, pass a float <code class="docutils literal notranslate"><span class="pre">k</span></code>: <code class="docutils literal notranslate"><span class="pre">predict</span></code> then flags cells whose
+top-class probability falls below an IQR fence on the field-of-view’s
+confidence distribution and rewrites their label to the sentinel <code class="docutils literal notranslate"><span class="pre">&quot;Unknown&quot;</span></code>.
+The paper’s headline numbers are full-coverage (no abstention); <code class="docutils literal notranslate"><span class="pre">k=0.2</span></code> is a
+historical opt-in ablation, shown here only to illustrate how to enable it:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cell_types = deepcell_types.predict(
+    img, mask, chnames, mpp,
+    model_name=model, device=device,
+    ct_abstention_k=0.2,
+)
+</pre></div>
+</div>
+<p>To inspect probabilities and which cells were abstained, pass
+<code class="docutils literal notranslate"><span class="pre">return_probabilities=True</span></code> to receive a <a class="reference internal" href="_generated/deepcell_types.PredictionResult.html#deepcell_types.PredictionResult" title="deepcell_types.PredictionResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">PredictionResult</span></code></a>
+with the full per-cell softmax matrix, the cell indices, a boolean
+<code class="docutils literal notranslate"><span class="pre">abstained</span></code> array, and the pre-abstention <code class="docutils literal notranslate"><span class="pre">cell_types_raw</span></code> labels.</p>
+</div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">idx_to_pred</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">cell_types</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
@@ -1218,51 +1000,51 @@ mapping explicit:</p>
   <tbody>
     <tr>
       <th>1</th>
-      <td>Myofibroblast</td>
+      <td>SmoothMuscle</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>Myofibroblast</td>
+      <td>Fibroblast</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>Endothelial</td>
+      <td>EVT</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>Stellate</td>
+      <td>SmoothMuscle</td>
     </tr>
     <tr>
       <th>5</th>
-      <td>Myofibroblast</td>
+      <td>EVT</td>
     </tr>
     <tr>
       <th>...</th>
       <td>...</td>
     </tr>
     <tr>
-      <th>1642</th>
+      <th>1739</th>
       <td>NK</td>
     </tr>
     <tr>
-      <th>1643</th>
-      <td>EVT</td>
-    </tr>
-    <tr>
-      <th>1644</th>
-      <td>Myofibroblast</td>
-    </tr>
-    <tr>
-      <th>1645</th>
+      <th>1740</th>
       <td>NK</td>
     </tr>
     <tr>
-      <th>1646</th>
+      <th>1741</th>
       <td>EVT</td>
+    </tr>
+    <tr>
+      <th>1742</th>
+      <td>NK</td>
+    </tr>
+    <tr>
+      <th>1743</th>
+      <td>Fibroblast</td>
     </tr>
   </tbody>
 </table>
-<p>1646 rows × 1 columns</p>
+<p>1743 rows × 1 columns</p>
 </div></div></div>
 </div>
 <p>Depending on the subsequent analysis you wish to perform, it may be convenient
@@ -1297,22 +1079,18 @@ to group the cells by their predicted cell-type:</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Total number of cells: 1646
-{&#39;Myofibroblast&#39;: &#39;100 (6.08%)&#39;,
- &#39;Endothelial&#39;: &#39;43 (2.61%)&#39;,
- &#39;Stellate&#39;: &#39;9 (0.55%)&#39;,
- &#39;NK&#39;: &#39;311 (18.89%)&#39;,
- &#39;Fibroblast&#39;: &#39;340 (20.66%)&#39;,
- &#39;Macrophage&#39;: &#39;191 (11.60%)&#39;,
- &#39;SmoothMuscle&#39;: &#39;54 (3.28%)&#39;,
- &#39;NKT&#39;: &#39;9 (0.55%)&#39;,
- &#39;EVT&#39;: &#39;485 (29.47%)&#39;,
- &#39;Epithelial&#39;: &#39;82 (4.98%)&#39;,
- &#39;Melanocyte&#39;: &#39;4 (0.24%)&#39;,
- &#39;CD4T&#39;: &#39;8 (0.49%)&#39;,
- &#39;CD8T&#39;: &#39;4 (0.24%)&#39;,
- &#39;HSEC&#39;: &#39;5 (0.30%)&#39;,
- &#39;Microglial&#39;: &#39;1 (0.06%)&#39;}
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Total number of cells: 1743
+{&#39;SmoothMuscle&#39;: &#39;219 (12.56%)&#39;,
+ &#39;Fibroblast&#39;: &#39;450 (25.82%)&#39;,
+ &#39;EVT&#39;: &#39;295 (16.92%)&#39;,
+ &#39;Macrophage&#39;: &#39;264 (15.15%)&#39;,
+ &#39;NK&#39;: &#39;360 (20.65%)&#39;,
+ &#39;Epithelial&#39;: &#39;92 (5.28%)&#39;,
+ &#39;Endothelial&#39;: &#39;39 (2.24%)&#39;,
+ &#39;CD4T&#39;: &#39;12 (0.69%)&#39;,
+ &#39;NKT&#39;: &#39;2 (0.11%)&#39;,
+ &#39;CD8T&#39;: &#39;9 (0.52%)&#39;,
+ &#39;Mast&#39;: &#39;1 (0.06%)&#39;}
 </pre></div>
 </div>
 </div>
@@ -1422,8 +1200,8 @@ on a particular cell type during interactive visualization.</p>
     class="page-toc tocsection onthispage">
     <i class="fa-solid fa-list"></i> On this page
   </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-datasets">Example datasets</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#exploring-the-archive">Exploring the archive</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-anatomy">Dataset anatomy</a></li>
@@ -1440,13 +1218,13 @@ on a particular cell type during interactive visualization.</p>
   </nav></div>
 
   <div class="sidebar-secondary-item">
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="../_sources/site/tutorial.md.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div></div>
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/site/tutorial.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
 
 </div></div>
               
@@ -1461,8 +1239,8 @@ on a particular cell type during interactive visualization.</p>
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -1473,7 +1251,7 @@ on a particular cell type during interactive visualization.</p>
 
   <p class="copyright">
     
-      © Copyright 2025, Van Valen Lab at the California Institute of Technology (Caltech).
+      © Copyright 2026, Van Valen Lab at the California Institute of Technology (Caltech).
       <br/>
     
   </p>
@@ -1482,7 +1260,7 @@ on a particular cell type during interactive visualization.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>
@@ -1496,7 +1274,7 @@ on a particular cell type during interactive visualization.</p>
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.18.0.
 </p></div>
       
     </div>

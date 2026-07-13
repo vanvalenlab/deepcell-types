@@ -1,0 +1,6 @@
+﻿deepcell\_types.utils.download\_model
+=====================================
+
+.. currentmodule:: deepcell_types.utils
+
+.. autofunction:: download_model

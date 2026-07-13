@@ -1,0 +1,388 @@
+# Single-write per-FOV CLI abstention — Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Make `scripts/predict.py` apply IQR-fence abstention in memory (per-FOV) and write the prediction CSV exactly once with `"Unknown"` labels already baked in — eliminating the write-raw → read-back → overwrite loop.
+
+**Architecture:** Split `PredLogger.save()` into `to_dataframe()` + a reusable atomic-write staticmethod. The CLI assembles the frame, computes `predicted_ct`/`_max_softmax`, applies `apply_abstention` grouped by `(dataset_name, fov_name)`, then writes once. The Python API is unchanged (already per-FOV + immediate).
+
+**Tech Stack:** Python, numpy, pandas, pytest. Existing helpers: `deepcell_types.training.abstention.apply_abstention` / `hierarchical_macro_f1`, `deepcell_types.training.utils.PredLogger`.
+
+**Note on plan/spec location:** `docs/superpowers/` is gitignored in this repo, so this plan and its spec live on disk untracked (intentional — superpowers docs are local). Do not `git add` them.
+
+**Spec:** `docs/superpowers/specs/2026-06-01-immediate-cli-abstention-design.md`
+
+---
+
+## File Structure
+
+- **Modify** `deepcell_types/training/utils.py` — `PredLogger`: add `to_dataframe()`, add `write_csv_atomic()` staticmethod (extracted from `save()`), rewrite `save()` to compose them.
+- **Modify** `scripts/predict.py` — replace the abstention block (`~443-546`) with the single-write per-FOV flow; delete the `read_csv` read-back, `zarr.open`, `_discover_fov_keys`, tissue/modality join.
+- **Modify** `tests/test_ct_abstention_cli.py` — add a per-FOV grouping test.
+- **Create** `tests/test_predlogger_dataframe.py` — `to_dataframe()` + `save()` round-trip tests.
+
+---
+
+## Task 1: Extract `to_dataframe()` and `write_csv_atomic()` from `PredLogger`
+
+**Files:**
+- Test: `tests/test_predlogger_dataframe.py` (create)
+- Modify: `deepcell_types/training/utils.py:203-236` (the `save()` method)
+
+- [ ] **Step 1: Write the failing tests**
+
+Create `tests/test_predlogger_dataframe.py`:
+
+```python
+"""Tests for PredLogger.to_dataframe() / write_csv_atomic() / save()."""
+
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+from deepcell_types.training.utils import PredLogger
+
+
+def _logger_with_two_cells() -> PredLogger:
+    ct2idx = {"CD4T": 0, "CD8T": 1, "Bcell": 2}
+    pl = PredLogger(ct2idx)
+    probs = np.array([[0.7, 0.2, 0.1], [0.1, 0.8, 0.1]], dtype=np.float32)
+    pl.log(
+        labels=np.array([0, 1]),
+        probs=probs,
+        cell_index=np.array([10, 11]),
+        dataset_name=np.array(["ds_a", "ds_a"]),
+        fov_name=np.array(["fov0", "fov0"]),
+    )
+    return pl
+
+
+def test_to_dataframe_columns_and_values():
+    pl = _logger_with_two_cells()
+    df = pl.to_dataframe()
+    # Class columns are sorted by ct2idx value, then the metadata columns.
+    assert list(df.columns) == [
+        "CD4T", "CD8T", "Bcell",
+        "cell_type_actual", "cell_index", "dataset_name", "fov_name",
+    ]
+    assert df["cell_type_actual"].tolist() == ["CD4T", "CD8T"]
+    assert df["cell_index"].tolist() == [10, 11]
+    np.testing.assert_allclose(
+        df[["CD4T", "CD8T", "Bcell"]].to_numpy(),
+        np.array([[0.7, 0.2, 0.1], [0.1, 0.8, 0.1]], dtype=np.float32),
+        rtol=1e-6,
+    )
+
+
+def test_save_roundtrips_to_dataframe(tmp_path):
+    pl = _logger_with_two_cells()
+    out = tmp_path / "pred.csv"
+    pl.save(out)
+    back = pd.read_csv(out)
+    pd.testing.assert_frame_equal(back, pl.to_dataframe(), check_dtype=False)
+
+
+def test_write_csv_atomic_writes_given_frame(tmp_path):
+    df = pd.DataFrame({"a": [1, 2], "b": ["x", "y"]})
+    out = tmp_path / "frame.csv"
+    PredLogger.write_csv_atomic(df, out)
+    back = pd.read_csv(out)
+    pd.testing.assert_frame_equal(back, df, check_dtype=False)
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `uv run pytest tests/test_predlogger_dataframe.py -v`
+Expected: FAIL — `AttributeError: ... has no attribute 'to_dataframe'` / `'write_csv_atomic'`.
+
+- [ ] **Step 3: Refactor `PredLogger` in `deepcell_types/training/utils.py`**
+
+Replace the existing `save()` method (currently `utils.py:203-236`) with the following three members. `os`, `tempfile`, `np`, `pd`, `Path`, `Optional` are already imported at the top of the file.
+
+```python
+    def to_dataframe(self):
+        """Assemble the accumulated predictions into a DataFrame.
+
+        Columns: one per cell-type class (softmax probability, ordered by
+        ``ct2idx`` value), then ``cell_type_actual``, ``cell_index``,
+        ``dataset_name``, ``fov_name``.
+        """
+        columns = sorted(self.ct2idx, key=self.ct2idx.get)
+        idx2ct = {v: k for k, v in self.ct2idx.items()}
+        labels = np.concatenate(self.labels)
+        probs = np.concatenate(self.probs)
+        cell_index = np.concatenate(self.cell_index)
+        dataset_name = np.concatenate(self.dataset_name)
+        fov_name = np.concatenate(self.fov_name)
+        df = pd.DataFrame(probs, columns=columns)
+        df["cell_type_actual"] = [idx2ct[label] for label in labels]
+        df["cell_index"] = cell_index
+        df["dataset_name"] = dataset_name
+        df["fov_name"] = fov_name
+        return df
+
+    @staticmethod
+    def write_csv_atomic(df, path_name):
+        """Atomically write ``df`` to ``path_name`` as CSV.
+
+        A disk-full or SIGTERM mid-write would otherwise leave a truncated CSV
+        that pandas reads silently, producing wrong abstention numbers in
+        downstream analysis. Write to a sibling tempfile, fsync, then replace.
+        """
+        final_path = Path(path_name)
+        tmp_path: Optional[Path] = None
+        with tempfile.NamedTemporaryFile(
+            "w",
+            dir=final_path.parent,
+            prefix=f".{final_path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as tmp:
+            tmp_path = Path(tmp.name)
+            df.to_csv(tmp, index=False)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        try:
+            tmp_path.replace(final_path)
+        finally:
+            if tmp_path is not None and tmp_path.exists():
+                tmp_path.unlink()
+
+    def save(self, path_name):
+        self.write_csv_atomic(self.to_dataframe(), path_name)
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `uv run pytest tests/test_predlogger_dataframe.py -v`
+Expected: PASS (3 passed).
+
+- [ ] **Step 5: Run the existing abstention suite to confirm no regression**
+
+Run: `uv run pytest tests/test_ct_abstention_cli.py -v`
+Expected: PASS (all existing tests still green — `PredLogger` change is internal).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add deepcell_types/training/utils.py tests/test_predlogger_dataframe.py
+git commit -m "refactor(predlogger): split save() into to_dataframe() + write_csv_atomic()
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+## Task 2: Add per-FOV grouping test for `apply_abstention`
+
+**Files:**
+- Modify: `tests/test_ct_abstention_cli.py` (append one test)
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `tests/test_ct_abstention_cli.py`:
+
+```python
+def test_per_fov_grouping_honored():
+    """The CLI groups by (dataset_name, fov_name); fences are per-FOV.
+
+    Two FOVs in the same dataset with far-apart max-softmax distributions
+    must be abstained on their own local fences, not a global one. A low FOV
+    (all in [0.10, 0.30]) should not be wholesale abstained just because its
+    values are low relative to the high FOV.
+    """
+    rng = np.random.default_rng(123)
+    n = 50
+    hi = rng.uniform(0.90, 0.99, n).astype(np.float32)
+    lo = rng.uniform(0.10, 0.30, n).astype(np.float32)
+    df = pd.DataFrame({
+        "predicted_ct": np.array(["X"] * (2 * n), dtype=object),
+        "_max_softmax": np.concatenate([hi, lo]),
+        "dataset_name": ["ds_a"] * (2 * n),
+        "fov_name": ["fov_hi"] * n + ["fov_lo"] * n,
+    })
+    out = apply_abstention(
+        df.copy(), k=1.5, group_cols=("dataset_name", "fov_name")
+    )
+    lo_mask = out["fov_name"].to_numpy() == "fov_lo"
+    assert out.loc[lo_mask, "abstained"].mean() <= 0.05, (
+        "Per-FOV grouping not honored: low-FOV cells abstained on the global "
+        "distribution rather than their own."
+    )
+    hi_mask = out["fov_name"].to_numpy() == "fov_hi"
+    assert out.loc[hi_mask, "abstained"].mean() <= 0.05
+```
+
+- [ ] **Step 2: Run the test to verify it passes**
+
+Run: `uv run pytest tests/test_ct_abstention_cli.py::test_per_fov_grouping_honored -v`
+Expected: PASS — `apply_abstention` already supports arbitrary `group_cols`, so this asserts the grouping key the CLI will use. (This test passes immediately; it locks the contract Task 3 depends on.)
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add tests/test_ct_abstention_cli.py
+git commit -m "test(abstention): pin per-(dataset_name, fov_name) fence independence
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+## Task 3: Rewrite the CLI abstention block to single-write per-FOV
+
+**Files:**
+- Modify: `scripts/predict.py:443-546` (the initial save + post-hoc abstention block)
+
+**Context:** In `main()`, these names are in scope: `predlogger` (a `PredLogger`), `model_name` (str), `dct_config` (has `.ct2idx`), `ct_abstention_k` (float|None), `CELL_TYPE_HIERARCHY` (imported at top), `np` (imported), `Path` (imported). `PredLogger` is imported at `scripts/predict.py:26-35`. After this block, line 548+ handles `save_attention` artifacts and `run.finish()` — leave those untouched.
+
+- [ ] **Step 1: Replace the block**
+
+Replace the current lines `443-546` (everything from `output_path = Path(f"output/{model_name}_prediction.csv")` through the end of the `if ct_abstention_k ...:` post-hoc block that ends with the `Macro F1 on kept cells` print) with:
+
+```python
+    output_path = Path(f"output/{model_name}_prediction.csv")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Assemble predictions in memory so abstention is baked into a single write
+    # (no write-raw -> read-back -> overwrite). When abstention is enabled the
+    # IQR fence is computed per (dataset_name, fov_name) group, matching the
+    # Python API's per-FOV semantics (deepcell_types.predict).
+    df = predlogger.to_dataframe()
+
+    # ---------------- CT abstention (immediate, per-FOV) ----------------
+    # On by default with k=0.2 (published headline operating point); set
+    # --ct_abstention_k 0 or a negative value to disable. When disabled, the
+    # frame is written as-is (probability + metadata columns only, no
+    # predicted_ct) — matching the historical disabled-path output.
+    if ct_abstention_k is not None and ct_abstention_k > 0:
+        from deepcell_types.training.abstention import (
+            apply_abstention,
+            hierarchical_macro_f1,
+        )
+
+        class_cols = sorted(dct_config.ct2idx, key=dct_config.ct2idx.get)
+        probs_arr = df[class_cols].to_numpy(dtype=np.float32)
+        pred_idx = probs_arr.argmax(axis=1)
+        df["predicted_ct"] = [class_cols[i] for i in pred_idx]
+        df["_max_softmax"] = probs_arr[np.arange(probs_arr.shape[0]), pred_idx]
+
+        # Baseline (pre-abstention) hierarchical macro-F1 on the full frame.
+        true_labels = df["cell_type_actual"].to_numpy()
+        pred_labels_pre = df["predicted_ct"].to_numpy()
+        macro_f1_pre = hierarchical_macro_f1(
+            true_labels, pred_labels_pre, class_cols, CELL_TYPE_HIERARCHY
+        )
+
+        # Apply abstention per (dataset_name, fov_name). Sentinel "Unknown"
+        # matches the Python API contract (predict.ABSTENTION_LABEL). Adds
+        # `abstained` and `predicted_ct_raw`; sentinels predicted_ct in place.
+        df = apply_abstention(
+            df,
+            k=float(ct_abstention_k),
+            group_cols=("dataset_name", "fov_name"),
+            max_softmax_col="_max_softmax",
+            pred_col="predicted_ct",
+            sentinel="Unknown",
+        )
+
+        # Kept-cell hierarchical macro-F1 (kept cells retain their original
+        # prediction, so reuse pred_labels_pre).
+        kept = ~df["abstained"].to_numpy()
+        n_total = int(len(df))
+        n_kept = int(kept.sum())
+        n_abstained = n_total - n_kept
+        coverage = n_kept / n_total if n_total else 0.0
+        if n_kept > 0:
+            macro_f1_post = hierarchical_macro_f1(
+                true_labels[kept],
+                pred_labels_pre[kept],
+                class_cols,
+                CELL_TYPE_HIERARCHY,
+            )
+        else:
+            macro_f1_post = 0.0
+
+        # Drop the internal helper column before persisting.
+        df = df.drop(columns=["_max_softmax"])
+
+    # Single atomic write — when abstention is on, the file already contains
+    # the "Unknown" labels (predicted_ct) and the predicted_ct_raw/abstained
+    # columns.
+    PredLogger.write_csv_atomic(df, output_path)
+    print(f"Predictions saved to {output_path}")
+
+    if ct_abstention_k is not None and ct_abstention_k > 0:
+        print(f"\nCT abstention enabled (k={ct_abstention_k:.1f})")
+        print(
+            f"Coverage: {coverage * 100:.2f}% "
+            f"({n_abstained:,} abstained / {n_total:,} total)"
+        )
+        delta_pp = (macro_f1_post - macro_f1_pre) * 100
+        print(
+            f"Macro F1 on kept cells: {macro_f1_post * 100:.2f}% "
+            f"(vs {macro_f1_pre * 100:.2f}% with no abstention; {delta_pp:+.2f}pp)"
+        )
+```
+
+- [ ] **Step 2: Verify the deleted code is gone**
+
+Run: `grep -nE "read_csv|_discover_fov_keys|zarr.open|meta_rows|predlogger.save" scripts/predict.py`
+Expected: no matches for `read_csv`, `_discover_fov_keys`, `meta_rows`. (The `import zarr` / tissue-modality join block is fully removed. `predlogger.save` is replaced by `PredLogger.write_csv_atomic`.) If `zarr` was imported only for this block, confirm no other use: `grep -n "zarr" scripts/predict.py` — should be empty.
+
+- [ ] **Step 3: Byte-compile to catch syntax/indentation errors**
+
+Run: `uv run python -m py_compile scripts/predict.py`
+Expected: exit 0, no output.
+
+- [ ] **Step 4: Run the full abstention + predlogger test suites**
+
+Run: `uv run pytest tests/test_ct_abstention_cli.py tests/test_predlogger_dataframe.py -v`
+Expected: PASS (all green).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/predict.py
+git commit -m "feat(predict): apply abstention in-memory per-FOV, single CSV write
+
+The prediction CSV is now assembled in memory with IQR-fence abstention
+already applied and written exactly once — the file ships with 'Unknown'
+labels rather than being written raw, read back, and overwritten. Grouping
+switches from (tissue, modality) to per-(dataset_name, fov_name), matching
+the Python API's per-FOV semantics; the zarr re-open and tissue/modality
+join are removed (the output CSV no longer carries tissue/modality columns).
+
+Behavior change vs v0.1.0: different cells are flagged (per-FOV vs per
+tissue/modality grouping).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+## Task 4: Final verification
+
+- [ ] **Step 1: Run the complete test suite touching these areas**
+
+Run: `uv run pytest tests/test_ct_abstention_cli.py tests/test_predlogger_dataframe.py -v`
+Expected: PASS.
+
+- [ ] **Step 2: Confirm the Python API path is untouched**
+
+Run: `git diff --stat master -- deepcell_types/predict.py`
+Expected: empty (no changes to the Python API).
+
+- [ ] **Step 3: Sanity-check the changed-files set**
+
+Run: `git diff --stat master`
+Expected: only `deepcell_types/training/utils.py`, `scripts/predict.py`, `tests/test_ct_abstention_cli.py`, `tests/test_predlogger_dataframe.py`.
+
+---
+
+## Self-Review Notes
+
+- **Spec coverage:** single-write (Task 3 `write_csv_atomic` once), unknowns baked in (Task 3 `apply_abstention` before write), per-FOV grouping (Tasks 2+3 `group_cols=("dataset_name","fov_name")`), disabled-path unchanged (Task 3 `if` guard leaves df as probs+meta), `PredLogger` extraction (Task 1), read-back/zarr removal (Task 3 Step 2), tests (Tasks 1+2). All covered.
+- **Type consistency:** `to_dataframe()`, `write_csv_atomic(df, path)`, `apply_abstention(..., group_cols, max_softmax_col, pred_col, sentinel)` match the existing signature in `deepcell_types/training/abstention.py:36-43`.
+- **No placeholders:** all steps contain full code/commands.

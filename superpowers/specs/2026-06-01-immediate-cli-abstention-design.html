@@ -1,0 +1,663 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Single-write, per-FOV CLI abstention — design &#8212; deepcell-types</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
+
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'superpowers/specs/2026-06-01-immediate-cli-abstention-design';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">deepcell-types</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/API-key.html">
+    Model and Datasets
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/API-key.html">
+    Model and Datasets
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../site/reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/vanvalenlab/deepcell-types" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Single-write, per-FOV CLI abstention — design</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="single-write-per-fov-cli-abstention-design">
+<h1>Single-write, per-FOV CLI abstention — design<a class="headerlink" href="#single-write-per-fov-cli-abstention-design" title="Link to this heading">#</a></h1>
+<p><strong>Date:</strong> 2026-06-01
+<strong>Status:</strong> Approved (pending implementation)
+<strong>Scope:</strong> <code class="docutils literal notranslate"><span class="pre">scripts/predict.py</span></code> abstention block + a small <code class="docutils literal notranslate"><span class="pre">PredLogger</span></code> extraction in
+<code class="docutils literal notranslate"><span class="pre">deepcell_types/training/utils.py</span></code>. The Python API (<code class="docutils literal notranslate"><span class="pre">deepcell_types/predict.py</span></code>) is
+<strong>not</strong> changed.</p>
+<section id="problem">
+<h2>Problem<a class="headerlink" href="#problem" title="Link to this heading">#</a></h2>
+<p>The CLI prediction pipeline (<code class="docutils literal notranslate"><span class="pre">scripts/predict.py</span></code>) currently applies cell-type
+abstention as a <strong>post-hoc rewrite</strong>:</p>
+<ol class="arabic simple">
+<li><p>Inference accumulates per-class probabilities in a <code class="docutils literal notranslate"><span class="pre">PredLogger</span></code>.</p></li>
+<li><p><strong>Write #1</strong> (<code class="docutils literal notranslate"><span class="pre">scripts/predict.py:445</span></code>): the CSV is saved with raw probability
+columns only — no <code class="docutils literal notranslate"><span class="pre">predicted_ct</span></code>, no <code class="docutils literal notranslate"><span class="pre">&quot;Unknown&quot;</span></code>.</p></li>
+<li><p><strong>Post-hoc</strong> (<code class="docutils literal notranslate"><span class="pre">scripts/predict.py:456-536</span></code>): the CSV is read <em>back</em>,
+<code class="docutils literal notranslate"><span class="pre">predicted_ct</span></code>/<code class="docutils literal notranslate"><span class="pre">_max_softmax</span></code> are reconstructed from the probability columns,
+<code class="docutils literal notranslate"><span class="pre">(tissue,</span> <span class="pre">modality)</span></code> is joined in from the zarr archive, an IQR-fence abstention
+is applied <strong>per <code class="docutils literal notranslate"><span class="pre">(tissue,</span> <span class="pre">modality)</span></code> group</strong>, and <strong>Write #2</strong> overwrites the
+file with <code class="docutils literal notranslate"><span class="pre">&quot;Unknown&quot;</span></code> labels.</p></li>
+</ol>
+<p>Two issues with this:</p>
+<ul class="simple">
+<li><p>The file is written, read back, and overwritten — a fragile write→read→overwrite
+loop. If abstention is disabled or the process dies between the two writes, the
+on-disk file never gains the <code class="docutils literal notranslate"><span class="pre">predicted_ct</span></code>/<code class="docutils literal notranslate"><span class="pre">&quot;Unknown&quot;</span></code> labels.</p></li>
+<li><p>The grouping key differs from the Python API. The Python API
+(<code class="docutils literal notranslate"><span class="pre">deepcell_types/predict.py:298-311</span></code>) applies the IQR fence <strong>per FOV</strong> (the whole
+FOV is one group, no <code class="docutils literal notranslate"><span class="pre">tissue</span></code>/<code class="docutils literal notranslate"><span class="pre">modality</span></code>); the CLI uses <code class="docutils literal notranslate"><span class="pre">(tissue,</span> <span class="pre">modality)</span></code>.</p></li>
+</ul>
+</section>
+<section id="goal">
+<h2>Goal<a class="headerlink" href="#goal" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p><strong>Single write with unknowns baked in.</strong> The prediction CSV should be assembled
+in memory with abstention already applied and written exactly once. No read-back.</p></li>
+<li><p><strong>Per-FOV grouping</strong> to match the Python API’s semantics, dropping the
+<code class="docutils literal notranslate"><span class="pre">(tissue,</span> <span class="pre">modality)</span></code> join (and therefore the zarr re-open).</p></li>
+</ol>
+</section>
+<section id="non-goals">
+<h2>Non-goals<a class="headerlink" href="#non-goals" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>No change to the Python API (<code class="docutils literal notranslate"><span class="pre">deepcell_types/predict.py</span></code>) — it is already
+immediate + per-FOV.</p></li>
+<li><p>No change to the abstention algorithm (<code class="docutils literal notranslate"><span class="pre">compute_iqr_fence</span></code>), to
+<code class="docutils literal notranslate"><span class="pre">apply_abstention</span></code>’s internals, or to the default <code class="docutils literal notranslate"><span class="pre">k=0.2</span></code>.</p></li>
+<li><p>No change to the <strong>abstention-disabled</strong> code path (<code class="docutils literal notranslate"><span class="pre">k</span> <span class="pre">&lt;=</span> <span class="pre">0</span></code>): it already does a
+single write of probability + metadata columns with no <code class="docutils literal notranslate"><span class="pre">predicted_ct</span></code>. There are
+no unknowns to bake in when abstention is off, so it stays as-is.</p></li>
+</ul>
+</section>
+<section id="approach-chosen-a">
+<h2>Approach (chosen: A)<a class="headerlink" href="#approach-chosen-a" title="Link to this heading">#</a></h2>
+<p><strong>A. Extract <code class="docutils literal notranslate"><span class="pre">to_dataframe()</span></code> from <code class="docutils literal notranslate"><span class="pre">PredLogger</span></code>; abstain in-memory in the CLI; write
+once.</strong></p>
+<p>Considered and rejected:</p>
+<ul class="simple">
+<li><p><strong>B. Push abstention into <code class="docutils literal notranslate"><span class="pre">PredLogger.save(path,</span> <span class="pre">abstention_k,</span> <span class="pre">group_cols)</span></code>.</strong>
+Couples the training-side logger to <code class="docutils literal notranslate"><span class="pre">[train]</span></code> extras (pandas/sklearn) and changes
+behavior for every other <code class="docutils literal notranslate"><span class="pre">save()</span></code> caller. Over-reach.</p></li>
+<li><p><strong>C. Minimal inline</strong> (reorder the CLI without extracting <code class="docutils literal notranslate"><span class="pre">to_dataframe()</span></code>).
+Duplicates <code class="docutils literal notranslate"><span class="pre">PredLogger</span></code>’s DataFrame-assembly inside the CLI — drift risk for
+barely less work than A.</p></li>
+</ul>
+<section id="component-changes">
+<h3>Component changes<a class="headerlink" href="#component-changes" title="Link to this heading">#</a></h3>
+<section id="deepcell-types-training-utils-py-predlogger">
+<h4><code class="docutils literal notranslate"><span class="pre">deepcell_types/training/utils.py</span></code> — <code class="docutils literal notranslate"><span class="pre">PredLogger</span></code><a class="headerlink" href="#deepcell-types-training-utils-py-predlogger" title="Link to this heading">#</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">save()</span></code> currently both assembles the DataFrame and atomic-writes it
+(<code class="docutils literal notranslate"><span class="pre">utils.py:203-236</span></code>). Split the two responsibilities:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">to_dataframe()</span> <span class="pre">-&gt;</span> <span class="pre">pd.DataFrame</span></code></strong> — assemble and return the frame (the current
+body of <code class="docutils literal notranslate"><span class="pre">save()</span></code> up through building <code class="docutils literal notranslate"><span class="pre">df</span></code> with the probability columns,
+<code class="docutils literal notranslate"><span class="pre">cell_type_actual</span></code>, <code class="docutils literal notranslate"><span class="pre">cell_index</span></code>, <code class="docutils literal notranslate"><span class="pre">dataset_name</span></code>, <code class="docutils literal notranslate"><span class="pre">fov_name</span></code>).</p></li>
+<li><p><strong>Atomic-write helper</strong> — extract the existing tempfile + <code class="docutils literal notranslate"><span class="pre">fsync</span></code> + <code class="docutils literal notranslate"><span class="pre">replace</span></code>
+logic (<code class="docutils literal notranslate"><span class="pre">utils.py:216-236</span></code>) into a reusable function (module-level
+<code class="docutils literal notranslate"><span class="pre">_atomic_write_csv(df,</span> <span class="pre">path)</span></code> or a <code class="docutils literal notranslate"><span class="pre">PredLogger</span></code> staticmethod) so both <code class="docutils literal notranslate"><span class="pre">save()</span></code> and
+the CLI write through the same atomic path.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">save(path)</span></code></strong> becomes <code class="docutils literal notranslate"><span class="pre">to_dataframe()</span></code> → atomic write. Behavior for existing
+callers is unchanged.</p></li>
+</ul>
+</section>
+<section id="scripts-predict-py-abstention-block-replaces-lines-443-546">
+<h4><code class="docutils literal notranslate"><span class="pre">scripts/predict.py</span></code> — abstention block (replaces lines ~443-546)<a class="headerlink" href="#scripts-predict-py-abstention-block-replaces-lines-443-546" title="Link to this heading">#</a></h4>
+<ol class="arabic">
+<li><p><code class="docutils literal notranslate"><span class="pre">df</span> <span class="pre">=</span> <span class="pre">predlogger.to_dataframe()</span></code>.</p></li>
+<li><p>Compute <code class="docutils literal notranslate"><span class="pre">predicted_ct</span></code> (argmax over the class columns, in the canonical
+<code class="docutils literal notranslate"><span class="pre">ct2idx</span></code>-sorted order) and <code class="docutils literal notranslate"><span class="pre">_max_softmax</span></code> (the argmax probability).</p></li>
+<li><p><strong>If <code class="docutils literal notranslate"><span class="pre">ct_abstention_k</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>:</strong> call</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">apply_abstention</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">,</span>
+    <span class="n">k</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">ct_abstention_k</span><span class="p">),</span>
+    <span class="n">group_cols</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;dataset_name&quot;</span><span class="p">,</span> <span class="s2">&quot;fov_name&quot;</span><span class="p">),</span>
+    <span class="n">max_softmax_col</span><span class="o">=</span><span class="s2">&quot;_max_softmax&quot;</span><span class="p">,</span>
+    <span class="n">pred_col</span><span class="o">=</span><span class="s2">&quot;predicted_ct&quot;</span><span class="p">,</span>
+    <span class="n">sentinel</span><span class="o">=</span><span class="s2">&quot;Unknown&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>then compute the pre/post hierarchical macro-F1 summary in memory and print it
+(same wording as today). Drop <code class="docutils literal notranslate"><span class="pre">_max_softmax</span></code>. Write <strong>once</strong> via the atomic-write
+helper.</p>
+</li>
+<li><p><strong>If <code class="docutils literal notranslate"><span class="pre">ct_abstention_k</span> <span class="pre">&lt;=</span> <span class="pre">0</span></code> / <code class="docutils literal notranslate"><span class="pre">None</span></code>:</strong> unchanged — <code class="docutils literal notranslate"><span class="pre">predlogger.save(path)</span></code> writes
+the probability + metadata frame once, with no <code class="docutils literal notranslate"><span class="pre">predicted_ct</span></code>.</p></li>
+<li><p><strong>Delete</strong> the <code class="docutils literal notranslate"><span class="pre">pd.read_csv</span></code> read-back, <code class="docutils literal notranslate"><span class="pre">zarr.open(zarr_dir)</span></code>,
+<code class="docutils literal notranslate"><span class="pre">_discover_fov_keys</span></code>, the per-dataset <code class="docutils literal notranslate"><span class="pre">tissue</span></code>/<code class="docutils literal notranslate"><span class="pre">modality</span></code> attr loop, and the merge.</p></li>
+</ol>
+</section>
+</section>
+<section id="grouping-key">
+<h3>Grouping key<a class="headerlink" href="#grouping-key" title="Link to this heading">#</a></h3>
+<p>Per-FOV abstention groups on <strong><code class="docutils literal notranslate"><span class="pre">(dataset_name,</span> <span class="pre">fov_name)</span></code></strong>, not <code class="docutils literal notranslate"><span class="pre">fov_name</span></code> alone:
+<code class="docutils literal notranslate"><span class="pre">fov_name</span></code> can collide across datasets, and the Python API’s per-FOV scope is really
+per-dataset-per-FOV (each <code class="docutils literal notranslate"><span class="pre">predict()</span></code> call processes one FOV of one dataset).</p>
+</section>
+<section id="data-flow-after">
+<h3>Data flow (after)<a class="headerlink" href="#data-flow-after" title="Link to this heading">#</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>inference loop → PredLogger.log(...)            # unchanged
+              → df = PredLogger.to_dataframe()  # in memory
+              → predicted_ct, _max_softmax      # argmax over class cols
+              → apply_abstention(group=(dataset_name, fov_name))   # if k&gt;0
+              → drop _max_softmax
+              → atomic write ONCE               # file already has &quot;Unknown&quot;
+</pre></div>
+</div>
+</section>
+<section id="output-columns">
+<h3>Output columns<a class="headerlink" href="#output-columns" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Abstention ON (default):</strong> probability columns + <code class="docutils literal notranslate"><span class="pre">cell_type_actual</span></code>,
+<code class="docutils literal notranslate"><span class="pre">cell_index</span></code>, <code class="docutils literal notranslate"><span class="pre">dataset_name</span></code>, <code class="docutils literal notranslate"><span class="pre">fov_name</span></code>, <code class="docutils literal notranslate"><span class="pre">predicted_ct</span></code> (<code class="docutils literal notranslate"><span class="pre">&quot;Unknown&quot;</span></code> for
+abstained), <code class="docutils literal notranslate"><span class="pre">predicted_ct_raw</span></code>, <code class="docutils literal notranslate"><span class="pre">abstained</span></code>. Same final columns as today — only
+the I/O flow and the grouping key change.</p></li>
+<li><p><strong>Abstention OFF:</strong> probability columns + <code class="docutils literal notranslate"><span class="pre">cell_type_actual</span></code>, <code class="docutils literal notranslate"><span class="pre">cell_index</span></code>,
+<code class="docutils literal notranslate"><span class="pre">dataset_name</span></code>, <code class="docutils literal notranslate"><span class="pre">fov_name</span></code>. Unchanged from today.</p></li>
+</ul>
+</section>
+</section>
+<section id="error-handling">
+<h2>Error handling<a class="headerlink" href="#error-handling" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Atomic write (tempfile → <code class="docutils literal notranslate"><span class="pre">fsync</span></code> → <code class="docutils literal notranslate"><span class="pre">replace</span></code>) is preserved; a truncated CSV is
+never observable.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">compute_iqr_fence</span></code> returns <code class="docutils literal notranslate"><span class="pre">None</span></code> for groups with <code class="docutils literal notranslate"><span class="pre">&lt;</span> <span class="pre">4</span></code> cells → those FOVs are
+never abstained (existing contract, unchanged).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">apply_abstention</span></code> raises if an <code class="docutils literal notranslate"><span class="pre">abstained</span></code> column already exists (defensive
+double-apply guard) — not reachable in the new single-pass flow, but retained.</p></li>
+</ul>
+</section>
+<section id="testing">
+<h2>Testing<a class="headerlink" href="#testing" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Existing</strong> <code class="docutils literal notranslate"><span class="pre">tests/test_ct_abstention_cli.py</span></code> stays green: it unit-tests
+<code class="docutils literal notranslate"><span class="pre">compute_iqr_fence</span></code> / <code class="docutils literal notranslate"><span class="pre">apply_abstention</span></code> directly and does not pin the CLI’s
+grouping key or the two-write pattern.</p></li>
+<li><p><strong>Add:</strong></p>
+<ol class="arabic simple">
+<li><p>A <code class="docutils literal notranslate"><span class="pre">PredLogger.to_dataframe()</span></code> round-trip test — assert the returned frame has
+the expected columns/values and that <code class="docutils literal notranslate"><span class="pre">save()</span></code> writes an identical frame.</p></li>
+<li><p>An <code class="docutils literal notranslate"><span class="pre">apply_abstention</span></code> test with <code class="docutils literal notranslate"><span class="pre">group_cols=(&quot;dataset_name&quot;,</span> <span class="pre">&quot;fov_name&quot;)</span></code>
+proving per-FOV fence independence (two FOVs with far-apart max-softmax
+distributions are abstained on their own local fences).</p></li>
+</ol>
+</li>
+</ul>
+</section>
+<section id="risks">
+<h2>Risks<a class="headerlink" href="#risks" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Downstream consumers that relied on the CLI’s <code class="docutils literal notranslate"><span class="pre">(tissue,</span> <span class="pre">modality)</span></code> grouping will
+see different cells flagged. This is the intended behavior change (per-FOV matches
+the Python API). Flagged in the commit message.</p></li>
+<li><p>Removing the zarr re-open means <code class="docutils literal notranslate"><span class="pre">tissue</span></code>/<code class="docutils literal notranslate"><span class="pre">modality</span></code> are no longer added to the
+output CSV. If any downstream analysis read those columns from this file, it must
+source them elsewhere. (They were only ever added as a side effect of the
+abstention join.)</p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#problem">Problem</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#goal">Goal</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#non-goals">Non-goals</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#approach-chosen-a">Approach (chosen: A)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#component-changes">Component changes</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#deepcell-types-training-utils-py-predlogger"><code class="docutils literal notranslate"><span class="pre">deepcell_types/training/utils.py</span></code> — <code class="docutils literal notranslate"><span class="pre">PredLogger</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#scripts-predict-py-abstention-block-replaces-lines-443-546"><code class="docutils literal notranslate"><span class="pre">scripts/predict.py</span></code> — abstention block (replaces lines ~443-546)</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#grouping-key">Grouping key</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#data-flow-after">Data flow (after)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#output-columns">Output columns</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#error-handling">Error handling</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing">Testing</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#risks">Risks</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../../_sources/superpowers/specs/2026-06-01-immediate-cli-abstention-design.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=0790524f97105ba85085"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Van Valen Lab at the California Institute of Technology (Caltech).
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.18.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
