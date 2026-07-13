@@ -1,7 +1,7 @@
 import json
 import os
-from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 
 import numpy as np
 import yaml
@@ -37,6 +37,7 @@ def _resolve_archive_path(explicit_path):
     so the caller falls back to the packaged vocabulary snapshot (archive-free
     inference).
     """
+    env_path = os.environ.get(DCTConfig.ARCHIVE_ENV_VAR)
     for candidate in _archive_candidate_paths(explicit_path):
         if (candidate / "zarr.json").exists():
             return candidate
@@ -44,6 +45,11 @@ def _resolve_archive_path(explicit_path):
         raise FileNotFoundError(
             f"No TissueNet zarr archive found at {explicit_path} "
             "(expected a 'zarr.json' there)."
+        )
+    if env_path:
+        raise FileNotFoundError(
+            f"{DCTConfig.ARCHIVE_ENV_VAR} points to {env_path}, but no TissueNet "
+            "zarr archive was found there (expected a 'zarr.json' file)."
         )
     return None
 
@@ -67,12 +73,6 @@ def _load_packaged_vocab():
     return _read_json(vocab_path)
 
 
-# These metadata readers are cached unbounded by path string. They assume the
-# archive is immutable for the lifetime of the process — a second DCTConfig over
-# the same path after the archive changed on disk returns the cached (stale)
-# result. Inference processes are short-lived and archives are published
-# read-only, so this holds in practice.
-@lru_cache(maxsize=None)
 def _archive_root_attrs(zarr_path_str):
     zarr_path = Path(zarr_path_str)
     root_meta = _read_json(zarr_path / "zarr.json")
@@ -83,7 +83,6 @@ def _iter_fov_metadata_paths(zarr_path):
     return sorted(zarr_path.glob("*/*/*/*/*/zarr.json"))
 
 
-@lru_cache(maxsize=None)
 def _archive_domains(zarr_path_str):
     zarr_path = Path(zarr_path_str)
     domains = set()
@@ -145,7 +144,6 @@ def _read_v3_1d_array(array_dir):
     return out
 
 
-@lru_cache(maxsize=None)
 def _archive_tissue_celltype_mapping(zarr_path_str):
     zarr_path = Path(zarr_path_str)
     mapping = {}
@@ -253,9 +251,25 @@ class DCTConfig:
             cell_type_mapping = vocab["cell_type_mapping"]
             all_channels = vocab["all_standardized_channels"]
             domains = list(vocab.get("domains", []))
+            if not cell_type_mapping:
+                raise ValueError(
+                    "Packaged vocab.json is missing cell_type_mapping."
+                )
+            if not all_channels:
+                raise ValueError(
+                    "Packaged vocab.json is missing all_standardized_channels."
+                )
 
         self._ct2idx = {str(ct): int(idx) for ct, idx in cell_type_mapping.items()}
+        expected_indices = set(range(len(self._ct2idx)))
+        if set(self._ct2idx.values()) != expected_indices:
+            raise ValueError(
+                "cell_type_mapping indices must be unique and contiguous from 0 "
+                f"to {len(self._ct2idx) - 1}; got {self._ct2idx}."
+            )
         self._master_channels = [str(ch) for ch in all_channels]
+        if len(set(self._master_channels)) != len(self._master_channels):
+            raise ValueError("all_standardized_channels must contain unique names.")
         self._marker2idx = {ch: idx for idx, ch in enumerate(self.master_channels)}
 
         self._domain2idx = {domain: idx for idx, domain in enumerate(domains)}
@@ -312,19 +326,19 @@ class DCTConfig:
 
     @property
     def ct2idx(self):
-        return self._ct2idx
+        return MappingProxyType(self._ct2idx)
 
     @property
     def domain2idx(self):
-        return self._domain2idx
+        return MappingProxyType(self._domain2idx)
 
     @property
     def marker2idx(self):
-        return self._marker2idx
+        return MappingProxyType(self._marker2idx)
 
     @property
     def master_channels(self):
-        return self._master_channels
+        return tuple(self._master_channels)
 
     def get_tct_mapping(self):
         if self.zarr_path is None:

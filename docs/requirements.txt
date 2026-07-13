@@ -9,7 +9,8 @@ pandas
 napari
 pyqt6
 s3fs
-git+https://github.com/vanvalenlab/cellSAM
+# Immutable revision reviewed with this documentation environment.
+git+https://github.com/vanvalenlab/cellSAM@362a8e521bcd7313d5cb280bcd4cfc12977c1e9f
 # For (local) interactive tutorial
 jupyter
 jupyterlab-myst

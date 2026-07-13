@@ -9,6 +9,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from types import MappingProxyType
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -41,7 +42,6 @@ CONFIG_DIR = Path(__file__).parent / "config"
 
 # Training constants
 WARMUP_PCT = 0.05  # Warmup percentage for OneCycleLR scheduler
-
 
 
 class TissueNetConfig:
@@ -108,9 +108,28 @@ class TissueNetConfig:
             self._zf.attrs.get("all_standardized_cell_types", [])
         )
 
+        # An archive missing these attrs (typo'd key, wrong/truncated write)
+        # defaults to empty above, which would pass the contiguity check below
+        # vacuously and yield NUM_CELLTYPES=0 — silently dropping every cell at
+        # training time. Reject it loudly instead.
+        if not self._cell_type_mapping:
+            raise ValueError(
+                f"{self.zarr_path} is missing root attrs.cell_type_mapping."
+            )
+        if not self._all_channels:
+            raise ValueError(
+                f"{self.zarr_path} is missing root attrs.all_standardized_channels."
+            )
+
         # Build ct2idx from cell_type_mapping (maps cell type name -> integer ID)
         # This is used for model output labels
         self._ct2idx = {ct: idx for ct, idx in self._cell_type_mapping.items()}
+        expected_indices = set(range(len(self._ct2idx)))
+        if set(self._ct2idx.values()) != expected_indices:
+            raise ValueError(
+                "cell_type_mapping indices must be unique and contiguous from 0 "
+                f"to {len(self._ct2idx) - 1}; got {self._ct2idx}."
+            )
 
         # Build marker2idx from all standardized channels
         self._marker2idx = {ch: idx for idx, ch in enumerate(self._all_channels)}
@@ -147,12 +166,12 @@ class TissueNetConfig:
     @property
     def ct2idx(self) -> Dict[str, int]:
         """Cell type name to integer index mapping."""
-        return self._ct2idx
+        return MappingProxyType(self._ct2idx)
 
     @property
     def marker2idx(self) -> Dict[str, int]:
         """Marker/channel name to integer index mapping."""
-        return self._marker2idx
+        return MappingProxyType(self._marker2idx)
 
     @property
     def tumor_datasets(self) -> set:
@@ -166,7 +185,7 @@ class TissueNetConfig:
             # Get unique domains from domain_mapping
             domains = sorted(set(self.domain_mapping.values()))
             self._domain2idx = {d: idx for idx, d in enumerate(domains)}
-        return self._domain2idx
+        return MappingProxyType(self._domain2idx)
 
     @property
     def NUM_DOMAINS(self) -> int:
@@ -267,7 +286,12 @@ class TissueNetConfig:
             # try/except is needed around it.
             mp_json_path = f"{zarr_dir_str}/{key}/marker_positivity/zarr.json"
             result["has_mp"] = os.path.exists(mp_json_path)
-        except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+        except (
+            FileNotFoundError,
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+        ) as e:
             logger.warning("_read_dataset_metadata failed for %s: %s", key, e)
         return result
 
@@ -639,7 +663,9 @@ class TissueNetConfig:
                 "Failed to read marker_positivity attrs for %s (%s: %s); "
                 "MP signal will be unavailable for this dataset. Likely an "
                 "archive schema drift — rerun the archive-ingestion pipeline.",
-                dataset_key, type(e).__name__, e,
+                dataset_key,
+                type(e).__name__,
+                e,
                 exc_info=True,
             )
             return None
@@ -658,7 +684,9 @@ class TissueNetConfig:
                     "marker_positivity has %d row label(s) not in ct2idx (dead-code rows; "
                     "first seen in dataset %s): %s. Rerun the archive-ingestion "
                     "pipeline to repopulate the standardized labels.",
-                    len(new_rows), dataset_key, new_rows,
+                    len(new_rows),
+                    dataset_key,
+                    new_rows,
                 )
 
         try:
@@ -667,7 +695,8 @@ class TissueNetConfig:
             logger.warning(
                 "marker_positivity matrix for %s is malformed (%s); "
                 "MP signal disabled for this dataset.",
-                dataset_key, e,
+                dataset_key,
+                e,
                 exc_info=True,
             )
             return None
@@ -702,7 +731,9 @@ class TissueNetConfig:
             logger.warning(
                 "tissue attr read failed for %s (%s: %s) — tissue-aware "
                 "masking disabled for this dataset",
-                dataset_key, type(e).__name__, e,
+                dataset_key,
+                type(e).__name__,
+                e,
                 exc_info=True,
             )
             return None
@@ -712,7 +743,9 @@ class TissueNetConfig:
             logger.warning(
                 "tissue attr for %s has unexpected type %s (value=%r) — "
                 "tissue-aware masking disabled",
-                dataset_key, type(raw).__name__, raw,
+                dataset_key,
+                type(raw).__name__,
+                raw,
             )
             return None
         return self._normalize_tissue_name(raw)
@@ -725,4 +758,3 @@ from .patch import (  # noqa: F401, E402
     extract_patch,
     extract_patch_from_zarr,
 )
-

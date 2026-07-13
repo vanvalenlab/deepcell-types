@@ -116,6 +116,36 @@ def test_canonical_config_reads_contract_from_archive(tmp_path):
     }
 
 
+def test_config_rejects_noncontiguous_cell_type_mapping(tmp_path):
+    archive_path = _make_archive(tmp_path)
+    metadata_path = archive_path / "zarr.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["attributes"]["cell_type_mapping"] = {"Bcell": 0, "Tumor": 2}
+    _write_json(metadata_path, metadata)
+
+    with pytest.raises(ValueError, match="unique and contiguous"):
+        DCTConfig(zarr_path=archive_path)
+
+
+def test_config_mappings_are_read_only():
+    config = DCTConfig()
+    # All exposed mappings must be immutable views, not the backing dicts.
+    for mapping in (config.ct2idx, config.marker2idx, config.domain2idx):
+        with pytest.raises(TypeError):
+            mapping["new"] = 0
+    # master_channels is exposed as an immutable tuple.
+    assert isinstance(config.master_channels, tuple)
+    with pytest.raises(TypeError):
+        config.master_channels[0] = "X"
+
+
+def test_invalid_archive_environment_variable_is_not_ignored(tmp_path, monkeypatch):
+    missing = tmp_path / "missing.zarr"
+    monkeypatch.setenv(DCTConfig.ARCHIVE_ENV_VAR, str(missing))
+    with pytest.raises(FileNotFoundError, match=DCTConfig.ARCHIVE_ENV_VAR):
+        DCTConfig()
+
+
 def test_patch_dataset_can_emit_archive_backed_canonical_batch(tmp_path):
     archive_path = _make_archive(tmp_path)
     config = DCTConfig(zarr_path=archive_path)
@@ -512,6 +542,13 @@ def test_config_raises_when_explicit_archive_missing(tmp_path, monkeypatch):
         DCTConfig(zarr_path=tmp_path / "does-not-exist.zarr")
 
 
+def test_config_raises_when_environment_archive_missing(tmp_path, monkeypatch):
+    missing = tmp_path / "does-not-exist.zarr"
+    monkeypatch.setenv("DEEPCELL_TYPES_ZARR_PATH", str(missing))
+    with pytest.raises(FileNotFoundError, match="DEEPCELL_TYPES_ZARR_PATH"):
+        DCTConfig()
+
+
 def test_config_falls_back_to_packaged_vocab(monkeypatch):
     # No archive anywhere -> DCTConfig loads the packaged vocab.json snapshot,
     # so predict() works without the (large) TissueNet archive.
@@ -858,9 +895,7 @@ def test_predict_output_is_pinned_for_a_fixed_checkpoint(tmp_path):
     # just the discrete labels) catches numerics drift even when it does not
     # cross an argmax boundary. Regenerate deliberately if preprocessing or the
     # forward path changes on purpose.
-    np.testing.assert_allclose(
-        res.probabilities, _PINNED_PROBS_SEED0, atol=1e-4
-    )
+    np.testing.assert_allclose(res.probabilities, _PINNED_PROBS_SEED0, atol=1e-4)
 
 
 # Golden softmax matrix for test_predict_output_is_pinned_for_a_fixed_checkpoint
@@ -938,3 +973,25 @@ def test_checkpoint_with_matching_ct2idx_and_canonical_channels_is_accepted():
         "canonical_channels": list(config.marker2idx.keys()),
     }
     validate_checkpoint_vocabulary(ckpt, config.ct2idx, config.marker2idx)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("n_heads", True, "positive integer"),
+        ("n_heads", 2.5, "positive integer"),
+        ("n_heads", 0, "positive integer"),
+        ("compat_marker0_zero", "false", "must be a boolean"),
+        ("compat_marker0_zero", 1, "must be a boolean"),
+    ],
+)
+def test_build_model_rejects_invalid_architecture_config(
+    tmp_path, field, value, message
+):
+    config = DCTConfig()
+    checkpoint = torch.load(
+        _build_checkpoint(config, tmp_path), map_location="cpu", weights_only=True
+    )
+    checkpoint["config"][field] = value
+    with pytest.raises(ValueError, match=message):
+        _build_model(checkpoint, config, torch.device("cpu"))

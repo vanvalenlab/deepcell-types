@@ -166,6 +166,18 @@ def check_dataset_coverage(
         )
 
 
+def combine_predictions(all_predictions: List[pd.DataFrame]) -> pd.DataFrame:
+    """Concatenate per-FOV prediction frames, failing if none were produced.
+
+    A run that generates no predictions must fail loudly rather than write an
+    empty result and report success (baselines are scored at full coverage).
+    Extracted from ``main()`` so the zero-prediction contract is unit-testable.
+    """
+    if len(all_predictions) == 0:
+        raise click.ClickException("No predictions were generated.")
+    return pd.concat(all_predictions, ignore_index=True)
+
+
 def compute_marker_positivity_metrics(
     predictions: pd.DataFrame,
     ground_truth: Dict[str, pd.DataFrame],
@@ -643,12 +655,8 @@ def main(
     # dataset_keys list, since --max_fovs can end the loop early.
     check_dataset_coverage(skipped_dataset_keys, fov_count + len(skipped_dataset_keys))
 
-    # Combine all predictions
-    if len(all_predictions) == 0:
-        print("Error: No predictions generated.")
-        return
-
-    predictions_df = pd.concat(all_predictions, ignore_index=True)
+    # Combine all predictions (fails loudly if the run produced none)
+    predictions_df = combine_predictions(all_predictions)
     print(f"\nGenerated predictions for {len(predictions_df)} cells")
 
     # Compute metrics

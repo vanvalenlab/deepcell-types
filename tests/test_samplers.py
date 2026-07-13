@@ -1,4 +1,4 @@
-"""Tests for FOVGroupedSampler (R7 L1) and LazyMarkerPositivityDict (R7 L2)."""
+"""Tests for FOVGroupedSampler and LazyMarkerPositivityDict."""
 
 import pickle
 
@@ -15,7 +15,7 @@ from deepcell_types.training.dataset import (
 
 
 # =============================================================================
-# R7 L1 — FOVGroupedSampler: cells from the same FOV must stay batched together
+# FOVGroupedSampler: cells from the same FOV must stay batched together
 # =============================================================================
 
 
@@ -268,7 +268,7 @@ class TestSequentialFOVGroupedSampler:
 
 
 # =============================================================================
-# R7 L2 — LazyMarkerPositivityDict: lazy load semantics
+# LazyMarkerPositivityDict: lazy load semantics
 # =============================================================================
 
 

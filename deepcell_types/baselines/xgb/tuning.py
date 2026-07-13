@@ -452,6 +452,7 @@ def _run_canonical_val_tuning(
     model_name=None,
     features_cache=None,
     class_balance="dct",
+    metric="macro_f1",
 ):
     """Canonical external-val tuning protocol (mirrors the main DCT model).
 
@@ -581,7 +582,7 @@ def _run_canonical_val_tuning(
         y_sel,
         num_classes=n_classes_compact,
         n_trials=n_trials,
-        metric="macro_f1",
+        metric=metric,
         study_name=study_name,
         storage=storage,
         hierarchy=CELL_TYPE_HIERARCHY,
@@ -630,8 +631,8 @@ def _run_canonical_val_tuning(
             {
                 "best_params": best_params,
                 "best_value": study.best_trial.value,
-                "metric": "macro_f1",
-                "selection": "canonical external ct_macro_f1 (capped 200k val)",
+                "metric": metric,
+                "selection": f"canonical external ct_{metric} (capped 200k val)",
                 "n_trials": n_trials,
                 "test_metrics": {
                     "macro_accuracy": test_metrics["macro_accuracy"],
@@ -867,6 +868,7 @@ def main(
             train_fov_names_full=train_fov_names_full,
             num_classes=num_classes,
             n_trials=n_trials,
+            metric=metric,
             study_name=study_name,
             storage=storage,
             device_num=device_num,

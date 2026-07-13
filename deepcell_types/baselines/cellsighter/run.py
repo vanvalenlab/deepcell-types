@@ -677,9 +677,7 @@ def main(
         with open(split_file) as _f:
             _sj = _json.load(_f)
         _kept = set(keep_datasets) if keep_datasets else None
-        _train_fovs = [
-            k for k in _sj["train"] if (_kept is None or k in _kept)
-        ]
+        _train_fovs = [k for k in _sj["train"] if (_kept is None or k in _kept)]
         print(f"Active datasets: {metadata['active_datasets']}")
         print(f"Number of samples: {metadata['num_samples']}")
         print(
@@ -702,8 +700,7 @@ def main(
         print(f"Active datasets: {metadata['active_datasets']}")
         print(f"Number of samples: {metadata['num_samples']}")
         print(
-            f"Inner-val cells (FOV-grouped, for selection): "
-            f"{metadata['num_inner_val']}"
+            f"Inner-val cells (FOV-grouped, for selection): {metadata['num_inner_val']}"
         )
 
     # Create model
@@ -715,17 +712,17 @@ def main(
         cifar_stem=cifar_stem,
     ).to(device)
 
-    # Fix 6: torch.compile for fused operations (PyTorch 2.x+)
+    # Compile supported operations for the fused PyTorch execution path.
     if not no_compile and hasattr(torch, "compile"):
         print("Applying torch.compile...")
         model = torch.compile(model)
 
-    # Fix 1: Mixed precision (AMP)
+    # Mixed precision (AMP).
     use_amp = use_cuda and not no_amp
     scaler = torch.amp.GradScaler("cuda") if use_amp else None
     amp_dtype = torch.float16 if use_amp else None
 
-    # Fix 5: Move label_remap to device once (avoid per-batch CPU→GPU transfer)
+    # Move label_remap to the device once to avoid per-batch transfers.
     label_remap = label_remap.to(device)
 
     # Loss and optimizer (matching CellSighter paper: constant lr=0.001)

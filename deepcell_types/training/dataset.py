@@ -343,7 +343,9 @@ class FullImageDataset(Dataset):
                     continue
                 domain = modality_attr
 
-            cell_types, cell_indices, centroids = entry["cell_data"]
+            cell_types, cell_indices, centroids = self._validate_cell_data_lengths(
+                dataset_key, entry["cell_data"]
+            )
 
             tissue_attr = ""
             try:
@@ -400,6 +402,23 @@ class FullImageDataset(Dataset):
                 )
 
     @staticmethod
+    def _validate_cell_data_lengths(dataset_key, cell_data):
+        """Reject a ``cell_data`` triple whose arrays disagree in length.
+
+        ``cell_data`` is ``(cell_types, cell_indices, centroids)``; a mismatch
+        would silently misalign labels with cells, so fail loudly instead.
+        Returns the (validated) triple for convenient unpacking.
+        """
+        cell_types, cell_indices, centroids = cell_data
+        lengths = (len(cell_types), len(cell_indices), len(centroids))
+        if len(set(lengths)) != 1:
+            raise ValueError(
+                f"{dataset_key}: cell_type, cell_index, and centroid arrays "
+                f"must have equal lengths; got {lengths}."
+            )
+        return cell_types, cell_indices, centroids
+
+    @staticmethod
     def _load_cell_data_cache(cache_path, expected_keys, fingerprint):
         """Load cell data cache from disk if valid.
 
@@ -417,30 +436,42 @@ class FullImageDataset(Dataset):
         # check + world-writable rejection blocks that vector while leaving the
         # single-user workflow unchanged.
         try:
-            st = cache_path.stat()
-        except OSError as e:
-            logger.warning("cell-data cache stat failed (%s), rebuilding...", e)
-            return None
-        if st.st_uid != os.getuid():
-            logger.warning(
-                "cell-data cache at %s not owned by current user (uid=%d, "
-                "expected %d) — rejecting and rebuilding",
-                cache_path,
-                st.st_uid,
-                os.getuid(),
-            )
-            return None
-        if st.st_mode & 0o002:  # world-writable
-            logger.warning(
-                "cell-data cache at %s is world-writable — rejecting and rebuilding",
-                cache_path,
-            )
-            return None
-        try:
-            with open(cache_path, "rb") as f:
+            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            fd = os.open(cache_path, flags)
+            with os.fdopen(fd, "rb") as f:
+                st = os.fstat(f.fileno())
+                if st.st_uid != os.getuid():
+                    logger.warning(
+                        "cell-data cache at %s not owned by current user "
+                        "(uid=%d, expected %d) — rejecting and rebuilding",
+                        cache_path,
+                        st.st_uid,
+                        os.getuid(),
+                    )
+                    return None
+                if st.st_mode & 0o022:
+                    logger.warning(
+                        "cell-data cache at %s is group- or world-writable — "
+                        "rejecting and rebuilding",
+                        cache_path,
+                    )
+                    return None
                 cached = pickle.load(f)
-        except (OSError, pickle.UnpicklingError, EOFError) as e:
-            logger.warning("cell-data cache load failed (%s), rebuilding...", e)
+        except (
+            OSError,
+            pickle.UnpicklingError,
+            EOFError,
+            AttributeError,
+            ImportError,
+            IndexError,
+            TypeError,
+            ValueError,
+        ) as e:
+            logger.warning(
+                "cell-data cache at %s could not be loaded (%s), rebuilding...",
+                cache_path,
+                e,
+            )
             return None
 
         # New format: {"fingerprint": ..., "data": {...}}

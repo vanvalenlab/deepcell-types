@@ -196,7 +196,12 @@ def forward_one_batch(
 
 @click.command()
 @click.option("--model_name", type=str, default="deepcell-types")
-@click.option("--device_num", type=str, default="cuda:0")
+@click.option(
+    "--device_num",
+    type=str,
+    default="auto",
+    help="Torch device. 'auto' selects cuda:0 when available, otherwise cpu.",
+)
 @click.option("--zarr_dir", type=str, default=str(DATA_DIR))
 @click.option("--skip_datasets", type=str, multiple=True, default=[])
 @click.option("--keep_datasets", type=str, multiple=True, default=[])
@@ -367,6 +372,9 @@ def main(
     # Seed everything
     seed_everything(seed)
 
+    if device_num == "auto":
+        device_num = "cuda:0" if torch.cuda.is_available() else "cpu"
+
     if debug:
         torch.autograd.set_detect_anomaly(True)
 
@@ -431,7 +439,9 @@ def main(
     if pretrained_path and Path(pretrained_path).exists():
         print(f"Loading pre-trained weights from {pretrained_path}")
         pretrained_state = torch.load(
-            pretrained_path, map_location=device, weights_only=False  # trusted local ckpt; pretrain.py saves numpy scalars
+            pretrained_path,
+            map_location=device,
+            weights_only=False,  # trusted local ckpt; pretrain.py saves numpy scalars
         )
         # Accept both the legacy plain-state_dict and the new bundled checkpoint
         # (which stores the backbone under the "model" key).
@@ -500,7 +510,7 @@ def main(
     # GradScaler for AMP (no-op when enable_amp=False)
     scaler = torch.amp.GradScaler("cuda", enabled=enable_amp)
 
-    # ---------- Checkpoint helpers (R4 H1: full training-state checkpoints) ----------
+    # Full training-state checkpoint helpers.
     # Snapshot of training-time config that must match on resume. If these differ we
     # can't restore optimizer/scheduler state sanely, so we raise.
     # CKPT_CONFIG is bundled into every saved checkpoint AND written to a
@@ -631,13 +641,15 @@ def main(
     best_model_path = Path(f"models/model_{model_name}_best.pt")
     best_model_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # ---------- R4 H1: full training-state resume ----------
+    # Resume the full training state when available.
     start_epoch = 0
     if resume_path is not None:
         if not Path(resume_path).exists():
             raise FileNotFoundError(f"--resume_path {resume_path} does not exist")
         logger.info("Resuming from %s", resume_path)
-        resume_ckpt = torch.load(resume_path, map_location=device, weights_only=False)  # trusted local ckpt
+        resume_ckpt = torch.load(
+            resume_path, map_location=device, weights_only=False
+        )  # trusted local ckpt
 
         if not isinstance(resume_ckpt, dict) or "optimizer" not in resume_ckpt:
             # Legacy checkpoint (only `model` key, or plain state_dict): fall back to
@@ -694,9 +706,7 @@ def main(
             # scheduler.load_state_dict() here would silently overwrite
             # total_steps with the checkpointed run's value, discarding an
             # increased --epochs.
-            resume_onecycle_schedule(
-                scheduler, resume_ckpt["scheduler"], logger=logger
-            )
+            resume_onecycle_schedule(scheduler, resume_ckpt["scheduler"], logger=logger)
             scaler.load_state_dict(resume_ckpt["scaler"])
             start_epoch = int(resume_ckpt["epoch"]) + 1
             # New key "best_val_macro_f1"; fall back to the legacy
@@ -862,7 +872,9 @@ def main(
     # test number. It is labeled "val_final" accordingly. The held-out test metric
     # for the paper is produced by `scripts/predict.py` on the split file's
     # `heldout` FOVs (which load_fov_splits excludes from both train and val).
-    checkpoint = torch.load(best_model_path, map_location=device, weights_only=False)  # trusted local ckpt
+    checkpoint = torch.load(
+        best_model_path, map_location=device, weights_only=False
+    )  # trusted local ckpt
     model.load_state_dict(checkpoint["model"])
     model.eval()
 

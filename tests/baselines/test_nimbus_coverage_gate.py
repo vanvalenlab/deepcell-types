@@ -11,12 +11,27 @@ a silent drop must never be invisible — hence the aggregate print happens
 unconditionally, even below threshold.
 """
 
+import click
+import pandas as pd
 import pytest
 
 from deepcell_types.baselines.nimbus.run import (
     NIMBUS_DATASET_FAILURE_RATE_THRESHOLD,
     check_dataset_coverage,
+    combine_predictions,
 )
+
+
+def test_combine_predictions_raises_on_empty():
+    # A run producing no predictions must fail loudly, not write an empty result.
+    with pytest.raises(click.ClickException, match="No predictions were generated"):
+        combine_predictions([])
+
+
+def test_combine_predictions_concatenates_frames():
+    frames = [pd.DataFrame({"cell": [1]}), pd.DataFrame({"cell": [2, 3]})]
+    out = combine_predictions(frames)
+    assert list(out["cell"]) == [1, 2, 3]
 
 
 def test_no_skips_reports_zero_and_does_not_raise(capsys):

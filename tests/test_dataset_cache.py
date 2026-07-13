@@ -1,7 +1,10 @@
 """Tests for zarr cell-data cache provenance and negative entries."""
 
 import json
+import os
 import pickle
+
+import pytest
 
 from deepcell_types.training import config as config_module
 from deepcell_types.training.config import (
@@ -93,6 +96,63 @@ def test_cell_data_cache_rejects_legacy_bare_dict(tmp_path):
     )
 
     assert loaded is None
+
+
+def test_cell_data_cache_rejects_group_writable_file(tmp_path):
+    cache_path = tmp_path / "cell-data.pkl"
+    FullImageDataset._save_cell_data_cache(cache_path, {"labeled": {}}, "archive123")
+    cache_path.chmod(0o660)
+
+    loaded = FullImageDataset._load_cell_data_cache(
+        cache_path, ["labeled"], "archive123"
+    )
+
+    assert loaded is None
+    assert os.stat(cache_path).st_mode & 0o020
+
+
+def test_cell_data_cache_rejects_symlink(tmp_path):
+    # The cache path is predictable, so an attacker on a shared filesystem could
+    # replace it with a symlink to a crafted pickle they control. O_NOFOLLOW
+    # must refuse to follow the link and trigger a rebuild instead.
+    real = tmp_path / "attacker.pkl"
+    FullImageDataset._save_cell_data_cache(real, {"labeled": {}}, "archive123")
+    cache_path = tmp_path / "cell-data.pkl"
+    os.symlink(real, cache_path)
+
+    loaded = FullImageDataset._load_cell_data_cache(
+        cache_path, ["labeled"], "archive123"
+    )
+
+    assert loaded is None
+
+
+def test_cell_data_cache_rebuilds_on_stale_import_error(tmp_path, monkeypatch):
+    cache_path = tmp_path / "cell-data.pkl"
+    cache_path.write_bytes(b"placeholder")
+
+    def fail_load(_file):
+        raise ModuleNotFoundError("removed cache class")
+
+    monkeypatch.setattr(pickle, "load", fail_load)
+    assert (
+        FullImageDataset._load_cell_data_cache(cache_path, ["labeled"], "archive123")
+        is None
+    )
+
+
+def test_validate_cell_data_lengths_rejects_mismatch():
+    # cell_types / cell_indices / centroids of differing lengths would silently
+    # misalign labels with cells; the loader must reject it.
+    with pytest.raises(ValueError, match="must have equal lengths"):
+        FullImageDataset._validate_cell_data_lengths(
+            "ds1", (["CD4T", "CD8T"], [1], [[0.0, 0.0], [1.0, 1.0]])
+        )
+
+
+def test_validate_cell_data_lengths_accepts_equal():
+    triple = (["CD4T"], [1], [[0.0, 0.0]])
+    assert FullImageDataset._validate_cell_data_lengths("ds1", triple) == triple
 
 
 def _write_json(path, payload):

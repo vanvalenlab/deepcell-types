@@ -196,8 +196,8 @@ def check_marker_index_order(
     ``svd_512.npz`` marker embeddings are built for that exact order. Reordering
     or resizing it silently misaligns the checkpoint's per-marker weights, or
     trips the ``n_markers`` guard in ``predict._build_model`` so the released
-    checkpoint fails to load. This caught a real incident (2026-06-01) where the
-    registry was re-accumulated to a 327-channel union and re-sorted.
+    checkpoint fails to load. Ordered comparison is required because equal
+    marker names in a different order still misalign checkpoint weights.
 
     Returns a list of human-readable error strings (empty == contract holds).
     """
@@ -244,17 +244,18 @@ def check_marker_index_order(
 def _load_expected_marker_order(path: Path) -> list[str]:
     """Load the released model's frozen marker order (source of truth).
 
-    Accepts the released embeddings ``.npz`` (whose ``marker2idx`` object holds
-    the ``{marker: index}`` map) or a JSON file containing either a
-    ``{marker: index}`` dict or an ordered list of marker names.
+    Accepts a JSON file containing either a ``{marker: index}`` dict or an
+    ordered list of marker names. JSON is required because NumPy object arrays
+    rely on pickle deserialization and are not safe release-contract inputs.
     """
     path = Path(path)
-    if path.suffix == ".npz":
-        import numpy as np
-
-        data = np.load(path, allow_pickle=True)
-        marker2idx = data["marker2idx"].item()
-        return [m for m, _ in sorted(marker2idx.items(), key=lambda kv: kv[1])]
+    if path.suffix != ".json":
+        suffix = path.suffix or "a file without an extension"
+        raise ValueError(
+            f"Marker order must be supplied as JSON, not {suffix}; "
+            "NumPy object archives require unsafe "
+            "pickle deserialization."
+        )
     obj = _read_json(path)
     if isinstance(obj, dict):
         return [m for m, _ in sorted(obj.items(), key=lambda kv: kv[1])]
@@ -484,8 +485,8 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=None,
         help=(
-            "Path to the released model's embeddings .npz (with a marker2idx "
-            "object) or a JSON marker2idx/ordered-list. When set, assert that the "
+            "Path to a JSON marker2idx mapping or ordered marker list. When set, "
+            "assert that the "
             "archive's all_standardized_channels matches that frozen marker→index "
             "order exactly. Guards against the checkpoint-breaking reorder/resize."
         ),

@@ -150,7 +150,11 @@ def evaluate(
     y: np.ndarray,
     device: torch.device,
     batch_size: int = 1024,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    criterion=None,
+) -> (
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
+    | Tuple[np.ndarray, np.ndarray, np.ndarray, float]
+):
     """
     Evaluate model on dataset.
 
@@ -168,16 +172,24 @@ def evaluate(
     """
     model.eval()
     all_prob = []
+    total_loss = 0.0
 
     # Process in batches
     for i in range(0, len(X), batch_size):
         X_batch = X[i : i + batch_size].to(device)
-        _, probs = model(X_batch)  # Use probs for evaluation
+        logits, probs = model(X_batch)
         all_prob.append(probs.cpu().numpy())
+        if criterion is not None:
+            y_batch = torch.from_numpy(y[i : i + batch_size].astype(np.int64)).to(
+                device
+            )
+            total_loss += criterion(logits, y_batch).item() * len(y_batch)
 
     y_prob = np.concatenate(all_prob, axis=0)
     y_pred = y_prob.argmax(axis=1)
 
+    if criterion is not None:
+        return y, y_pred, y_prob, total_loss / len(y)
     return y, y_pred, y_prob
 
 
@@ -467,7 +479,10 @@ def main(
         inner_train_idx, inner_val_idx = next(
             gss.split(X_train, y_train, groups=train_fov_array)
         )
-        X_inner_train, y_inner_train = X_train[inner_train_idx], y_train[inner_train_idx]
+        X_inner_train, y_inner_train = (
+            X_train[inner_train_idx],
+            y_train[inner_train_idx],
+        )
         X_inner_val, y_inner_val = X_train[inner_val_idx], y_train[inner_val_idx]
         select_on_macro_f1 = False
         print(
@@ -590,8 +605,8 @@ def main(
         # Evaluate on the inner-val set (selection signal only — never the
         # reported test set). Shared hierarchy collapse (Tcell + Stromal)
         # matches the main model's LossesAndMetrics.compute() exactly.
-        y_true, y_pred, y_prob = evaluate(
-            model, X_inner_val_tensor, y_inner_val, device
+        y_true, y_pred, y_prob, val_loss = evaluate(
+            model, X_inner_val_tensor, y_inner_val, device, criterion=criterion
         )
         metrics = compute_baseline_metrics(
             y_true,
@@ -614,14 +629,6 @@ def main(
             )
         except ValueError:
             metrics["auroc"] = float("nan")
-
-        # Compute inner-validation loss (drives checkpoint selection)
-        model.eval()
-        with torch.no_grad():
-            X_inner_val_dev = X_inner_val_tensor.to(device)
-            y_inner_val_dev = torch.from_numpy(y_inner_val.astype(np.int64)).to(device)
-            val_logits, _ = model(X_inner_val_dev)
-            val_loss = criterion(val_logits, y_inner_val_dev).item()
 
         # Canonical selection signal: metrics["macro_f1"] is the hierarchical
         # ct_macro_f1 on the selection-val set (the same reduction the main

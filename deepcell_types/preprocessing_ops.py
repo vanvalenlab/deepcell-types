@@ -92,6 +92,15 @@ def apply_config(raw, channel_names, config):
     """
     x = np.asarray(raw, dtype=np.float32).copy()
     idx = {n: i for i, n in enumerate(channel_names)}
+
+    def require_known(names):
+        unknown = sorted(set(names) - set(idx))
+        if unknown:
+            raise ValueError(
+                f"unknown preprocessing channel name(s): {unknown}; "
+                f"available channels: {sorted(idx)}"
+            )
+
     for step in config:
         op = step["op"]
         if op == "clip_percentile":
@@ -102,7 +111,9 @@ def apply_config(raw, channel_names, config):
             x = np.clip(x - float(step["value"]), 0, None)
         elif op == "background_subtract_per_channel":
             names = step.get("names")
-            sel = [idx[n] for n in names if n in idx] if names else None
+            if names:
+                require_known(names)
+            sel = [idx[n] for n in names] if names else None
             x = _background_subtract_per_channel(x, float(step.get("p", 25.0)), sel)
         elif op == "gamma":
             mx = x.max(axis=(1, 2), keepdims=True)
@@ -121,13 +132,13 @@ def apply_config(raw, channel_names, config):
         elif op == "hot_pixel_removal":
             x = _hot_pixel_removal(x, float(step.get("z", 5.0)))
         elif op == "channel_drop":
+            require_known(step["names"])
             for n in step["names"]:
-                if n in idx:
-                    x[idx[n]] = 0.0
+                x[idx[n]] = 0.0
         elif op == "channel_weight":
+            require_known(step["weights"])
             for n, w in step["weights"].items():
-                if n in idx:
-                    x[idx[n]] *= float(w)
+                x[idx[n]] *= float(w)
         elif op == "min_max_normalize":
             x = _min_max(x)
         else:

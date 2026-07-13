@@ -1,12 +1,16 @@
 """Unit tests for centroid_to_cell_idx_fast tolerance behavior.
 
-Round-2 audit found 4 mcmicro_TMA11 FOVs losing 38-40% of cells at tol=1.0
+Some mcmicro_TMA11 FOVs lose 38-40% of cells at tol=1.0
 because of sub-pixel drift between standardized_source centroids and
 preprocessed centroids amplified by scale_factor=1.3. Default tolerance was
 bumped to 1.5 to recover those cells. These tests pin the behavior at both
 tolerance values so the bump can't be reverted accidentally.
 """
-from deepcell_types.training.annotations import build_centroid_tree, centroid_to_cell_idx_fast
+
+from deepcell_types.training.annotations import (
+    build_centroid_tree,
+    centroid_to_cell_idx_fast,
+)
 
 
 def _tree_from(centroids):

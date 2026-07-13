@@ -85,6 +85,25 @@ def test_config_reads_training_archive_contract(archive_and_config):
     assert config.tissue2idx == {"liver": 0, "lung": 1}
 
 
+def test_tissuenet_config_rejects_noncontiguous_cell_type_mapping(tmp_path):
+    archive_path = tmp_path / "bad.zarr"
+    root = zarr.open_group(str(archive_path), mode="w")
+    root.attrs["cell_type_mapping"] = {"Bcell": 0, "Tumor": 2}  # gap at index 1
+    root.attrs["all_standardized_channels"] = ["CD45"]
+    with pytest.raises(ValueError, match="unique and contiguous"):
+        TissueNetConfig(archive_path)
+
+
+def test_tissuenet_config_rejects_missing_cell_type_mapping(tmp_path):
+    # An archive missing cell_type_mapping must fail loudly, not default to an
+    # empty mapping that passes the contiguity check vacuously (NUM_CELLTYPES=0).
+    archive_path = tmp_path / "empty.zarr"
+    root = zarr.open_group(str(archive_path), mode="w")
+    root.attrs["all_standardized_channels"] = ["CD45"]
+    with pytest.raises(ValueError, match="missing root attrs.cell_type_mapping"):
+        TissueNetConfig(archive_path)
+
+
 def test_full_image_dataset_indexes_all_cells(archive_and_config):
     archive_path, config = archive_and_config
     dataset = FullImageDataset(archive_path, dct_config=config)

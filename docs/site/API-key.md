@@ -52,9 +52,9 @@ download_baseline_checkpoint("maps")
 ```
 
 The Nimbus baseline is not served here: its pretrained weights are
-distributed upstream, so install it with `pip install -e ".[baseline-nimbus]"`
-(which fetches the weights automatically) rather than
-`download_baseline_checkpoint`.
+distributed upstream, so install it with
+`pip install nimbus-inference==0.0.5` on Python 3.11 (which fetches the weights
+automatically) rather than `download_baseline_checkpoint`.
 
 Training Data
 -------------

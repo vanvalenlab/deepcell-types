@@ -17,6 +17,7 @@ __all__ = ["predict", "PredictionResult"]
 # (torch is a ~1.4s import). Keep it that way — do not add a top-level
 # `import torch` here.
 
+
 def _names_ordered_by_index(mapping):
     return [name for name, _ in sorted(mapping.items(), key=lambda item: int(item[1]))]
 
@@ -71,6 +72,24 @@ def validate_checkpoint_vocabulary(checkpoint, ct2idx, marker2idx):
             "Checkpoint marker ordering (canonical_channels) does not match the "
             "inference vocabulary's marker2idx ordering."
         )
+
+
+def validate_checkpoint_architecture_config(checkpoint):
+    """Return architecture fields that cannot be inferred from checkpoint tensors."""
+    config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
+    missing = [key for key in ("n_heads", "compat_marker0_zero") if key not in config]
+    if missing:
+        raise ValueError(
+            f"Checkpoint config is missing {', '.join(missing)}. These fields "
+            "cannot be recovered from checkpoint weights."
+        )
+    n_heads = config["n_heads"]
+    if isinstance(n_heads, bool) or not isinstance(n_heads, int) or n_heads <= 0:
+        raise ValueError("Checkpoint config n_heads must be a positive integer.")
+    compat = config["compat_marker0_zero"]
+    if not isinstance(compat, bool):
+        raise ValueError("Checkpoint config compat_marker0_zero must be a boolean.")
+    return n_heads, compat
 
 
 @dataclass(frozen=True)
@@ -261,8 +280,6 @@ def _build_model(checkpoint, dct_config, device):
     from .model import create_model
 
     state_dict = _state_dict(checkpoint)
-    config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
-
     try:
         marker_weight = state_dict["marker_embedder.embed_layer.weight"]
         n_markers = marker_weight.shape[0] - 1
@@ -302,18 +319,7 @@ def _build_model(checkpoint, dct_config, device):
     # is a pure-Python numerics flag), so they must be recorded in the checkpoint
     # config. scripts/train.py and retrain_head.py bundle both; a wrong value
     # loads with silently wrong numerics, so require them rather than guess.
-    missing_arch_keys = [
-        k for k in ("n_heads", "compat_marker0_zero") if k not in config
-    ]
-    if missing_arch_keys:
-        raise ValueError(
-            f"Checkpoint config is missing {', '.join(missing_arch_keys)}. These "
-            "are not recoverable from the weights and a wrong value loads with "
-            "silently wrong numerics; scripts/train.py records them in every "
-            "checkpoint."
-        )
-    n_heads = int(config["n_heads"])
-    compat_marker0_zero = bool(config["compat_marker0_zero"])
+    n_heads, compat_marker0_zero = validate_checkpoint_architecture_config(checkpoint)
 
     model = create_model(
         dct_config,

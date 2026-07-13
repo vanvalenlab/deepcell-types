@@ -1,6 +1,6 @@
 """Unit tests for FOV-zero-channel masking in FullImageDataset.__getitem__.
 
-Round-1 audit found ~3.4% of valid channels per MIBI/IMC FOV are listed in
+About 3.4% of valid channels per MIBI/IMC FOV are listed in
 channel_names but all-zero in raw across the entire FOV. These channels were
 fed to the transformer as constant-zero tokens with a misleading marker
 embedding prior. The fix masks them out at FOV-time. These tests verify the
@@ -14,6 +14,7 @@ anchors the test file to a concrete substring in the real code; if the
 production masking is refactored, that anchor will fail loudly so the copy
 here can be updated (or this test file deleted) deliberately.
 """
+
 from pathlib import Path
 
 import numpy as np
@@ -30,7 +31,9 @@ class _MinimalDataset:
         self._zero_channel_cache = {}
 
 
-def _apply_zero_channel_mask(ds, ds_idx, n_real_channels, ch_idx, sample, mp_padded, vm_padded):
+def _apply_zero_channel_mask(
+    ds, ds_idx, n_real_channels, ch_idx, sample, mp_padded, vm_padded
+):
     """Replicates the masking block from dataset.py::__getitem__ for unit testing."""
     attn_mask = np.ones(ds.max_channels, dtype=bool)
     attn_mask[:n_real_channels] = ch_idx[:n_real_channels] == -1
@@ -62,7 +65,9 @@ def test_all_zero_channel_is_masked_in_attn_mask():
     mp = np.ones(ds.max_channels, dtype=np.float32)
     vm = np.ones(ds.max_channels, dtype=bool)
 
-    attn_mask, sample, mp, vm = _apply_zero_channel_mask(ds, 0, 3, ch_idx, sample, mp, vm)
+    attn_mask, sample, mp, vm = _apply_zero_channel_mask(
+        ds, 0, 3, ch_idx, sample, mp, vm
+    )
     # Channel 1 was all-zero -> attn_mask True (padded out)
     assert not attn_mask[0]
     assert attn_mask[1]
@@ -105,7 +110,9 @@ def test_no_zero_cache_means_no_extra_masking():
     mp = np.ones(ds.max_channels, dtype=np.float32)
     vm = np.ones(ds.max_channels, dtype=bool)
 
-    attn_mask, sample, mp, vm = _apply_zero_channel_mask(ds, 0, 3, ch_idx, sample, mp, vm)
+    attn_mask, sample, mp, vm = _apply_zero_channel_mask(
+        ds, 0, 3, ch_idx, sample, mp, vm
+    )
     # Only the unknown channel is masked
     assert not attn_mask[0]
     assert attn_mask[1]  # ch_idx == -1
@@ -145,7 +152,9 @@ def test_combined_unknown_and_zero_channel():
     mp = np.ones(ds.max_channels, dtype=np.float32)
     vm = np.ones(ds.max_channels, dtype=bool)
 
-    attn_mask, sample, mp, vm = _apply_zero_channel_mask(ds, 0, 3, ch_idx, sample, mp, vm)
+    attn_mask, sample, mp, vm = _apply_zero_channel_mask(
+        ds, 0, 3, ch_idx, sample, mp, vm
+    )
     assert not attn_mask[0]
     assert attn_mask[1]  # unknown
     assert attn_mask[2]  # zero

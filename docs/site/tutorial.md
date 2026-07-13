@@ -247,26 +247,8 @@ mask_lyr = nim.add_labels(mask, name="CellSAM segmentation")
 mask_lyr.contour = 3  # Relatively thick borders for static viz
 ```
 
-```{code-cell} ipython3
-:tags: [hide-cell]
-
-# For static rendering - can safely be ignored if running notebook interactively
-from pathlib import Path
-
-screenshot_path = Path("../_static/_generated")
-screenshot_path.mkdir(parents=True, exist_ok=True)
-nim.screenshot(
-    path=screenshot_path / "napari_img_and_segmentation.png",
-    canvas_only=False,
-);
-```
-
-<center>
-  <img src="../_static/_generated/napari_img_and_segmentation.png"
-       alt="Napari window of multiplexed image and computed segmentation mask"
-       width=100%
-  />
-</center>
+The image and segmentation layers appear directly in the interactive Napari
+viewer. Static documentation builds do not execute or embed GUI screenshots.
 
 
 ### Cell-type inference with `deepcell-types`
@@ -341,8 +323,8 @@ mapping explicit:
 cell. To enable it, pass a float `k`: `predict` then flags cells whose
 top-class probability falls below an IQR fence on the field-of-view's
 confidence distribution and rewrites their label to the sentinel `"Unknown"`.
-The paper's headline numbers are full-coverage (no abstention); `k=0.2` is a
-historical opt-in ablation, shown here only to illustrate how to enable it:
+Reported results use full coverage (no abstention). The following example shows
+how to opt into an IQR-fence threshold with `k=0.2`:
 
     cell_types = deepcell_types.predict(
         img, mask, chnames, mpp,
@@ -419,26 +401,9 @@ for k, l in labels_by_celltype.items():
     )
 ```
 
-```{code-cell} ipython3
-:tags: [hide-cell]
-
-# For static rendering - can safely be ignored if running notebook interactively
-from pathlib import Path
-
-screenshot_path = Path("../_static/_generated")
-screenshot_path.mkdir(parents=True, exist_ok=True)
-nim.screenshot(
-    path=screenshot_path / "napari_celltype_layers.png",
-    canvas_only=False,
-);
-```
-
-<center>
-  <img src="../_static/_generated/napari_celltype_layers.png"
-       alt="Napari window of multiplexed image with celltype predictions"
-       width=100%
-  />
-</center>
+When running interactively, the new label layers appear directly in the Napari
+viewer and can be toggled independently. Static documentation builds do not
+execute or embed GUI screenshots.
 
 [hubmap-data-portal]: https://portal.hubmapconsortium.org/search/datasets
 [zarr]: https://zarr.readthedocs.io/en/stable/

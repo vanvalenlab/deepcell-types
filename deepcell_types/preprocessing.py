@@ -10,10 +10,8 @@ training pipeline consumes from ``preprocessed/raw`` + ``preprocessed/mask``:
 3. **Per-channel min-max normalize** to ``[0, 1]``.
 4. Cast mask to ``uint32``; compute centroids in resampled coordinates.
 
-This recipe was recovered from
-the archive ingestion pipeline —
-the script that originally produced the production archive's
-``preprocessed/raw`` arrays. A snapshot test
+This recipe matches the archive ingestion pipeline that produces the
+production archive's ``preprocessed/raw`` arrays. A snapshot test
 (``tests/test_preprocessing.py::test_snapshot_against_production``)
 confirms it reproduces production output within sub-pixel resampling
 noise (max per-channel mean drift ~0.05 on
@@ -26,13 +24,12 @@ itself being fixed.
 
 ## Public API
 
-- ``preprocess_fov(raw, mask, native_mpp, channel_names) → PreprocessedFov``
+- ``preprocess_fov(raw, mask, *, native_mpp=..., channel_names=...) → PreprocessedFov``
 - ``DEFAULT_PERCENTILE = 99.9``
 - ``TARGET_MPP = 0.5``
 
 The function is deterministic given the input — equal inputs produce
-bit-equal outputs (modulo float precision noise from skimage.rescale,
-which is the same noise present in the historical pipeline).
+bit-equal outputs (modulo float precision noise from skimage.rescale).
 """
 
 from __future__ import annotations
@@ -219,8 +216,12 @@ def preprocess_fov(
         raise ValueError(
             f"len(channel_names)={len(channel_names)} != raw.shape[0]={raw.shape[0]}"
         )
-    if native_mpp <= 0.0:
-        raise ValueError(f"native_mpp must be positive, got {native_mpp}")
+    if not np.isfinite(native_mpp) or native_mpp <= 0.0:
+        raise ValueError(f"native_mpp must be positive and finite, got {native_mpp}")
+    if not np.isfinite(target_mpp) or target_mpp <= 0.0:
+        raise ValueError(f"target_mpp must be positive and finite, got {target_mpp}")
+    if not np.isfinite(percentile) or not 0.0 <= percentile <= 100.0:
+        raise ValueError(f"percentile must be finite and in [0, 100], got {percentile}")
 
     scale = native_mpp / target_mpp
     raw_chw, mask_r = _resample(raw, mask, scale)

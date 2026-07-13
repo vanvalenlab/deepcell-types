@@ -1,8 +1,7 @@
-"""Registry + CLI option-snapshot tests for the round-2 baselines (maps, cellsighter).
+"""Registry and CLI option-snapshot tests for MAPS and CellSighter.
 
-Frozen option snapshots of the per-baseline click commands (re-frozen after the
-wandb logging option was removed across all baselines). cellsighter's command
-imports torchvision (via cellsighter.model), so its tests importorskip it.
+CellSighter's command imports torchvision through its model, so those tests
+skip when the optional dependency is unavailable.
 """
 
 import click
