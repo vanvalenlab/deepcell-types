@@ -631,8 +631,8 @@ def _run_canonical_val_tuning(
             {
                 "best_params": best_params,
                 "best_value": study.best_trial.value,
-                "metric": "macro_f1",
-                "selection": "canonical external ct_macro_f1 (capped 200k val)",
+                "metric": metric,
+                "selection": f"canonical external ct_{metric} (capped 200k val)",
                 "n_trials": n_trials,
                 "test_metrics": {
                     "macro_accuracy": test_metrics["macro_accuracy"],
