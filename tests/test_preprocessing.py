@@ -183,6 +183,19 @@ def test_preprocess_fov_rejects_invalid_resolution(name, value):
         )
 
 
+@pytest.mark.parametrize("value", [-1.0, 101.0, float("nan"), float("inf")])
+def test_preprocess_fov_rejects_invalid_percentile(value):
+    with pytest.raises(ValueError, match="percentile must be finite and in"):
+        preprocess_fov(
+            np.ones((1, 2, 2), dtype=np.float32),
+            np.ones((2, 2), dtype=np.int32),
+            channel_names=["CD3"],
+            native_mpp=0.5,
+            target_mpp=0.5,
+            percentile=value,
+        )
+
+
 def test_preprocess_fov_deterministic():
     raw, mask = _fixture_raw_mask()
     out1 = preprocess_fov(raw, mask, native_mpp=0.7, channel_names=["a", "b", "c"])

@@ -343,13 +343,9 @@ class FullImageDataset(Dataset):
                     continue
                 domain = modality_attr
 
-            cell_types, cell_indices, centroids = entry["cell_data"]
-            lengths = (len(cell_types), len(cell_indices), len(centroids))
-            if len(set(lengths)) != 1:
-                raise ValueError(
-                    f"{dataset_key}: cell_type, cell_index, and centroid arrays "
-                    f"must have equal lengths; got {lengths}."
-                )
+            cell_types, cell_indices, centroids = self._validate_cell_data_lengths(
+                dataset_key, entry["cell_data"]
+            )
 
             tissue_attr = ""
             try:
@@ -404,6 +400,23 @@ class FullImageDataset(Dataset):
                         centroid=tuple(centroid),
                     )
                 )
+
+    @staticmethod
+    def _validate_cell_data_lengths(dataset_key, cell_data):
+        """Reject a ``cell_data`` triple whose arrays disagree in length.
+
+        ``cell_data`` is ``(cell_types, cell_indices, centroids)``; a mismatch
+        would silently misalign labels with cells, so fail loudly instead.
+        Returns the (validated) triple for convenient unpacking.
+        """
+        cell_types, cell_indices, centroids = cell_data
+        lengths = (len(cell_types), len(cell_indices), len(centroids))
+        if len(set(lengths)) != 1:
+            raise ValueError(
+                f"{dataset_key}: cell_type, cell_index, and centroid arrays "
+                f"must have equal lengths; got {lengths}."
+            )
+        return cell_types, cell_indices, centroids
 
     @staticmethod
     def _load_cell_data_cache(cache_path, expected_keys, fingerprint):
