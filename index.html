@@ -368,30 +368,6 @@ See <a class="reference internal" href="site/API-key.html"><span class="doc">Mod
 </pre></div>
 </div>
 </section>
-<section id="tissuenet-archive-optional">
-<h2>TissueNet archive (optional)<a class="headerlink" href="#tissuenet-archive-optional" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">predict()</span></code> does <strong>not</strong> require the TissueNet archive: the marker / cell-type
-registry it needs ships with the package as a small <code class="docutils literal notranslate"><span class="pre">vocab.json</span></code> snapshot, so
-the base install above + <code class="docutils literal notranslate"><span class="pre">download_model()</span></code> is enough to run inference.</p>
-<p>The (multi-GB) <code class="docutils literal notranslate"><span class="pre">tissuenet-v*.zarr</span></code> archive is only needed if you want the
-tissue→cell-type mapping or are reproducing the training pipeline. It is
-distributed as a <code class="docutils literal notranslate"><span class="pre">.zip</span></code> that must be extracted before use:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">deepcell_types.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">download_training_data</span>
-
-<span class="c1"># Downloads the .zip and extracts it; returns the extraction directory</span>
-<span class="c1"># containing the tissuenet-v*.zarr archive. (Large download — see API-key page.)</span>
-<span class="n">archive_dir</span> <span class="o">=</span> <span class="n">download_training_data</span><span class="p">(</span><span class="n">extract</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>When you do have an archive, point <code class="docutils literal notranslate"><span class="pre">predict</span></code> at it with the <code class="docutils literal notranslate"><span class="pre">zarr_path=</span></code>
-argument, or set it once for the session:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DEEPCELL_TYPES_ZARR_PATH</span><span class="o">=</span>/path/to/tissuenet-v10.zarr
-</pre></div>
-</div>
-<p>An explicit <code class="docutils literal notranslate"><span class="pre">zarr_path=</span></code> that doesn’t contain an archive raises
-<code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code>; the checkpoint and registry must agree on the marker and
-cell-type ordering, otherwise loading fails early with a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>.</p>
-</section>
 <section id="running">
 <h2>Running<a class="headerlink" href="#running" title="Link to this heading">#</a></h2>
 <p>The <a class="reference internal" href="site/tutorial.html"><span class="doc">Tutorial</span></a> demonstrates how to set up, run, and visualize the
@@ -487,19 +463,13 @@ in <code class="docutils literal notranslate"><span class="pre">zarr</span></cod
 </div>
 <p>The end-to-end training and evaluation scripts live under <code class="docutils literal notranslate"><span class="pre">scripts/</span></code>:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">scripts/train.py</span></code> — main training entry point (DCTConfig + FullImageDataset</p>
-<ul>
-<li><p>FocalLoss / HierarchicalLoss + OneCycleLR; supports the FOV-grouped
-sampler and the conditioned marker-positivity head).</p></li>
-</ul>
-</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scripts/train.py</span></code> — main training entry point.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">scripts/predict.py</span></code> — batched predictions over a zarr archive, with
 optional hierarchy-aware evaluation.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">scripts/pretrain.py</span></code> — masked-marker pretraining stage.</p></li>
 </ul>
 <p>All training scripts read mappings and metadata from a TissueNet zarr v3
-archive (<code class="docutils literal notranslate"><span class="pre">tissuenet-v10.zarr</span></code> is the current canonical release; v8 and v9
-are also accepted). Pass the archive path with
+archive (<code class="docutils literal notranslate"><span class="pre">expanded-tissuenet.zarr</span></code>). Pass the archive path with
 <code class="docutils literal notranslate"><span class="pre">--zarr_dir</span></code> (training scripts) or via the <code class="docutils literal notranslate"><span class="pre">DEEPCELL_TYPES_ZARR_PATH</span></code>
 environment variable (<code class="docutils literal notranslate"><span class="pre">deepcell_types.predict</span></code>).</p>
 <div class="toctree-wrapper compound">
@@ -547,7 +517,6 @@ environment variable (<code class="docutils literal notranslate"><span class="pr
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pre-trained-models">Pre-trained models</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tissuenet-archive-optional">TissueNet archive (optional)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running">Running</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#limitations">Limitations</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#training">Training</a></li>

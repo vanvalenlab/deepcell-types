@@ -34,35 +34,6 @@ from deepcell_types.utils import download_model
 download_model()  # No argument == latest released version
 ```
 
-## TissueNet archive (optional)
-
-`predict()` does **not** require the TissueNet archive: the marker / cell-type
-registry it needs ships with the package as a small `vocab.json` snapshot, so
-the base install above + `download_model()` is enough to run inference.
-
-The (multi-GB) `tissuenet-v*.zarr` archive is only needed if you want the
-tissue→cell-type mapping or are reproducing the training pipeline. It is
-distributed as a `.zip` that must be extracted before use:
-
-```python
-from deepcell_types.utils import download_training_data
-
-# Downloads the .zip and extracts it; returns the extraction directory
-# containing the tissuenet-v*.zarr archive. (Large download — see API-key page.)
-archive_dir = download_training_data(extract=True)
-```
-
-When you do have an archive, point `predict` at it with the `zarr_path=`
-argument, or set it once for the session:
-
-```bash
-export DEEPCELL_TYPES_ZARR_PATH=/path/to/tissuenet-v10.zarr
-```
-
-An explicit `zarr_path=` that doesn't contain an archive raises
-`FileNotFoundError`; the checkpoint and registry must agree on the marker and
-cell-type ordering, otherwise loading fails early with a `ValueError`.
-
 ## Running
 
 The {doc}`site/tutorial` demonstrates how to set up, run, and visualize the
@@ -171,16 +142,13 @@ pip install "deepcell-types[train] @ git+https://github.com/vanvalenlab/deepcell
 
 The end-to-end training and evaluation scripts live under `scripts/`:
 
-- `scripts/train.py` — main training entry point (DCTConfig + FullImageDataset
-  + FocalLoss / HierarchicalLoss + OneCycleLR; supports the FOV-grouped
-  sampler and the conditioned marker-positivity head).
+- `scripts/train.py` — main training entry point.
 - `scripts/predict.py` — batched predictions over a zarr archive, with
   optional hierarchy-aware evaluation.
 - `scripts/pretrain.py` — masked-marker pretraining stage.
 
 All training scripts read mappings and metadata from a TissueNet zarr v3
-archive (`tissuenet-v10.zarr` is the current canonical release; v8 and v9
-are also accepted). Pass the archive path with
+archive (`expanded-tissuenet.zarr`). Pass the archive path with
 `--zarr_dir` (training scripts) or via the `DEEPCELL_TYPES_ZARR_PATH`
 environment variable (`deepcell_types.predict`).
 
