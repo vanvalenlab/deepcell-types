@@ -1,30 +1,96 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "deepcell-types"
-version = "0.0.1"
+version = "0.1.0"
 authors = [
-    { name="Xuefei (Julie) Wang", email="xwang3@caltech.edu" },
+    { name="Van Valen Lab", email="vanvalenlab@gmail.com" },
+    { name="Xuefei (Julie) Wang" },
 ]
 description = "A generalized cell phenotyping model for spatial proteomics"
 readme = "README.md"
-requires-python = "~=3.10"
+# zarr>=3.1 (used in the [train] extra) requires Python >=3.11, so the
+# floor here matches that constraint rather than 3.10.
+requires-python = ">=3.11"
+# Lower bounds are conservative floors, not the tested versions: torch>=2.0
+# guarantees the `weights_only=True` checkpoint-load safety gate used in
+# deepcell_types/predict.py; the rest pin to widely-available releases.
 dependencies = [
-    "requests",
-    "pyyaml",
-    "numpy",
-    "scikit-image",
-    "tqdm",
-    "torch",
+    "requests>=2.25",
+    "pyyaml>=6.0",
+    "numpy>=1.24",
+    "numcodecs>=0.12",
+    "scipy>=1.9",
+    "scikit-image>=0.20",
+    "tqdm>=4.60",
+    "torch>=2.0",
 ]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+    # The LICENSE is a Modified Apache 2.0 with a non-commercial / academic
+    # carve-out (see LICENSE for the full text). We surface the closest
+    # standard classifier plus the "Other/Proprietary" classifier so
+    # automated scanners do not file the package as plain Apache-2.0.
+    "License :: OSI Approved :: Apache Software License",
+    "License :: Other/Proprietary License",
 ]
 
 license = {file = "LICENSE"}
+
+[project.optional-dependencies]
+# Training pipeline: required to use anything under deepcell_types.training,
+# including the zarr-backed FullImageDataset, FocalLoss/HierarchicalLoss,
+# and the FOV-grouped sampler. Not needed for inference.
+# zarr is pinned >=3.1 because 3.0.0a* alpha has a metadata-cache bug.
+# kaleido is required at runtime by `fig.write_image()` calls in
+# training/utils.py; plotly is the figure backend behind those calls.
+train = [
+    "zarr>=3.1.0,<4",
+    "torchinfo",
+    "torchmetrics",
+    "pandas",
+    "scikit-learn",
+    "click",
+    "plotly",
+    "kaleido>=0.2.1,<1.0,!=0.2.1.post1",
+    # Required by TIFF-based gold-standard ingest tooling.
+    "tifffile",
+    # Used by scripts/generate_openai_embeddings.py. Upper-bounded: openai's
+    # v0->v1 client rewrite was a fully breaking API change; unpin only after
+    # verifying generate_openai_embeddings.py against a new major version.
+    "openai>=2.0,<3",
+]
+# Comparison baselines, folded into deepcell_types.baselines. Each extra is
+# self-contained (pulls the train stack it needs) so it installs standalone.
+# NOTE: baseline-nimbus pins nimbus-inference==0.0.5, which requires Python
+# <3.12. The `python_version < '3.12'` environment marker below makes
+# `pip install .[baseline-nimbus]` / `.[baselines]` / `.[all]` resolvable on
+# BOTH 3.11 and 3.12: on 3.11 nimbus-inference installs and the Nimbus baseline
+# is runnable; on 3.12 the marker drops the nimbus pin (and opencv, only needed
+# by Nimbus), so the rest of the baselines stack still installs cleanly while
+# the Nimbus baseline is simply unavailable. The `ci-all-smoke` job pins 3.11
+# so the full stack (incl. nimbus) is exercised in CI.
+baseline-xgboost = ["deepcell-types[train]", "xgboost", "optuna"]
+baseline-nimbus = [
+    "deepcell-types[train]",
+    "nimbus-inference==0.0.5; python_version < '3.12'",
+    "opencv-python-headless; python_version < '3.12'",
+]
+baseline-maps = ["deepcell-types[train]"]
+baseline-cellsighter = ["deepcell-types[train]", "torchvision"]
+baselines = ["deepcell-types[baseline-xgboost,baseline-nimbus,baseline-maps,baseline-cellsighter]"]
+all = ["deepcell-types[train,baselines]"]
 
 [project.urls]
 "Source Code" = "https://github.com/vanvalenlab/deepcell-types"
@@ -33,10 +99,59 @@ license = {file = "LICENSE"}
 [tool.setuptools]
 packages = [
     'deepcell_types',
-    'deepcell_types.dct_kit',
-    'deepcell_types.utils'
+    'deepcell_types.training',
+    'deepcell_types.utils',
+    'deepcell_types.baselines',
+    'deepcell_types.baselines.xgb',
+    'deepcell_types.baselines.nimbus',
+    'deepcell_types.baselines.maps',
+    'deepcell_types.baselines.cellsighter'
 ]
 include-package-data = true
 
 [tool.setuptools.package-data]
-deepcell_types = ["dct_kit/config/*.yaml", "dct_kit/config/*.json"]
+deepcell_types = [
+    "channel_mapping.yaml",
+    # Marker / cell-type vocabulary snapshot. Lets predict() run without the
+    # (large) TissueNet zarr archive; DCTConfig falls back to it when no
+    # archive is found.
+    "vocab.json",
+    # Training-side YAMLs (e.g. combined_celltypes.yaml used by
+    # HierarchicalLoss) — must ship with
+    # the wheel since training/config.py resolves them relative to
+    # __file__, not via repo-root paths.
+    "training/config/*.yaml",
+]
+# Carry third-party baseline attribution into built wheels/sdists. With an
+# explicit packages list and no MANIFEST.in, non-.py files only ship if listed
+# here; otherwise NOTICE would be absent from pip-installed (non-editable) builds.
+"deepcell_types.baselines" = ["NOTICE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.ruff]
+# maps/ and cellsighter/ are Caltech (Van Valen Lab) independent
+# reimplementations of the architectures and training procedures described in
+# the respective papers; no code is copied from the upstream repositories (see
+# deepcell_types/baselines/NOTICE). Both are pinned
+# byte-for-byte by tests/baselines/test_maps_cellsighter_equivalence.py
+# (only the `from .model import` relocation rewrite is allowed). Linting them
+# would force edits that break that equivalence contract, so exclude them.
+extend-exclude = [
+    "deepcell_types/baselines/maps",
+    "deepcell_types/baselines/cellsighter",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Baseline CLI runners read DATA_DIR from the environment between the
+# stdlib and deepcell_types import groups, so some module-level imports
+# deliberately follow that assignment. E402 is not meaningful here.
+"deepcell_types/baselines/**/run.py" = ["E402"]
+"deepcell_types/baselines/xgb/tuning.py" = ["E402"]

@@ -33,14 +33,28 @@ The model can be downloaded for local use:
 >>> download_model()
 ```
 
-A `version` can be specified to access a specific pre-trained model, e.g.
+A specific version can be requested:
 
 ```python
-download_model(version="2025-06-09_public-data-only")
+download_model(version="2026-06-15")
 ```
 
-A listing of available pre-trained models is available at
-`deepcell_types.utils._model_registry`.
+A listing of available pre-trained model versions is available from
+`deepcell_types.utils.list_model_versions()`.
+
+To fetch a baseline checkpoint instead of the main DeepCellTypes model:
+
+```python
+from deepcell_types.utils import download_baseline_checkpoint
+
+# One of: "cellsighter", "maps", "xgboost"
+download_baseline_checkpoint("maps")
+```
+
+The Nimbus baseline is not served here: its pretrained weights are
+distributed upstream, so install it with
+`pip install nimbus-inference==0.0.5` on Python 3.11 (which fetches the weights
+automatically) rather than `download_baseline_checkpoint`.
 
 Training Data
 -------------
@@ -53,8 +67,6 @@ network bandwidth before attempting to download.
 Similarly, training data can be downloaded for local use with:
 
 ```python
->>> from utils import download_training_data
-
-
+>>> from deepcell_types.utils import download_training_data
 >>> download_training_data()
 ```

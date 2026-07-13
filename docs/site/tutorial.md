@@ -30,18 +30,18 @@ Users are encouraged to explore the portal for data of interest.
 For convenience, a subset of the publicly-available spatial proteomic data
 has been converted to a remote [zarr archive][zarr].
 The datasets in the zarr archive reflect the original HuBMAP indexing scheme
-(i.e. `HBM###_????_###`, where `#` indicates a number nad `?` indicates an
+(i.e. `HBM###_????_###`, where `#` indicates a number and `?` indicates an
 upper-case alphabetical character).
 
 Interacting with the zarr hubmap data mirror requires a few additional
 dependencies:
 
 ```bash
-pip install zarr\>2 s3fs rich
+pip install "zarr>=3" s3fs
 ```
 
 ```{note}
-The hubmap data mirror uses zarr format v3, thus requires `zarr>2` to be
+The hubmap data mirror uses zarr format v3, thus requires `zarr>=3` to be
 installed.
 ```
 
@@ -50,7 +50,7 @@ import zarr
 
 if not zarr.__version__.startswith("3"):
     raise EnvironmentError(
-        f"The tutorial requires `zarr>3`, version {zarr.__version__} found."
+        f"The tutorial requires `zarr>=3`, version {zarr.__version__} found."
     )
 ```
 
@@ -209,7 +209,7 @@ mask = cellsam_pipeline(
 ```
 
 ```{code-cell} ipython3
-# Sanity check: the segmentation mask should have the same W, H dimensions as
+# Sanity check: the segmentation mask should have the same H, W dimensions as
 # the input image
 mask.shape == img.shape[1:]
 ```
@@ -234,7 +234,7 @@ visualization.
 
 ```{code-cell} ipython3
 import napari
-nim = napari.Viewer(show=True)  # Headless for CI; set show=True for interactive viz
+nim = napari.Viewer(show=True)  # show=False for headless runs (screenshots may be blank)
 
 # Compute contrast limits
 cl = [(np.min(ch), np.max(ch)) for ch in img]
@@ -247,26 +247,8 @@ mask_lyr = nim.add_labels(mask, name="CellSAM segmentation")
 mask_lyr.contour = 3  # Relatively thick borders for static viz
 ```
 
-```{code-cell} ipython3
-:tags: [hide-cell]
-
-# For static rendering - can safely be ignored if running notebook interactively
-from pathlib import Path
-
-screenshot_path = Path("../_static/_generated")
-screenshot_path.mkdir(parents=True, exist_ok=True)
-nim.screenshot(
-    path=screenshot_path / "napari_img_and_segmentation.png",
-    canvas_only=False,
-);
-```
-
-<center>
-  <img src="../_static/_generated/napari_img_and_segmentation.png"
-       alt="Napari window of multiplexed image and computed segmentation mask"
-       width=100%
-  />
-</center>
+The image and segmentation layers appear directly in the interactive Napari
+viewer. Static documentation builds do not execute or embed GUI screenshots.
 
 
 ### Cell-type inference with `deepcell-types`
@@ -277,19 +259,41 @@ We now have all the necessary components to run the cell-type inference pipeline
 import deepcell_types
 ```
 
-To run the inference pipeline, you will need to download a trained model.
-See {ref}`download_models` for details.
+To run the inference pipeline, you will need a trained model. The
+`download_model` helper fetches the checkpoint to `$HOME/.deepcell/models`
+and returns the local path (it requires a `DEEPCELL_ACCESS_TOKEN`; see
+{ref}`download_models` for details). The returned path can be passed
+straight to `predict` as `model_name`.
 
 ```{code-cell} ipython3
-# Model & system-specific configuration
-model = "deepcell-types_2025-06-09"
+from deepcell_types.utils import download_model
 
-# NOTE: if you do not have a cuda-capable GPU, try "cpu"
-device = "cuda:0"
+# Downloads to $HOME/.deepcell/models on first call; subsequent calls reuse
+# the cached checkpoint and return its path immediately.
+model = download_model(version="2026-06-15")
+```
+
+```{code-cell} ipython3
+# System-specific configuration
+
+# Pick a device: the default GPU if one is available, otherwise the CPU
+# (inference works the same on CPU, just slower). Use "cuda:1", "cuda:2",
+# etc. to target a specific GPU.
+import torch
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
 # NOTE: For machines with many cores & large RAM (e.g. GPU nodes), consider
 # increasing for better performance.
 num_data_loader_threads = 1
 ```
+
+The marker and cell-type registry the model needs is shipped with the
+package, so no additional data is required to run inference.
+If you instead want to source the registry from a local TissueNet zarr
+archive, pass `zarr_path="/path/to/tissuenet.zarr"` to `predict` (or set the
+`DEEPCELL_TYPES_ZARR_PATH` environment variable); the archive's root attrs
+must define the same standardized marker and cell-type registry the
+checkpoint was trained against.
 
 With the system all configured, we can now run the pipeline:
 
@@ -302,16 +306,38 @@ cell_types = deepcell_types.predict(
     chnames,
     mpp,
     model_name=model,
-    device_num=device,
+    device=device,
     num_workers=num_data_loader_threads,
 )
 ```
 
 Predictions are provided in the form of list of strings, where the order of
-the list is given by the ordering of cell indices in the segmentation
+the list is given by the ascending order of cell indices in the segmentation
 mask.
 Since we ordered the mask indices above, it's straightforward to make this
 mapping explicit:
+
+```{note}
+**Low-confidence abstention.** Abstention is opt-in. By default
+(`ct_abstention_k=0`) `predict` returns the raw argmax label for *every*
+cell. To enable it, pass a positive float `k`: `predict` then flags cells whose
+top-class probability falls below an IQR fence on the field-of-view's
+confidence distribution and rewrites their label to the sentinel `"Unknown"`.
+Reported results use full coverage (no abstention). The following example shows
+how to opt into an IQR-fence threshold with `k=0.2`:
+
+    cell_types = deepcell_types.predict(
+        img, mask, chnames, mpp,
+        model_name=model, device=device,
+        ct_abstention_k=0.2,
+    )
+
+To inspect probabilities and which cells were abstained, pass
+`return_probabilities=True` to receive a {class}`~deepcell_types.PredictionResult`
+with the full per-cell softmax matrix, the cell indices, a boolean
+`abstained` array, and the pre-abstention `cell_types_raw` labels.
+```
+
 
 ```{code-cell} ipython3
 idx_to_pred = dict(enumerate(cell_types, start=1))
@@ -375,26 +401,9 @@ for k, l in labels_by_celltype.items():
     )
 ```
 
-```{code-cell} ipython3
-:tags: [hide-cell]
-
-# For static rendering - can safely be ignored if running notebook interactively
-from pathlib import Path
-
-screenshot_path = Path("../_static/_generated")
-screenshot_path.mkdir(parents=True, exist_ok=True)
-nim.screenshot(
-    path=screenshot_path / "napari_celltype_layers.png",
-    canvas_only=False,
-);
-```
-
-<center>
-  <img src="../_static/_generated/napari_celltype_layers.png"
-       alt="Napari window of multiplexed image with celltype predictions"
-       width=100%
-  />
-</center>
+When running interactively, the new label layers appear directly in the Napari
+viewer and can be toggled independently. Static documentation builds do not
+execute or embed GUI screenshots.
 
 [hubmap-data-portal]: https://portal.hubmapconsortium.org/search/datasets
 [zarr]: https://zarr.readthedocs.io/en/stable/
