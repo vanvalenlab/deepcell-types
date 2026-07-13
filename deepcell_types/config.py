@@ -251,6 +251,14 @@ class DCTConfig:
             cell_type_mapping = vocab["cell_type_mapping"]
             all_channels = vocab["all_standardized_channels"]
             domains = list(vocab.get("domains", []))
+            if not cell_type_mapping:
+                raise ValueError(
+                    "Packaged vocab.json is missing cell_type_mapping."
+                )
+            if not all_channels:
+                raise ValueError(
+                    "Packaged vocab.json is missing all_standardized_channels."
+                )
 
         self._ct2idx = {str(ct): int(idx) for ct, idx in cell_type_mapping.items()}
         expected_indices = set(range(len(self._ct2idx)))

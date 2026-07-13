@@ -129,8 +129,14 @@ def test_config_rejects_noncontiguous_cell_type_mapping(tmp_path):
 
 def test_config_mappings_are_read_only():
     config = DCTConfig()
+    # All exposed mappings must be immutable views, not the backing dicts.
+    for mapping in (config.ct2idx, config.marker2idx, config.domain2idx):
+        with pytest.raises(TypeError):
+            mapping["new"] = 0
+    # master_channels is exposed as an immutable tuple.
+    assert isinstance(config.master_channels, tuple)
     with pytest.raises(TypeError):
-        config.ct2idx["new"] = len(config.ct2idx)
+        config.master_channels[0] = "X"
 
 
 def test_invalid_archive_environment_variable_is_not_ignored(tmp_path, monkeypatch):

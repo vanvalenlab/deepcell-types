@@ -108,6 +108,19 @@ class TissueNetConfig:
             self._zf.attrs.get("all_standardized_cell_types", [])
         )
 
+        # An archive missing these attrs (typo'd key, wrong/truncated write)
+        # defaults to empty above, which would pass the contiguity check below
+        # vacuously and yield NUM_CELLTYPES=0 — silently dropping every cell at
+        # training time. Reject it loudly instead.
+        if not self._cell_type_mapping:
+            raise ValueError(
+                f"{self.zarr_path} is missing root attrs.cell_type_mapping."
+            )
+        if not self._all_channels:
+            raise ValueError(
+                f"{self.zarr_path} is missing root attrs.all_standardized_channels."
+            )
+
         # Build ct2idx from cell_type_mapping (maps cell type name -> integer ID)
         # This is used for model output labels
         self._ct2idx = {ct: idx for ct, idx in self._cell_type_mapping.items()}
