@@ -1,5 +1,7 @@
 # DeepCell Types
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21331715.svg)](https://doi.org/10.5281/zenodo.21331715)
+
 DeepCell Types is a generalized cell-phenotyping model for spatial proteomics.
 It generalizes across datasets with varying marker panels by matching each
 image's channels against a marker / cell-type registry that ships with the
