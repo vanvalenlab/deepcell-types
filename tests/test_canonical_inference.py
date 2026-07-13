@@ -667,7 +667,7 @@ def test_predict_empty_mask_returns_empty(tmp_path):
 
 
 def test_predict_default_does_not_abstain(tmp_path):
-    """Abstention is opt-in: with the default ``ct_abstention_k=None`` no cell
+    """Abstention is opt-in: with the default ``ct_abstention_k=0`` no cell
     is relabelled to the sentinel and the returned labels equal the raw argmax
     labels. Guards against silently re-enabling the benchmark-tuned default."""
     import inspect
@@ -678,7 +678,7 @@ def test_predict_default_does_not_abstain(tmp_path):
     # uniform input whose max-softmax distribution never trips the IQR fence
     # (so they hold for any ``k``), so this signature check is what actually
     # catches a regression back to the old benchmark-tuned ``ct_abstention_k=0.2``.
-    assert inspect.signature(predict).parameters["ct_abstention_k"].default is None
+    assert inspect.signature(predict).parameters["ct_abstention_k"].default == 0
 
     torch.manual_seed(0)
     archive_path = _make_archive(tmp_path)

@@ -319,8 +319,8 @@ mapping explicit:
 
 ```{note}
 **Low-confidence abstention.** Abstention is opt-in. By default
-(`ct_abstention_k=None`) `predict` returns the raw argmax label for *every*
-cell. To enable it, pass a float `k`: `predict` then flags cells whose
+(`ct_abstention_k=0`) `predict` returns the raw argmax label for *every*
+cell. To enable it, pass a positive float `k`: `predict` then flags cells whose
 top-class probability falls below an IQR fence on the field-of-view's
 confidence distribution and rewrites their label to the sentinel `"Unknown"`.
 Reported results use full coverage (no abstention). The following example shows
