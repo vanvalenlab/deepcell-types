@@ -108,6 +108,17 @@ def fetch_data(
             )
         except FileNotFoundError:
             pass
+    elif fpath.exists():
+        # No integrity hash is available for this asset (e.g. the large public
+        # training corpus, for which no authoritative digest is published).
+        # Reuse an existing local copy rather than re-downloading it — but its
+        # contents are not verified, so say so loudly.
+        logger.warning(
+            f"Reusing cached {fname} at {fpath} WITHOUT an integrity check "
+            "(no file_hash is available for this asset). Delete the file to "
+            "force a fresh download."
+        )
+        return fpath
 
     # Check for access token
     access_token = os.environ.get("DEEPCELL_ACCESS_TOKEN")
@@ -178,6 +189,11 @@ def fetch_data(
     except (ValueError, KeyError, AttributeError):
         file_size_numerical = None
 
+    if file_hash is None:
+        logger.warning(
+            f"Downloading {asset_key} WITHOUT an integrity check "
+            "(no file_hash is available for this asset)."
+        )
     logger.info(f"Downloading {asset_key} with size {file_size} to {download_location}")
     data_req = requests.get(
         download_url,

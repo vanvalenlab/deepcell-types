@@ -126,6 +126,24 @@ def test_extract_archive_enforces_member_and_size_limits(tmp_path):
         extract_archive(archive, tmp_path / "total-size", max_total_bytes=5)
 
 
+def test_extract_archive_enforces_member_and_size_limits_tar(tmp_path):
+    # The tar branch duplicates the zip branch's bound checks; exercise it
+    # directly so a tar-only regression can't slip through.
+    archive = tmp_path / "bounded.tar"
+    with tarfile.open(archive, "w") as tf:
+        for name, data in (("one", b"123"), ("two", b"456")):
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+
+    with pytest.raises(ValueError, match="2 members"):
+        extract_archive(archive, tmp_path / "members", max_members=1)
+    with pytest.raises(ValueError, match="declared size"):
+        extract_archive(archive, tmp_path / "member-size", max_member_bytes=2)
+    with pytest.raises(ValueError, match="larger than"):
+        extract_archive(archive, tmp_path / "total-size", max_total_bytes=5)
+
+
 # --- fetch_data: cache-hit and missing-token branches (no network) ----------
 
 
@@ -247,6 +265,61 @@ def test_fetch_data_rejects_digest_mismatch_without_replacing_cache(
     with pytest.raises(ValueError, match="Integrity check failed"):
         fetch_data("model.pt", file_hash=hashlib.sha256(b"expected").hexdigest())
     assert cached.read_bytes() == b"previous"
+
+
+def test_fetch_data_downloads_and_lands_atomically(tmp_path, monkeypatch):
+    # The happy path: a valid streamed download with a matching hash lands at
+    # download_location/fname with the exact bytes and leaves no temp file.
+    monkeypatch.setattr(_auth, "_asset_location", tmp_path)
+    payload = b"fresh model bytes"
+    digest = hashlib.md5(payload).hexdigest()
+    _mock_download(
+        monkeypatch,
+        _Response(json_data={"url": "https://example.invalid/model"}),
+        _Response(chunks=[payload[:5], payload[5:]]),
+    )
+    out = fetch_data("models/model.pt", cache_subdir="models", file_hash=digest)
+    assert out == tmp_path / "models" / "model.pt"
+    assert out.read_bytes() == payload
+    assert list(out.parent.glob(".model.pt.*")) == []
+
+
+def test_fetch_data_reuses_unhashed_cache_without_network(tmp_path, monkeypatch):
+    # With no file_hash and an existing cached file, fetch_data must return the
+    # cached path directly — never reaching the token check or the network.
+    monkeypatch.setattr(_auth, "_asset_location", tmp_path)
+    monkeypatch.delenv("DEEPCELL_ACCESS_TOKEN", raising=False)
+    cache_dir = tmp_path / "data"
+    cache_dir.mkdir()
+    (cache_dir / "corpus.zip").write_bytes(b"corpus")
+    out = fetch_data("data/corpus.zip", cache_subdir="data")
+    assert out == cache_dir / "corpus.zip"
+
+
+def test_fetch_data_rejects_oversized_content_length_before_writing(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(_auth, "_asset_location", tmp_path)
+    _mock_download(
+        monkeypatch,
+        _Response(json_data={"url": "https://example.invalid/model"}),
+        _Response(headers={"Content-Length": "999"}, chunks=[b"x"]),
+    )
+    with pytest.raises(ValueError, match="exceeding the"):
+        fetch_data("model.pt", max_download_bytes=5)
+    assert not (tmp_path / "model.pt").exists()
+
+
+def test_fetch_data_rejects_non_numeric_content_length(tmp_path, monkeypatch):
+    monkeypatch.setattr(_auth, "_asset_location", tmp_path)
+    _mock_download(
+        monkeypatch,
+        _Response(json_data={"url": "https://example.invalid/model"}),
+        _Response(headers={"Content-Length": "not-a-number"}, chunks=[b"x"]),
+    )
+    with pytest.raises(ValueError, match="invalid Content-Length"):
+        fetch_data("model.pt")
+    assert not (tmp_path / "model.pt").exists()
 
 
 # --- model registry shape ---------------------------------------------------
