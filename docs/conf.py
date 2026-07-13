@@ -33,6 +33,9 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # Execution conf
 nb_execution_timeout = 300  # seconds
 nb_execution_show_tb = True  # print tracebacks to stderr
+# Drop stderr (warnings, tqdm progress bars, build-machine file paths) from the
+# rendered cell output — the tutorial's meaningful output is all stdout/display.
+nb_output_stderr = "remove"
 
 
 # -- Options for HTML output -------------------------------------------------

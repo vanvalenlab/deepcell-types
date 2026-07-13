@@ -21,7 +21,7 @@ Operating points:
   an earlier-draft operating point that widened macro_F1 separation over the
   strongest baseline on kept cells. IQR-fence abstention was dropped from the
   paper, whose headline is full-coverage with no abstention; ``predict()``'s
-  default is ``None`` (abstention off).
+  default is ``0`` (abstention off).
 * ``k = 1.5`` (canonical Tukey): near-no-op (~0.23% abstained,
   +0.02pp macro).
 * ``k <= 0``: callers skip abstention. (Passing ``k = 0`` to
