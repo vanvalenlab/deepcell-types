@@ -69,16 +69,6 @@ from `https://users.deepcell.org` (see [`docs/site/API-key.md`](docs/site/API-ke
 export DEEPCELL_TYPES_ZARR_PATH=/absolute/path/to/tissuenet.zarr
 ```
 
-Before publishing an archive or checkpoint, validate that its marker order/size
-matches the released embeddings — drift silently breaks inference:
-
-```bash
-scripts/check_release_archive.sh /path/to/tissuenet.zarr /path/to/svd_512.npz
-```
-
-It exits non-zero on any drift (logic unit-tested in CI via
-`tests/test_archive_contract_validator.py`).
-
 ## Custom preprocessing (advanced)
 
 When a FOV's predictions look implausible — usually a saturated or high-background
