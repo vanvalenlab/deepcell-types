@@ -51,6 +51,16 @@ from deepcell_types.utils import download_baseline_checkpoint
 download_baseline_checkpoint("maps")
 ```
 
+All three baselines ship in a single compressed bundle, which holds each one's
+weights plus any companion file needed at inference (`maps` ships `_stats.npz`;
+`xgboost` ships `.remap.json`). The bundle is unpacked automatically and the
+returned list gives the local path of every file for the baseline you asked
+for.
+
+Because the bundle is shared, the first call downloads all three baselines
+(646 MB) regardless of which one you request; the other two are then served
+from the local cache without a further download.
+
 The Nimbus baseline is not served here: its pretrained weights are
 distributed upstream, so install it with
 `pip install nimbus-inference==0.0.5` on Python 3.11 (which fetches the weights
