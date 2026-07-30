@@ -105,5 +105,3 @@ def test_extract_archive_enforces_member_and_size_limits_tar(tmp_path):
         extract_archive(archive, tmp_path / "member-size", max_member_bytes=2)
     with pytest.raises(ValueError, match="larger than"):
         extract_archive(archive, tmp_path / "total-size", max_total_bytes=5)
-
-
