@@ -297,7 +297,8 @@ def download_training_data(*, extract=False):
         Local path to the downloaded ``.zip`` (or, when ``extract=True``,
         the directory it was extracted into).
     """
-    from ._auth import extract_archive, fetch_data
+    from ._archive import extract_archive
+    from ._auth import fetch_data
 
     zip_path = fetch_data(_training_data_asset_key, cache_subdir="data")
     if extract:
