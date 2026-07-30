@@ -39,6 +39,12 @@ _MODEL_VERSIONS = ("2026-06-15", "2026-06-23-ptft")
 # checkpoint that fails at ``load_state_dict``.
 _LEGACY_MODEL_VERSIONS = ("2025-06-09", "2025-06-09_public-data-only")
 
+# All three baselines are served as a single ``.tar.gz`` bundle, one
+# subdirectory per baseline, holding each one's weights plus any companion file
+# required at inference (maps -> ``_stats.npz``; xgboost -> ``.remap.json``).
+# Requesting any one baseline therefore downloads the whole bundle; the other
+# two are then served from the cache without a second transfer.
+#
 # Nimbus is intentionally absent: it is inference-only with pretrained weights
 # produced and distributed upstream (angelolab/Nimbus-Inference), which this
 # project does not redistribute. ``download_baseline_checkpoint("nimbus")``
@@ -115,13 +121,15 @@ def download_baseline_checkpoint(name):
     Returns
     -------
     list[pathlib.Path]
-        Local paths to every file downloaded for this baseline, in the
-        order declared in the manifest. Note the asymmetry with
-        :func:`download_model`, which returns a single ``Path``: baselines
-        return a *list* because some ship companion files. Call
-        :func:`list_baseline_names` for the accepted identifiers.
+        Local paths to every checkpoint file for this baseline, sorted by
+        filename. Note the asymmetry with :func:`download_model`, which
+        returns a single ``Path``: baselines return a *list* because some
+        ship companion files. Call :func:`list_baseline_names` for the
+        accepted identifiers.
     """
     from deepcell_auth import download_deepcell_types_baseline
+
+    from ._archive import extract_archive
 
     if name == "nimbus":
         raise ValueError(
@@ -135,7 +143,27 @@ def download_baseline_checkpoint(name):
         raise ValueError(
             f"Unknown baseline {name!r}. Known baselines: {sorted(_BASELINE_NAMES)}."
         )
-    return download_deepcell_types_baseline(name)
+
+    (archive,) = download_deepcell_types_baseline(name)
+    bundle_dir = archive.parent / archive.name.removesuffix(".tar.gz")
+    # Mirrors cellSAM: the bundle is unpacked once, and its presence is what
+    # skips re-extraction on later calls. ``fetch_data`` still re-checks the
+    # archive's pinned hash on every call, so a corrupt *download* is caught;
+    # a hand-edited extraction directory is not.
+    if not bundle_dir.is_dir():
+        extract_archive(archive, archive.parent)
+    baseline_dir = bundle_dir / name
+    contents = (
+        sorted(p for p in baseline_dir.iterdir() if p.is_file())
+        if baseline_dir.is_dir()
+        else []
+    )
+    if not contents:
+        raise ValueError(
+            f"Baseline bundle {archive.name} did not unpack to a directory of "
+            f"checkpoint files at {baseline_dir}. Delete {bundle_dir} and retry."
+        )
+    return contents
 
 
 def list_baseline_names():
