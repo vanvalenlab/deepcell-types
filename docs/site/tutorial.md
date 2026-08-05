@@ -247,8 +247,26 @@ mask_lyr = nim.add_labels(mask, name="CellSAM segmentation")
 mask_lyr.contour = 3  # Relatively thick borders for static viz
 ```
 
-The image and segmentation layers appear directly in the interactive Napari
-viewer. Static documentation builds do not execute or embed GUI screenshots.
+```{code-cell} ipython3
+:tags: [hide-cell]
+
+# For static rendering - can safely be ignored if running notebook interactively
+from pathlib import Path
+
+screenshot_path = Path("../_static/_generated")
+screenshot_path.mkdir(parents=True, exist_ok=True)
+nim.screenshot(
+    path=screenshot_path / "napari_img_and_segmentation.png",
+    canvas_only=False,
+);
+```
+
+<center>
+  <img src="../_static/_generated/napari_img_and_segmentation.png"
+       alt="Napari window of multiplexed image and computed segmentation mask"
+       width=100%
+  />
+</center>
 
 
 ### Cell-type inference with `deepcell-types`
@@ -401,9 +419,26 @@ for k, l in labels_by_celltype.items():
     )
 ```
 
-When running interactively, the new label layers appear directly in the Napari
-viewer and can be toggled independently. Static documentation builds do not
-execute or embed GUI screenshots.
+```{code-cell} ipython3
+:tags: [hide-cell]
+
+# For static rendering - can safely be ignored if running notebook interactively
+from pathlib import Path
+
+screenshot_path = Path("../_static/_generated")
+screenshot_path.mkdir(parents=True, exist_ok=True)
+nim.screenshot(
+    path=screenshot_path / "napari_celltype_layers.png",
+    canvas_only=False,
+);
+```
+
+<center>
+  <img src="../_static/_generated/napari_celltype_layers.png"
+       alt="Napari window of multiplexed image with celltype predictions"
+       width=100%
+  />
+</center>
 
 [hubmap-data-portal]: https://portal.hubmapconsortium.org/search/datasets
 [zarr]: https://zarr.readthedocs.io/en/stable/
