@@ -148,10 +148,53 @@ in the data archive: one computed by [Mesmer](https://www.nature.com/articles/s4
 and a second by [CellSAM](https://www.biorxiv.org/content/10.1101/2023.11.17.567630v4)
 (available at `ds["segmentations/cellsam"]`).
 
-In this tutorial, we will demonstrate how to use one of these
-models to construct a full cell-type inference pipeline.
+In this tutorial we default to the **pre-computed CellSAM mask** shipped with
+the archive, so the pipeline runs end-to-end without a local segmentation
+setup. The optional *Cell segmentation with `cellSAM`* section below shows how
+to regenerate an equivalent mask from the raw image.
+
+### Loading a segmentation mask
+
+```{code-cell} ipython3
+import numpy as np
+
+# Pre-computed CellSAM segmentation shipped with the archive. Swap in
+# "segmentations/torch_mesmer" for the Mesmer mask, or substitute your own.
+mask = ds["segmentations/cellsam"][:]
+```
+
+Before running inference, sanity-check the mask. It must match the image's
+`H, W` dimensions **and** actually contain cells: an all-background mask (for
+example, from a failed or misconfigured segmentation) has the correct shape but
+silently yields *empty* predictions downstream, so verify both.
+
+```{code-cell} ipython3
+assert mask.shape == img.shape[1:], "mask shape does not match the image H, W"
+assert mask.max() > 0, "segmentation mask contains no cells"
+
+# Number of cells in the mask
+int(mask.max())
+```
+
+Let's perform a bit of post-processing to ensure that the segmentation mask
+(represented as a label image) is sequential.
+
+```{code-cell} ipython3
+import skimage
+
+mask, _, _ = skimage.segmentation.relabel_sequential(mask)
+mask = mask.astype(np.uint32)
+```
 
 ### Cell segmentation with `cellSAM`
+
+```{note}
+This section is **optional**. It reproduces a CellSAM mask equivalent to the
+pre-computed one loaded above, for users who want to segment their own images.
+The code below is shown for reference and is not executed as part of this
+tutorial. Running it overwrites `mask`, so re-run the sanity-check and
+`relabel_sequential` steps above afterward.
+```
 
 In order to use `cellSAM`, it must be installed in the environment, e.g.
 
@@ -159,7 +202,7 @@ In order to use `cellSAM`, it must be installed in the environment, e.g.
 pip install git+https://github.com/vanvalenlab/cellSAM.git
 ```
 
-```{code-cell} ipython3
+```python
 import numpy as np
 from cellSAM.cellsam_pipeline import cellsam_pipeline
 ```
@@ -176,7 +219,7 @@ The `membrane_channel` selection in the metadata is arbitrary and provided
 for convenience.
 ```
 
-```{code-cell} ipython3
+```python
 # Extract channels for segmentation
 nuc, mem = ds.attrs["nuclear_channel"], ds.attrs["membrane_channel"]
 im = np.stack(
@@ -188,7 +231,7 @@ im = np.stack(
 CellSAM expects multiplexed data in a particular format.
 See the [cellsam docs][cellsam_ref] for details.
 
-```{code-cell} ipython3
+```python
 # Format for cellsam
 seg_img = np.zeros((*im.shape[:-1], 3), dtype=im.dtype)
 seg_img[..., 1:] = im
@@ -196,9 +239,7 @@ seg_img[..., 1:] = im
 
 Finally, run the segmentation pipeline:
 
-```{code-cell} ipython3
-:tags: [hide-output]
-
+```python
 mask = cellsam_pipeline(
     seg_img,
     block_size=512,
@@ -206,22 +247,6 @@ mask = cellsam_pipeline(
     use_wsi=True,
     gauge_cell_size=False,
 )
-```
-
-```{code-cell} ipython3
-# Sanity check: the segmentation mask should have the same H, W dimensions as
-# the input image
-mask.shape == img.shape[1:]
-```
-
-Let's perform a bit of post-processing to ensure that the segmentation mask
-(represented as a label image) is sequential.
-
-```{code-cell} ipython3
-import skimage
-
-mask, _, _ = skimage.segmentation.relabel_sequential(mask)
-mask = mask.astype(np.uint32)
 ```
 
 ### Visualizing results
