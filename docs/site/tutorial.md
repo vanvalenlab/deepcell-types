@@ -220,8 +220,9 @@ assert mask.max() > 0, (
     "(see the note above) and confirm cellSAM is running as expected"
 )
 
-# Number of cells detected
-int(mask.max())
+# Number of cells detected. cellSAM's label IDs are not necessarily
+# contiguous, so count the distinct labels rather than taking the max.
+int((np.unique(mask) > 0).sum())
 ```
 
 Let's perform a bit of post-processing to ensure that the segmentation mask
