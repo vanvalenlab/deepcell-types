@@ -208,10 +208,21 @@ mask = cellsam_pipeline(
 )
 ```
 
+Before moving on, sanity-check the segmentation. The mask must have the same
+`H, W` dimensions as the input image **and** actually contain cells: a
+degenerate, all-background mask has the correct shape but silently produces an
+*empty* cell-type prediction downstream, so check both.
+
 ```{code-cell} ipython3
-# Sanity check: the segmentation mask should have the same H, W dimensions as
-# the input image
-mask.shape == img.shape[1:]
+assert mask.shape == img.shape[1:], "mask shape does not match the image H, W"
+assert mask.max() > 0, (
+    "segmentation produced no cells - try a different `membrane_channel` "
+    "(see the note above) and confirm cellSAM is running as expected"
+)
+
+# Number of cells detected. cellSAM's label IDs are not necessarily
+# contiguous, so count the distinct labels rather than taking the max.
+int((np.unique(mask) > 0).sum())
 ```
 
 Let's perform a bit of post-processing to ensure that the segmentation mask
@@ -341,8 +352,8 @@ mapping explicit:
 cell. To enable it, pass a positive float `k`: `predict` then flags cells whose
 top-class probability falls below an IQR fence on the field-of-view's
 confidence distribution and rewrites their label to the sentinel `"Unknown"`.
-The paper's headline numbers are full-coverage (no abstention); `k=0.2` is a
-historical opt-in ablation, shown here only to illustrate how to enable it:
+Reported results use full coverage (no abstention). The following example shows
+how to opt into an IQR-fence threshold with `k=0.2`:
 
     cell_types = deepcell_types.predict(
         img, mask, chnames, mpp,
