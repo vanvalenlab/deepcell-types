@@ -1,0 +1,162 @@
+"""Unit tests for FOV-zero-channel masking in FullImageDataset.__getitem__.
+
+About 3.4% of valid channels per MIBI/IMC FOV are listed in
+channel_names but all-zero in raw across the entire FOV. These channels were
+fed to the transformer as constant-zero tokens with a misleading marker
+embedding prior. The fix masks them out at FOV-time. These tests verify the
+mask is applied correctly via the `_zero_channel_cache` mechanism.
+
+The `_apply_zero_channel_mask` helper below is a faithful copy of the
+production block in ``training/dataset.py::__getitem__`` — useful for
+isolating the logic from the rest of the dataset machinery. Because copies
+can drift out of sync with production, ``test_production_masking_still_uses_cache``
+anchors the test file to a concrete substring in the real code; if the
+production masking is refactored, that anchor will fail loudly so the copy
+here can be updated (or this test file deleted) deliberately.
+"""
+
+from pathlib import Path
+
+import numpy as np
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+class _MinimalDataset:
+    """Just enough of FullImageDataset to test the zero-mask logic in isolation."""
+
+    def __init__(self, n_real_channels, max_channels=80):
+        self.max_channels = max_channels
+        self.n_real_channels = n_real_channels
+        self._zero_channel_cache = {}
+
+
+def _apply_zero_channel_mask(
+    ds, ds_idx, n_real_channels, ch_idx, sample, mp_padded, vm_padded
+):
+    """Replicates the masking block from dataset.py::__getitem__ for unit testing."""
+    attn_mask = np.ones(ds.max_channels, dtype=bool)
+    attn_mask[:n_real_channels] = ch_idx[:n_real_channels] == -1
+
+    fov_zero_mask = ds._zero_channel_cache.get(ds_idx)
+    if fov_zero_mask is not None:
+        attn_mask[:n_real_channels] |= fov_zero_mask[:n_real_channels]
+
+    clear_mask = ch_idx[:n_real_channels] == -1
+    if fov_zero_mask is not None:
+        clear_mask = clear_mask | fov_zero_mask[:n_real_channels]
+    if clear_mask.any():
+        clear_idx = np.where(clear_mask)[0]
+        sample[clear_idx] = -1.0
+        mp_padded[clear_idx] = 0
+        vm_padded[clear_idx] = False
+
+    return attn_mask, sample, mp_padded, vm_padded
+
+
+def test_all_zero_channel_is_masked_in_attn_mask():
+    ds = _MinimalDataset(n_real_channels=3)
+    # Pretend channel 1 (middle) is all-zero across the FOV
+    ds._zero_channel_cache[0] = np.array([False, True, False])
+
+    ch_idx = np.zeros(ds.max_channels, dtype=np.int64)
+    ch_idx[:3] = [10, 20, 30]  # all valid
+    sample = np.zeros((ds.max_channels, 1, 4, 4), dtype=np.float32)
+    mp = np.ones(ds.max_channels, dtype=np.float32)
+    vm = np.ones(ds.max_channels, dtype=bool)
+
+    attn_mask, sample, mp, vm = _apply_zero_channel_mask(
+        ds, 0, 3, ch_idx, sample, mp, vm
+    )
+    # Channel 1 was all-zero -> attn_mask True (padded out)
+    assert not attn_mask[0]
+    assert attn_mask[1]
+    assert not attn_mask[2]
+    # Channels 3..max are padding (not real)
+    assert attn_mask[3:].all()
+
+
+def test_zero_channel_clears_sample_mp_validity():
+    """When a channel is masked, sample becomes -1, mp 0, validity False."""
+    ds = _MinimalDataset(n_real_channels=3)
+    ds._zero_channel_cache[0] = np.array([False, True, False])
+
+    ch_idx = np.zeros(ds.max_channels, dtype=np.int64)
+    ch_idx[:3] = [10, 20, 30]
+    sample = np.full((ds.max_channels, 1, 4, 4), 5.0, dtype=np.float32)
+    mp = np.ones(ds.max_channels, dtype=np.float32)
+    vm = np.ones(ds.max_channels, dtype=bool)
+
+    _, sample, mp, vm = _apply_zero_channel_mask(ds, 0, 3, ch_idx, sample, mp, vm)
+    # Channel 1 cleared
+    assert (sample[1] == -1.0).all()
+    assert mp[1] == 0
+    assert not vm[1]
+    # Channels 0 and 2 untouched
+    assert (sample[0] == 5.0).all()
+    assert mp[0] == 1
+    assert vm[0]
+
+
+def test_no_zero_cache_means_no_extra_masking():
+    """If _zero_channel_cache lacks ds_idx (e.g., cache disabled), behavior
+    should fall back to the legacy unknown-channel-only masking."""
+    ds = _MinimalDataset(n_real_channels=3)
+    # No entry in _zero_channel_cache for ds_idx=0
+
+    ch_idx = np.zeros(ds.max_channels, dtype=np.int64)
+    ch_idx[:3] = [10, -1, 30]  # channel 1 is unknown via ch_idx
+    sample = np.full((ds.max_channels, 1, 4, 4), 5.0, dtype=np.float32)
+    mp = np.ones(ds.max_channels, dtype=np.float32)
+    vm = np.ones(ds.max_channels, dtype=bool)
+
+    attn_mask, sample, mp, vm = _apply_zero_channel_mask(
+        ds, 0, 3, ch_idx, sample, mp, vm
+    )
+    # Only the unknown channel is masked
+    assert not attn_mask[0]
+    assert attn_mask[1]  # ch_idx == -1
+    assert not attn_mask[2]
+    assert (sample[1] == -1.0).all()
+    # Channel 0 and 2 untouched
+    assert (sample[0] == 5.0).all()
+
+
+def test_production_masking_still_uses_cache():
+    """Regression anchor: the actual __getitem__ must still consult
+    ``_zero_channel_cache`` and merge it into the attention mask.
+
+    If a refactor renames the cache or replaces the merge with a different
+    implementation, the unit-test helper above silently drifts away from
+    production. This anchor pins the helper to the real code path.
+    """
+    text = (REPO / "deepcell_types" / "training" / "dataset.py").read_text()
+    assert "_zero_channel_cache" in text, (
+        "FullImageDataset no longer owns a _zero_channel_cache attribute; "
+        "the helper in this test file may be out of date."
+    )
+    assert "fov_zero_mask" in text, (
+        "FullImageDataset.__getitem__ no longer constructs the "
+        "fov_zero_mask used by the production masking path."
+    )
+
+
+def test_combined_unknown_and_zero_channel():
+    """When a channel is BOTH unknown (ch_idx=-1) and zero, both paths fire."""
+    ds = _MinimalDataset(n_real_channels=3)
+    ds._zero_channel_cache[0] = np.array([False, False, True])  # ch 2 zero
+
+    ch_idx = np.zeros(ds.max_channels, dtype=np.int64)
+    ch_idx[:3] = [10, -1, 30]  # ch 1 unknown
+    sample = np.full((ds.max_channels, 1, 4, 4), 5.0, dtype=np.float32)
+    mp = np.ones(ds.max_channels, dtype=np.float32)
+    vm = np.ones(ds.max_channels, dtype=bool)
+
+    attn_mask, sample, mp, vm = _apply_zero_channel_mask(
+        ds, 0, 3, ch_idx, sample, mp, vm
+    )
+    assert not attn_mask[0]
+    assert attn_mask[1]  # unknown
+    assert attn_mask[2]  # zero
+    assert (sample[1] == -1.0).all()
+    assert (sample[2] == -1.0).all()

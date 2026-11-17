@@ -1,0 +1,43 @@
+# Keep the build context (and image layers) free of local-only files that
+# `pip install ".${DCT_EXTRAS}"` (see Dockerfile) never needs: it only reads
+# pyproject.toml, README.md, LICENSE, and the deepcell_types/ package tree.
+
+# Version control
+.git
+.gitignore
+
+# Local virtual environments / secrets
+.venv
+.env
+.env.*
+
+# Byte-compiled / packaging artifacts
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Test / lint / type-checker caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local artifacts (datasets, model weights, inference outputs) — see .gitignore
+/data/
+/model/
+/models/
+/output/
+
+# Generated documentation
+docs/_build/
+
+# /deep-review outputs and local agent planning artifacts (not part of the package)
+/reviews/
+audit/
+docs/superpowers/
+
+# Per-project Claude Code settings (local-only, not for upstream)
+.claude/

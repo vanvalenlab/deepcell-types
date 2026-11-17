@@ -1,0 +1,82 @@
+Model and Datasets
+==================
+
+DeepCell models and training datasets are licensed under a 
+[modified Apache license][license] for non-commercial academic use only.
+An API key for accessing datasets and models can be obtained at <https://users.deepcell.org/login/>.
+
+[license]: https://github.com/vanvalenlab/deepcell-auth/blob/main/ASSET_LICENSE
+
+API Key Usage
+-------------
+
+The token that is issued by <https://users.deepcell.org> should be added as an
+environment variable:
+
+```bash
+export DEEPCELL_ACCESS_TOKEN=<token-from-users.deepcell.org>
+```
+
+This line can be added to your shell configuration (e.g. ``.bashrc``, ``.zshrc``,
+``.bash_profile``, etc.) to automatically grant access to DeepCell models/data
+upon login.
+
+(download_models)=
+Models
+------
+
+The model can be downloaded for local use:
+
+```python
+>>> from deepcell_types.utils import download_model
+
+>>> download_model()
+```
+
+A specific version can be requested:
+
+```python
+download_model(version="2026-06-15")
+```
+
+A listing of available pre-trained model versions is available from
+`deepcell_types.utils.list_model_versions()`.
+
+To fetch a baseline checkpoint instead of the main DeepCellTypes model:
+
+```python
+from deepcell_types.utils import download_baseline_checkpoint
+
+# One of: "cellsighter", "maps", "xgboost"
+download_baseline_checkpoint("maps")
+```
+
+All three baselines ship in a single compressed bundle, which holds each one's
+weights plus any companion file needed at inference (`maps` ships `_stats.npz`;
+`xgboost` ships `.remap.json`). The bundle is unpacked automatically and the
+returned list gives the local path of every file for the baseline you asked
+for.
+
+Because the bundle is shared, the first call downloads all three baselines
+(646 MB) regardless of which one you request; the other two are then served
+from the local cache without a further download.
+
+The Nimbus baseline is not served here: its pretrained weights are
+distributed upstream, so install it with
+`pip install nimbus-inference==0.0.5` on Python 3.11 (which fetches the weights
+automatically) rather than `download_baseline_checkpoint`.
+
+Training Data
+-------------
+
+```{warning}
+The training dataset is over 1.3 TB - make sure you have space and sufficient
+network bandwidth before attempting to download.
+```
+
+Similarly, training data can be downloaded for local use with:
+
+```python
+>>> from deepcell_types.utils import download_training_data
+>>> download_training_data()
+```

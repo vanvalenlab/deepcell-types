@@ -1,0 +1,97 @@
+deepcell-types baselines — third-party method attributions
+
+## xgboost
+deepcelltypes-xgboost
+Copyright (c) Van Valen Lab at the California Institute of Technology (Caltech)
+
+Licensed under the Modified Apache License, Version 2.0 (the "License");
+see LICENSE for the full text. The License grants a non-commercial /
+academic copyright and patent license; for any other use, including
+commercial use, contact vanvalenlab@gmail.com.
+
+================================================================================
+REFERENCES
+================================================================================
+
+This baseline applies gradient-boosted trees (the XGBoost library) to the
+DeepCell Types evaluation harness using mean per-channel marker
+intensities as features. There is no paper-specific implementation being
+adapted; XGBoost is a standard machine-learning method.
+
+XGBoost is distributed separately as ``xgboost`` on PyPI under the
+Apache License 2.0.
+
+## nimbus
+deepcelltypes-nimbus
+Copyright (c) Van Valen Lab at the California Institute of Technology (Caltech)
+
+Licensed under the Modified Apache License, Version 2.0 (the "License");
+see LICENSE for the full text. The License grants a non-commercial /
+academic copyright and patent license; for any other use, including
+commercial use, contact vanvalenlab@gmail.com.
+
+================================================================================
+REFERENCES
+================================================================================
+
+This baseline wraps the published Nimbus inference library and applies it
+to the DeepCell Types evaluation harness.
+
+Nimbus is described in:
+
+  J. L. Rumberger et al., "Nimbus: A deep learning approach for cell
+  segmentation and marker quantification in multiplexed tissue imaging",
+  Nature Methods (2025).
+
+The Nimbus library (``nimbus-inference``) is distributed separately on
+PyPI; consult that project for its license terms.
+
+
+## maps
+deepcelltypes-maps
+Copyright (c) Van Valen Lab at the California Institute of Technology (Caltech)
+
+Licensed under the Modified Apache License, Version 2.0 (the "License");
+see LICENSE for the full text. The License grants a non-commercial /
+academic copyright and patent license; for any other use, including
+commercial use, contact vanvalenlab@gmail.com.
+
+================================================================================
+REFERENCES
+================================================================================
+
+This baseline implements the architecture and training procedure described
+in:
+
+  M. Y. Lu et al., "MAPS: pathology-aware multi-task learning for pan-
+  cancer classification", Nature Communications 14:8459 (2023).
+  DOI: 10.1038/s41467-023-44188-w
+
+The upstream reference codebase (https://github.com/mahmoodlab/MAPS) is
+distributed under Apache 2.0 with Commons Clause.
+
+
+## cellsighter
+deepcelltypes-cellsighter
+Copyright (c) Van Valen Lab at the California Institute of Technology (Caltech)
+
+Licensed under the Modified Apache License, Version 2.0 (the "License");
+see LICENSE for the full text. The License grants a non-commercial /
+academic copyright and patent license; for any other use, including
+commercial use, contact vanvalenlab@gmail.com.
+
+================================================================================
+REFERENCES
+================================================================================
+
+This baseline is an INDEPENDENT REIMPLEMENTATION of the architecture and
+training procedure described in:
+
+  Yael Amitay et al., "CellSighter: a neural network to classify cells in
+  highly multiplexed images", Nature Communications 14:4302 (2023).
+  DOI: 10.1038/s41467-023-40066-7
+
+The upstream reference codebase (https://github.com/KerenLab/CellSighter)
+was consulted during development; this implementation does not include
+copied code from that repository.
+
