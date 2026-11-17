@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Canonical evaluation: the held-out 129-FOV TEST split.
+# Canonical evaluation: the held-out 94-FOV TEST split.
 #
 # This is the repo's default/headline evaluation. All reported cell-type numbers
 # are on this frozen, leakage-free test set (no method uses it for selection).
 #
 #   splits/fov_split_test_current.json  -- current-archive (f5b6ed52) test split:
-#       current train + the frozen 129 test FOVs as `val`. The 129 test FOVs are
-#       bit-identical to the prior-archive splits/fov_split_test.json (verified:
-#       486,705 cells, 100% ground-truth match). To compare against the
+#       current train + the frozen 94 test FOVs as `val`. The 94 test FOVs are
+#       bit-identical to the prior-archive splits/fov_split_test.json (100%
+#       ground-truth match). To compare against the
 #       other methods, generate each baseline's predictions on this same
 #       split (see the deepcell_types.baselines subpackage) and score the
 #       per-cell prediction CSVs yourself.
@@ -43,4 +43,4 @@ python scripts/predict.py \
 # For a full multi-method head-to-head table (ours + XGBoost/MAPS/CellSighter),
 # generate each baseline's predictions on this same split (see
 # deepcell_types.baselines) and compare the per-cell prediction CSVs with your
-# own scoring. All methods evaluate on the identical 129-FOV test split.
+# own scoring. All methods evaluate on the identical 94-FOV test split.

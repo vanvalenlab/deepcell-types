@@ -473,7 +473,7 @@ def _run_canonical_val_tuning(
     """
     # Contiguous label space over the TRAIN classes (XGBClassifier requires y in
     # exactly [0..K-1]); selection-val / test rows whose label is absent from
-    # train are dropped (smoke-scale no-op at full 1722-FOV scale).
+    # train are dropped (smoke-scale no-op at full 1223-FOV scale).
     train_unique = np.sort(np.unique(y_train_full))
     label_to_compact = {int(orig): i for i, orig in enumerate(train_unique)}
     compact_to_label = {i: int(orig) for orig, i in label_to_compact.items()}
@@ -669,7 +669,7 @@ def _run_canonical_val_tuning(
         json.dump(remap_meta, f, indent=2, sort_keys=True)
     print(f"Remap metadata saved to {remap_path}")
 
-    # Prediction CSV on the held-out 129-FOV test (uncapped), in the same schema
+    # Prediction CSV on the held-out 94-FOV test (uncapped), in the same schema
     # as the other baselines so the tuned numbers are directly comparable. Map
     # the model's compact probabilities back to ct2idx-sorted columns.
     y_prob_compact = model.predict_proba(X_test)

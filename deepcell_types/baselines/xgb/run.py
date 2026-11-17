@@ -168,7 +168,7 @@ def main(
         # dataloader.py:269-273 max_val_samples) as the XGBoost eval_set; report
         # on --split_file 'val'. Contiguous label space over the TRAIN classes
         # (XGBClassifier requires y in exactly [0..K-1]); selection-val / test
-        # rows whose label is absent from train are dropped (at full 1722-FOV
+        # rows whose label is absent from train are dropped (at full 1223-FOV
         # scale every class is in train, so this is a smoke-scale no-op).
         train_unique = np.sort(np.unique(y_train))
         label_to_compact = {int(orig): i for i, orig in enumerate(train_unique)}

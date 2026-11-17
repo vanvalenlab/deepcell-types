@@ -6,9 +6,9 @@
       "modality",
       "tissue"
     ],
-    "num_train_fovs": 1722,
-    "num_val_fovs": 302,
-    "num_datasets": 2153,
+    "num_train_fovs": 1223,
+    "num_val_fovs": 212,
+    "num_datasets": 1529,
     "num_single_fov_strata_forced_to_train": 5,
     "created": "2026-05-11T22:51:52.124698+00:00",
     "min_channels": 3,
@@ -22,7 +22,7 @@
     "test_ratio_split_off": 0.3,
     "subset_seed": 42,
     "subset_strategy": "global_fov_shuffle",
-    "num_heldout_fovs": 129
+    "num_heldout_fovs": 94
   },
   "train": {
     "ibex_liver": [
@@ -3181,1505 +3181,8 @@
     "mccaffrey_tb_mibi_lung_Patient1-2": [
       "mccaffrey_tb_mibi_lung_Patient1-2"
     ],
-    "keren_new_mibi_FOV418": [
-      "keren_new_mibi_FOV418"
-    ],
-    "keren_new_mibi_FOV18": [
-      "keren_new_mibi_FOV18"
-    ],
-    "keren_new_mibi_FOV186": [
-      "keren_new_mibi_FOV186"
-    ],
-    "keren_new_mibi_FOV172": [
-      "keren_new_mibi_FOV172"
-    ],
-    "keren_new_mibi_FOV324": [
-      "keren_new_mibi_FOV324"
-    ],
-    "keren_new_mibi_FOV344": [
-      "keren_new_mibi_FOV344"
-    ],
-    "keren_new_mibi_FOV322": [
-      "keren_new_mibi_FOV322"
-    ],
-    "keren_new_mibi_FOV358": [
-      "keren_new_mibi_FOV358"
-    ],
-    "keren_new_mibi_FOV178": [
-      "keren_new_mibi_FOV178"
-    ],
-    "keren_new_mibi_FOV304": [
-      "keren_new_mibi_FOV304"
-    ],
-    "keren_new_mibi_FOV76": [
-      "keren_new_mibi_FOV76"
-    ],
-    "keren_new_mibi_FOV32": [
-      "keren_new_mibi_FOV32"
-    ],
-    "keren_new_mibi_FOV38": [
-      "keren_new_mibi_FOV38"
-    ],
-    "keren_new_mibi_FOV138": [
-      "keren_new_mibi_FOV138"
-    ],
-    "keren_new_mibi_FOV218": [
-      "keren_new_mibi_FOV218"
-    ],
-    "keren_new_mibi_FOV122": [
-      "keren_new_mibi_FOV122"
-    ],
-    "keren_new_mibi_FOV28": [
-      "keren_new_mibi_FOV28"
-    ],
-    "keren_new_mibi_FOV192": [
-      "keren_new_mibi_FOV192"
-    ],
-    "keren_new_mibi_FOV78": [
-      "keren_new_mibi_FOV78"
-    ],
-    "keren_new_mibi_FOV90": [
-      "keren_new_mibi_FOV90"
-    ],
-    "keren_new_mibi_FOV168": [
-      "keren_new_mibi_FOV168"
-    ],
-    "keren_new_mibi_FOV422": [
-      "keren_new_mibi_FOV422"
-    ],
-    "keren_new_mibi_FOV118": [
-      "keren_new_mibi_FOV118"
-    ],
-    "keren_new_mibi_FOV228": [
-      "keren_new_mibi_FOV228"
-    ],
-    "keren_new_mibi_FOV130": [
-      "keren_new_mibi_FOV130"
-    ],
-    "keren_new_mibi_FOV70": [
-      "keren_new_mibi_FOV70"
-    ],
-    "keren_new_mibi_FOV194": [
-      "keren_new_mibi_FOV194"
-    ],
-    "keren_new_mibi_FOV96": [
-      "keren_new_mibi_FOV96"
-    ],
-    "keren_new_mibi_FOV282": [
-      "keren_new_mibi_FOV282"
-    ],
-    "keren_new_mibi_FOV386": [
-      "keren_new_mibi_FOV386"
-    ],
-    "keren_new_mibi_FOV372": [
-      "keren_new_mibi_FOV372"
-    ],
-    "keren_new_mibi_FOV4": [
-      "keren_new_mibi_FOV4"
-    ],
-    "keren_new_mibi_FOV136": [
-      "keren_new_mibi_FOV136"
-    ],
-    "keren_new_mibi_FOV108": [
-      "keren_new_mibi_FOV108"
-    ],
-    "keren_new_mibi_FOV216": [
-      "keren_new_mibi_FOV216"
-    ],
-    "keren_new_mibi_FOV220": [
-      "keren_new_mibi_FOV220"
-    ],
-    "keren_new_mibi_FOV294": [
-      "keren_new_mibi_FOV294"
-    ],
-    "keren_new_mibi_FOV198": [
-      "keren_new_mibi_FOV198"
-    ],
-    "keren_new_mibi_FOV274": [
-      "keren_new_mibi_FOV274"
-    ],
-    "keren_new_mibi_FOV370": [
-      "keren_new_mibi_FOV370"
-    ],
-    "keren_new_mibi_FOV66": [
-      "keren_new_mibi_FOV66"
-    ],
-    "keren_new_mibi_FOV278": [
-      "keren_new_mibi_FOV278"
-    ],
-    "keren_new_mibi_FOV238": [
-      "keren_new_mibi_FOV238"
-    ],
-    "keren_new_mibi_FOV280": [
-      "keren_new_mibi_FOV280"
-    ],
-    "keren_new_mibi_FOV80": [
-      "keren_new_mibi_FOV80"
-    ],
-    "keren_new_mibi_FOV8": [
-      "keren_new_mibi_FOV8"
-    ],
-    "keren_new_mibi_FOV48": [
-      "keren_new_mibi_FOV48"
-    ],
-    "keren_new_mibi_FOV84": [
-      "keren_new_mibi_FOV84"
-    ],
-    "keren_new_mibi_FOV352": [
-      "keren_new_mibi_FOV352"
-    ],
-    "keren_new_mibi_FOV250": [
-      "keren_new_mibi_FOV250"
-    ],
-    "keren_new_mibi_FOV98": [
-      "keren_new_mibi_FOV98"
-    ],
-    "keren_new_mibi_FOV22": [
-      "keren_new_mibi_FOV22"
-    ],
-    "keren_new_mibi_FOV368": [
-      "keren_new_mibi_FOV368"
-    ],
-    "keren_new_mibi_FOV424": [
-      "keren_new_mibi_FOV424"
-    ],
-    "keren_new_mibi_FOV224": [
-      "keren_new_mibi_FOV224"
-    ],
-    "keren_new_mibi_FOV166": [
-      "keren_new_mibi_FOV166"
-    ],
-    "keren_new_mibi_FOV248": [
-      "keren_new_mibi_FOV248"
-    ],
-    "keren_new_mibi_FOV72": [
-      "keren_new_mibi_FOV72"
-    ],
-    "keren_new_mibi_FOV188": [
-      "keren_new_mibi_FOV188"
-    ],
-    "keren_new_mibi_FOV150": [
-      "keren_new_mibi_FOV150"
-    ],
-    "keren_new_mibi_FOV364": [
-      "keren_new_mibi_FOV364"
-    ],
-    "keren_new_mibi_FOV106": [
-      "keren_new_mibi_FOV106"
-    ],
-    "keren_new_mibi_FOV408": [
-      "keren_new_mibi_FOV408"
-    ],
-    "keren_new_mibi_FOV366": [
-      "keren_new_mibi_FOV366"
-    ],
-    "keren_new_mibi_FOV196": [
-      "keren_new_mibi_FOV196"
-    ],
-    "keren_new_mibi_FOV24": [
-      "keren_new_mibi_FOV24"
-    ],
-    "keren_new_mibi_FOV298": [
-      "keren_new_mibi_FOV298"
-    ],
-    "keren_new_mibi_FOV16": [
-      "keren_new_mibi_FOV16"
-    ],
-    "keren_new_mibi_FOV398": [
-      "keren_new_mibi_FOV398"
-    ],
-    "keren_new_mibi_FOV384": [
-      "keren_new_mibi_FOV384"
-    ],
-    "keren_new_mibi_FOV174": [
-      "keren_new_mibi_FOV174"
-    ],
-    "keren_new_mibi_FOV88": [
-      "keren_new_mibi_FOV88"
-    ],
-    "keren_new_mibi_FOV326": [
-      "keren_new_mibi_FOV326"
-    ],
-    "keren_new_mibi_FOV100": [
-      "keren_new_mibi_FOV100"
-    ],
-    "keren_new_mibi_FOV252": [
-      "keren_new_mibi_FOV252"
-    ],
-    "keren_new_mibi_FOV6": [
-      "keren_new_mibi_FOV6"
-    ],
-    "keren_new_mibi_FOV124": [
-      "keren_new_mibi_FOV124"
-    ],
-    "keren_new_mibi_FOV14": [
-      "keren_new_mibi_FOV14"
-    ],
-    "keren_new_mibi_FOV158": [
-      "keren_new_mibi_FOV158"
-    ],
-    "keren_new_mibi_FOV336": [
-      "keren_new_mibi_FOV336"
-    ],
-    "keren_new_mibi_FOV428": [
-      "keren_new_mibi_FOV428"
-    ],
-    "keren_new_mibi_FOV268": [
-      "keren_new_mibi_FOV268"
-    ],
-    "keren_new_mibi_FOV320": [
-      "keren_new_mibi_FOV320"
-    ],
-    "keren_new_mibi_FOV10": [
-      "keren_new_mibi_FOV10"
-    ],
-    "keren_new_mibi_FOV300": [
-      "keren_new_mibi_FOV300"
-    ],
-    "keren_new_mibi_FOV132": [
-      "keren_new_mibi_FOV132"
-    ],
-    "keren_new_mibi_FOV44": [
-      "keren_new_mibi_FOV44"
-    ],
-    "keren_new_mibi_FOV394": [
-      "keren_new_mibi_FOV394"
-    ],
-    "keren_new_mibi_FOV306": [
-      "keren_new_mibi_FOV306"
-    ],
-    "keren_new_mibi_FOV86": [
-      "keren_new_mibi_FOV86"
-    ],
-    "keren_new_mibi_FOV64": [
-      "keren_new_mibi_FOV64"
-    ],
-    "keren_new_mibi_FOV232": [
-      "keren_new_mibi_FOV232"
-    ],
-    "keren_new_mibi_FOV362": [
-      "keren_new_mibi_FOV362"
-    ],
-    "keren_new_mibi_FOV146": [
-      "keren_new_mibi_FOV146"
-    ],
-    "keren_new_mibi_FOV236": [
-      "keren_new_mibi_FOV236"
-    ],
-    "keren_new_mibi_FOV410": [
-      "keren_new_mibi_FOV410"
-    ],
-    "keren_new_mibi_FOV54": [
-      "keren_new_mibi_FOV54"
-    ],
-    "keren_new_mibi_FOV92": [
-      "keren_new_mibi_FOV92"
-    ],
-    "keren_new_mibi_FOV420": [
-      "keren_new_mibi_FOV420"
-    ],
-    "keren_new_mibi_FOV102": [
-      "keren_new_mibi_FOV102"
-    ],
-    "keren_new_mibi_FOV242": [
-      "keren_new_mibi_FOV242"
-    ],
-    "keren_new_mibi_FOV258": [
-      "keren_new_mibi_FOV258"
-    ],
-    "keren_new_mibi_FOV382": [
-      "keren_new_mibi_FOV382"
-    ],
-    "keren_new_mibi_FOV426": [
-      "keren_new_mibi_FOV426"
-    ],
-    "keren_new_mibi_FOV262": [
-      "keren_new_mibi_FOV262"
-    ],
-    "keren_new_mibi_FOV40": [
-      "keren_new_mibi_FOV40"
-    ],
-    "keren_new_mibi_FOV206": [
-      "keren_new_mibi_FOV206"
-    ],
-    "keren_new_mibi_FOV310": [
-      "keren_new_mibi_FOV310"
-    ],
-    "keren_new_mibi_FOV316": [
-      "keren_new_mibi_FOV316"
-    ],
-    "keren_new_mibi_FOV126": [
-      "keren_new_mibi_FOV126"
-    ],
-    "keren_new_mibi_FOV42": [
-      "keren_new_mibi_FOV42"
-    ],
-    "keren_new_mibi_FOV46": [
-      "keren_new_mibi_FOV46"
-    ],
-    "keren_new_mibi_FOV190": [
-      "keren_new_mibi_FOV190"
-    ],
-    "keren_new_mibi_FOV112": [
-      "keren_new_mibi_FOV112"
-    ],
-    "keren_new_mibi_FOV180": [
-      "keren_new_mibi_FOV180"
-    ],
-    "keren_new_mibi_FOV26": [
-      "keren_new_mibi_FOV26"
-    ],
-    "keren_new_mibi_FOV332": [
-      "keren_new_mibi_FOV332"
-    ],
-    "keren_new_mibi_FOV94": [
-      "keren_new_mibi_FOV94"
-    ],
-    "keren_new_mibi_FOV184": [
-      "keren_new_mibi_FOV184"
-    ],
-    "keren_new_mibi_FOV272": [
-      "keren_new_mibi_FOV272"
-    ],
-    "keren_new_mibi_FOV120": [
-      "keren_new_mibi_FOV120"
-    ],
-    "keren_new_mibi_FOV182": [
-      "keren_new_mibi_FOV182"
-    ],
-    "keren_new_mibi_FOV318": [
-      "keren_new_mibi_FOV318"
-    ],
-    "keren_new_mibi_FOV154": [
-      "keren_new_mibi_FOV154"
-    ],
-    "keren_new_mibi_FOV342": [
-      "keren_new_mibi_FOV342"
-    ],
-    "keren_new_mibi_FOV396": [
-      "keren_new_mibi_FOV396"
-    ],
-    "keren_new_mibi_FOV412": [
-      "keren_new_mibi_FOV412"
-    ],
-    "keren_new_mibi_FOV2": [
-      "keren_new_mibi_FOV2"
-    ],
-    "keren_new_mibi_FOV388": [
-      "keren_new_mibi_FOV388"
-    ],
-    "keren_new_mibi_FOV114": [
-      "keren_new_mibi_FOV114"
-    ],
-    "keren_new_mibi_FOV234": [
-      "keren_new_mibi_FOV234"
-    ],
-    "keren_new_mibi_FOV404": [
-      "keren_new_mibi_FOV404"
-    ],
-    "keren_new_mibi_FOV354": [
-      "keren_new_mibi_FOV354"
-    ],
-    "keren_new_mibi_FOV144": [
-      "keren_new_mibi_FOV144"
-    ],
-    "keren_new_mibi_FOV312": [
-      "keren_new_mibi_FOV312"
-    ],
-    "keren_new_mibi_FOV170": [
-      "keren_new_mibi_FOV170"
-    ],
-    "keren_new_mibi_FOV314": [
-      "keren_new_mibi_FOV314"
-    ],
-    "keren_new_mibi_FOV50": [
-      "keren_new_mibi_FOV50"
-    ],
-    "keren_new_mibi_FOV52": [
-      "keren_new_mibi_FOV52"
-    ],
-    "keren_new_mibi_FOV30": [
-      "keren_new_mibi_FOV30"
-    ],
-    "keren_new_mibi_FOV160": [
-      "keren_new_mibi_FOV160"
-    ],
-    "keren_new_mibi_FOV56": [
-      "keren_new_mibi_FOV56"
-    ],
-    "keren_new_mibi_FOV214": [
-      "keren_new_mibi_FOV214"
-    ],
-    "keren_new_mibi_FOV142": [
-      "keren_new_mibi_FOV142"
-    ],
-    "keren_new_mibi_FOV402": [
-      "keren_new_mibi_FOV402"
-    ],
-    "keren_new_mibi_FOV356": [
-      "keren_new_mibi_FOV356"
-    ],
-    "keren_new_mibi_FOV406": [
-      "keren_new_mibi_FOV406"
-    ],
-    "keren_new_mibi_FOV116": [
-      "keren_new_mibi_FOV116"
-    ],
-    "keren_new_mibi_FOV12": [
-      "keren_new_mibi_FOV12"
-    ],
-    "keren_new_mibi_FOV162": [
-      "keren_new_mibi_FOV162"
-    ],
-    "keren_new_mibi_FOV82": [
-      "keren_new_mibi_FOV82"
-    ],
-    "keren_new_mibi_FOV308": [
-      "keren_new_mibi_FOV308"
-    ],
-    "keren_new_mibi_FOV246": [
-      "keren_new_mibi_FOV246"
-    ],
-    "keren_new_mibi_FOV338": [
-      "keren_new_mibi_FOV338"
-    ],
-    "keren_pdac_mibi_P051_F_FOV521": [
-      "keren_pdac_mibi_P051_F_FOV521"
-    ],
-    "keren_pdac_mibi_P014_F_FOV410": [
-      "keren_pdac_mibi_P014_F_FOV410"
-    ],
-    "keren_pdac_mibi_P009_F_FOV395": [
-      "keren_pdac_mibi_P009_F_FOV395"
-    ],
-    "keren_pdac_mibi_P053_S_FOV529": [
-      "keren_pdac_mibi_P053_S_FOV529"
-    ],
-    "keren_pdac_mibi_P025_S_FOV445": [
-      "keren_pdac_mibi_P025_S_FOV445"
-    ],
-    "keren_pdac_mibi_P001_S_FOV373": [
-      "keren_pdac_mibi_P001_S_FOV373"
-    ],
-    "keren_pdac_mibi_P021_C_FOV432": [
-      "keren_pdac_mibi_P021_C_FOV432"
-    ],
-    "keren_pdac_mibi_P023_C_FOV438": [
-      "keren_pdac_mibi_P023_C_FOV438"
-    ],
-    "keren_pdac_mibi_P035_F_FOV473": [
-      "keren_pdac_mibi_P035_F_FOV473"
-    ],
-    "keren_pdac_mibi_P010_S_FOV400": [
-      "keren_pdac_mibi_P010_S_FOV400"
-    ],
-    "keren_pdac_mibi_P014_C_FOV411": [
-      "keren_pdac_mibi_P014_C_FOV411"
-    ],
-    "keren_pdac_mibi_P025_C_FOV444": [
-      "keren_pdac_mibi_P025_C_FOV444"
-    ],
-    "keren_pdac_mibi_P070_C_FOV579": [
-      "keren_pdac_mibi_P070_C_FOV579"
-    ],
-    "keren_pdac_mibi_P026_S_FOV448": [
-      "keren_pdac_mibi_P026_S_FOV448"
-    ],
-    "keren_pdac_mibi_P017_S_FOV421": [
-      "keren_pdac_mibi_P017_S_FOV421"
-    ],
-    "keren_pdac_mibi_P034_C_FOV471": [
-      "keren_pdac_mibi_P034_C_FOV471"
-    ],
-    "keren_pdac_mibi_P053_F_FOV527": [
-      "keren_pdac_mibi_P053_F_FOV527"
-    ],
-    "keren_pdac_mibi_P072_C_FOV585": [
-      "keren_pdac_mibi_P072_C_FOV585"
-    ],
-    "keren_pdac_mibi_P019_F_FOV425": [
-      "keren_pdac_mibi_P019_F_FOV425"
-    ],
-    "keren_pdac_mibi_P033_C_FOV468": [
-      "keren_pdac_mibi_P033_C_FOV468"
-    ],
-    "keren_pdac_mibi_P020_C_FOV429": [
-      "keren_pdac_mibi_P020_C_FOV429"
-    ],
-    "keren_pdac_mibi_P072_S_FOV586": [
-      "keren_pdac_mibi_P072_S_FOV586"
-    ],
-    "keren_pdac_mibi_P053_C_FOV528": [
-      "keren_pdac_mibi_P053_C_FOV528"
-    ],
-    "keren_pdac_mibi_P069_S_FOV577": [
-      "keren_pdac_mibi_P069_S_FOV577"
-    ],
-    "keren_pdac_mibi_P030_C_FOV459": [
-      "keren_pdac_mibi_P030_C_FOV459"
-    ],
-    "keren_pdac_mibi_P013_S_FOV409": [
-      "keren_pdac_mibi_P013_S_FOV409"
-    ],
-    "keren_pdac_mibi_P039_C_FOV486": [
-      "keren_pdac_mibi_P039_C_FOV486"
-    ],
-    "keren_pdac_mibi_P039_F_FOV485": [
-      "keren_pdac_mibi_P039_F_FOV485"
-    ],
-    "keren_pdac_mibi_P020_F_FOV428": [
-      "keren_pdac_mibi_P020_F_FOV428"
-    ],
-    "keren_pdac_mibi_P070_S_FOV580": [
-      "keren_pdac_mibi_P070_S_FOV580"
-    ],
-    "keren_pdac_mibi_P031_C_FOV462": [
-      "keren_pdac_mibi_P031_C_FOV462"
-    ],
-    "keren_pdac_mibi_P009_C_FOV396": [
-      "keren_pdac_mibi_P009_C_FOV396"
-    ],
-    "keren_pdac_mibi_P016_C_FOV417": [
-      "keren_pdac_mibi_P016_C_FOV417"
-    ],
-    "keren_pdac_mibi_P016_S_FOV418": [
-      "keren_pdac_mibi_P016_S_FOV418"
-    ],
-    "keren_pdac_mibi_P023_F_FOV437": [
-      "keren_pdac_mibi_P023_F_FOV437"
-    ],
-    "keren_pdac_mibi_P071_F_FOV581": [
-      "keren_pdac_mibi_P071_F_FOV581"
-    ],
-    "keren_pdac_mibi_P027_F_FOV449": [
-      "keren_pdac_mibi_P027_F_FOV449"
-    ],
-    "keren_pdac_mibi_P020_S_FOV430": [
-      "keren_pdac_mibi_P020_S_FOV430"
-    ],
-    "keren_pdac_mibi_P023_S_FOV439": [
-      "keren_pdac_mibi_P023_S_FOV439"
-    ],
-    "keren_pdac_mibi_P010_C_FOV399": [
-      "keren_pdac_mibi_P010_C_FOV399"
-    ],
-    "keren_pdac_mibi_P038_F_FOV482": [
-      "keren_pdac_mibi_P038_F_FOV482"
-    ],
-    "keren_pdac_mibi_P027_C_FOV450": [
-      "keren_pdac_mibi_P027_C_FOV450"
-    ],
-    "keren_pdac_mibi_P054_S_FOV532": [
-      "keren_pdac_mibi_P054_S_FOV532"
-    ],
-    "keren_pdac_mibi_P010_F_FOV398": [
-      "keren_pdac_mibi_P010_F_FOV398"
-    ],
-    "keren_pdac_mibi_P013_F_FOV407": [
-      "keren_pdac_mibi_P013_F_FOV407"
-    ],
-    "keren_pdac_mibi_P012_F_FOV404": [
-      "keren_pdac_mibi_P012_F_FOV404"
-    ],
-    "keren_pdac_mibi_P073_F_FOV587": [
-      "keren_pdac_mibi_P073_F_FOV587"
-    ],
-    "keren_pdac_mibi_P032_F_FOV464": [
-      "keren_pdac_mibi_P032_F_FOV464"
-    ],
-    "keren_pdac_mibi_P014_S_FOV412": [
-      "keren_pdac_mibi_P014_S_FOV412"
-    ],
-    "keren_pdac_mibi_P021_S_FOV433": [
-      "keren_pdac_mibi_P021_S_FOV433"
-    ],
-    "keren_pdac_mibi_P002_S_FOV376": [
-      "keren_pdac_mibi_P002_S_FOV376"
-    ],
-    "keren_pdac_mibi_P001_F_FOV371": [
-      "keren_pdac_mibi_P001_F_FOV371"
-    ],
-    "keren_pdac_mibi_P017_F_FOV419": [
-      "keren_pdac_mibi_P017_F_FOV419"
-    ],
-    "keren_pdac_mibi_P031_F_FOV461": [
-      "keren_pdac_mibi_P031_F_FOV461"
-    ],
-    "keren_pdac_mibi_P024_C_FOV441": [
-      "keren_pdac_mibi_P024_C_FOV441"
-    ],
-    "keren_pdac_mibi_P002_F_FOV374": [
-      "keren_pdac_mibi_P002_F_FOV374"
-    ],
-    "keren_pdac_mibi_P012_C_FOV405": [
-      "keren_pdac_mibi_P012_C_FOV405"
-    ],
-    "keren_pdac_mibi_P052_F_FOV524": [
-      "keren_pdac_mibi_P052_F_FOV524"
-    ],
-    "keren_pdac_mibi_P036_F_FOV476": [
-      "keren_pdac_mibi_P036_F_FOV476"
-    ],
-    "keren_pdac_mibi_P006_F_FOV386": [
-      "keren_pdac_mibi_P006_F_FOV386"
-    ],
-    "keren_pdac_mibi_P054_C_FOV531": [
-      "keren_pdac_mibi_P054_C_FOV531"
-    ],
-    "keren_pdac_mibi_P054_F_FOV530": [
-      "keren_pdac_mibi_P054_F_FOV530"
-    ],
-    "keren_pdac_mibi_P001_C_FOV372": [
-      "keren_pdac_mibi_P001_C_FOV372"
-    ],
-    "keren_pdac_mibi_P072_F_FOV584": [
-      "keren_pdac_mibi_P072_F_FOV584"
-    ],
-    "keren_pdac_mibi_P018_F_FOV422": [
-      "keren_pdac_mibi_P018_F_FOV422"
-    ],
-    "keren_pdac_mibi_P035_S_FOV475": [
-      "keren_pdac_mibi_P035_S_FOV475"
-    ],
-    "keren_pdac_mibi_P027_S_FOV451": [
-      "keren_pdac_mibi_P027_S_FOV451"
-    ],
-    "keren_pdac_mibi_P011_F_FOV401": [
-      "keren_pdac_mibi_P011_F_FOV401"
-    ],
-    "keren_pdac_mibi_P028_S_FOV454": [
-      "keren_pdac_mibi_P028_S_FOV454"
-    ],
-    "keren_pdac_mibi_P015_C_FOV414": [
-      "keren_pdac_mibi_P015_C_FOV414"
-    ],
-    "keren_pdac_mibi_P002_C_FOV375": [
-      "keren_pdac_mibi_P002_C_FOV375"
-    ],
-    "keren_pdac_mibi_P029_F_FOV455": [
-      "keren_pdac_mibi_P029_F_FOV455"
-    ],
-    "keren_pdac_mibi_P031_S_FOV463": [
-      "keren_pdac_mibi_P031_S_FOV463"
-    ],
-    "keren_pdac_mibi_P038_C_FOV483": [
-      "keren_pdac_mibi_P038_C_FOV483"
-    ],
-    "keren_pdac_mibi_P032_S_FOV466": [
-      "keren_pdac_mibi_P032_S_FOV466"
-    ],
-    "keren_pdac_mibi_P034_S_FOV472": [
-      "keren_pdac_mibi_P034_S_FOV472"
-    ],
-    "keren_pdac_mibi_P015_F_FOV413": [
-      "keren_pdac_mibi_P015_F_FOV413"
-    ],
-    "keren_pdac_mibi_P008_C_FOV393": [
-      "keren_pdac_mibi_P008_C_FOV393"
-    ],
-    "keren_pdac_mibi_P052_S_FOV526": [
-      "keren_pdac_mibi_P052_S_FOV526"
-    ],
-    "keren_pdac_mibi_P050_F_FOV518": [
-      "keren_pdac_mibi_P050_F_FOV518"
-    ],
-    "keren_pdac_mibi_P018_S_FOV424": [
-      "keren_pdac_mibi_P018_S_FOV424"
-    ],
-    "keren_pdac_mibi_P035_C_FOV474": [
-      "keren_pdac_mibi_P035_C_FOV474"
-    ],
-    "keren_pdac_mibi_P013_C_FOV408": [
-      "keren_pdac_mibi_P013_C_FOV408"
-    ],
-    "keren_pdac_mibi_P024_S_FOV442": [
-      "keren_pdac_mibi_P024_S_FOV442"
-    ],
-    "keren_pdac_mibi_P033_F_FOV467": [
-      "keren_pdac_mibi_P033_F_FOV467"
-    ],
-    "keren_pdac_mibi_P071_C_FOV582": [
-      "keren_pdac_mibi_P071_C_FOV582"
-    ],
-    "keren_pdac_mibi_P012_S_FOV406": [
-      "keren_pdac_mibi_P012_S_FOV406"
-    ],
-    "keren_pdac_mibi_P026_C_FOV447": [
-      "keren_pdac_mibi_P026_C_FOV447"
-    ],
-    "keren_pdac_mibi_P029_S_FOV457": [
-      "keren_pdac_mibi_P029_S_FOV457"
-    ],
-    "keren_pdac_mibi_P007_S_FOV391": [
-      "keren_pdac_mibi_P007_S_FOV391"
-    ],
-    "keren_pdac_mibi_P038_S_FOV484": [
-      "keren_pdac_mibi_P038_S_FOV484"
-    ],
-    "keren_pdac_mibi_P017_C_FOV420": [
-      "keren_pdac_mibi_P017_C_FOV420"
-    ],
-    "keren_pdac_mibi_P030_S_FOV460": [
-      "keren_pdac_mibi_P030_S_FOV460"
-    ],
-    "keren_pdac_mibi_P015_S_FOV415": [
-      "keren_pdac_mibi_P015_S_FOV415"
-    ],
-    "keren_pdac_mibi_P003_F_FOV377": [
-      "keren_pdac_mibi_P003_F_FOV377"
-    ],
-    "keren_pdac_mibi_P036_C_FOV477": [
-      "keren_pdac_mibi_P036_C_FOV477"
-    ],
-    "keren_pdac_mibi_P022_F_FOV434": [
-      "keren_pdac_mibi_P022_F_FOV434"
-    ],
-    "keren_pdac_mibi_P037_S_FOV481": [
-      "keren_pdac_mibi_P037_S_FOV481"
-    ],
-    "keren_pdac_mibi_P039_S_FOV487": [
-      "keren_pdac_mibi_P039_S_FOV487"
-    ],
-    "keren_pdac_mibi_P019_C_FOV426": [
-      "keren_pdac_mibi_P019_C_FOV426"
-    ],
-    "keren_pdac_mibi_P021_F_FOV431": [
-      "keren_pdac_mibi_P021_F_FOV431"
-    ],
-    "keren_pdac_mibi_P008_F_FOV392": [
-      "keren_pdac_mibi_P008_F_FOV392"
-    ],
-    "keren_pdac_mibi_P033_S_FOV469": [
-      "keren_pdac_mibi_P033_S_FOV469"
-    ],
-    "keren_pdac_mibi_P018_C_FOV423": [
-      "keren_pdac_mibi_P018_C_FOV423"
-    ],
-    "keren_pdac_mibi_P050_S_FOV520": [
-      "keren_pdac_mibi_P050_S_FOV520"
-    ],
-    "keren_pdac_mibi_P051_S_FOV523": [
-      "keren_pdac_mibi_P051_S_FOV523"
-    ],
     "mccaffrey_tb_mibi_reproductive_Patient13-1": [
       "mccaffrey_tb_mibi_reproductive_Patient13-1"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA049_Point112_16": [
-      "keren_melanoma_mibi_Slide11_TMA049_Point112_16"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point008_42": [
-      "keren_melanoma_mibi_Slide06B_Point008_42"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA022_Point023_8": [
-      "keren_melanoma_mibi_Slide11_TMA022_Point023_8"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA000_Point002_Control_Melanoma": [
-      "keren_melanoma_mibi_Slide11_TMA000_Point002_Control_Melanoma"
-    ],
-    "keren_melanoma_mibi_Slide09_Point020_11": [
-      "keren_melanoma_mibi_Slide09_Point020_11"
-    ],
-    "keren_melanoma_mibi_Slide09_Point018_9": [
-      "keren_melanoma_mibi_Slide09_Point018_9"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA043_Point054_14": [
-      "keren_melanoma_mibi_Slide11_TMA043_Point054_14"
-    ],
-    "keren_melanoma_mibi_Slide04_Point010_12": [
-      "keren_melanoma_mibi_Slide04_Point010_12"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA012_Point003_4": [
-      "keren_melanoma_mibi_Slide11_TMA012_Point003_4"
-    ],
-    "keren_melanoma_mibi_Slide10_Point013_13": [
-      "keren_melanoma_mibi_Slide10_Point013_13"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA063_Point091_20": [
-      "keren_melanoma_mibi_Slide11_TMA063_Point091_20"
-    ],
-    "keren_melanoma_mibi_Slide05_Point002_Control_Melanoma": [
-      "keren_melanoma_mibi_Slide05_Point002_Control_Melanoma"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA106_Point029_35": [
-      "keren_melanoma_mibi_Slide11_TMA106_Point029_35"
-    ],
-    "keren_melanoma_mibi_Slide10_Point002_39": [
-      "keren_melanoma_mibi_Slide10_Point002_39"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA077_Point069_25": [
-      "keren_melanoma_mibi_Slide11_TMA077_Point069_25"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point014_42": [
-      "keren_melanoma_mibi_Slide06B_Point014_42"
-    ],
-    "keren_melanoma_mibi_Slide10_Point006_39": [
-      "keren_melanoma_mibi_Slide10_Point006_39"
-    ],
-    "keren_melanoma_mibi_Slide09_Point014_9": [
-      "keren_melanoma_mibi_Slide09_Point014_9"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA089_Point068_29": [
-      "keren_melanoma_mibi_Slide11_TMA089_Point068_29"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA109_Point107_36": [
-      "keren_melanoma_mibi_Slide11_TMA109_Point107_36"
-    ],
-    "keren_melanoma_mibi_Slide01_Point001_47": [
-      "keren_melanoma_mibi_Slide01_Point001_47"
-    ],
-    "keren_melanoma_mibi_Slide04_Point001_12": [
-      "keren_melanoma_mibi_Slide04_Point001_12"
-    ],
-    "keren_melanoma_mibi_Slide09_Point028_11": [
-      "keren_melanoma_mibi_Slide09_Point028_11"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA074_Point103_24": [
-      "keren_melanoma_mibi_Slide11_TMA074_Point103_24"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point012_41": [
-      "keren_melanoma_mibi_Slide06A_Point012_41"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA091_Point050_30": [
-      "keren_melanoma_mibi_Slide11_TMA091_Point050_30"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA103_Point049_34": [
-      "keren_melanoma_mibi_Slide11_TMA103_Point049_34"
-    ],
-    "keren_melanoma_mibi_Slide04_Point029_50": [
-      "keren_melanoma_mibi_Slide04_Point029_50"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point008_41": [
-      "keren_melanoma_mibi_Slide06A_Point008_41"
-    ],
-    "keren_melanoma_mibi_Slide04_Point007_12": [
-      "keren_melanoma_mibi_Slide04_Point007_12"
-    ],
-    "keren_melanoma_mibi_Slide10_Point014_13": [
-      "keren_melanoma_mibi_Slide10_Point014_13"
-    ],
-    "keren_melanoma_mibi_Slide01_Point002_47": [
-      "keren_melanoma_mibi_Slide01_Point002_47"
-    ],
-    "keren_melanoma_mibi_Slide03_Point010_40": [
-      "keren_melanoma_mibi_Slide03_Point010_40"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA013_Point115_5": [
-      "keren_melanoma_mibi_Slide11_TMA013_Point115_5"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA002_Point097_1": [
-      "keren_melanoma_mibi_Slide11_TMA002_Point097_1"
-    ],
-    "keren_melanoma_mibi_Slide04_Point018_50": [
-      "keren_melanoma_mibi_Slide04_Point018_50"
-    ],
-    "keren_melanoma_mibi_Slide07_Point017_38": [
-      "keren_melanoma_mibi_Slide07_Point017_38"
-    ],
-    "keren_melanoma_mibi_Slide09_Point021_11": [
-      "keren_melanoma_mibi_Slide09_Point021_11"
-    ],
-    "keren_melanoma_mibi_Slide07_Point012_49": [
-      "keren_melanoma_mibi_Slide07_Point012_49"
-    ],
-    "keren_melanoma_mibi_Slide07_Point009_49": [
-      "keren_melanoma_mibi_Slide07_Point009_49"
-    ],
-    "keren_melanoma_mibi_Slide07_Point008_49": [
-      "keren_melanoma_mibi_Slide07_Point008_49"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA030_Point060_10": [
-      "keren_melanoma_mibi_Slide11_TMA030_Point060_10"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA057_Point035_18": [
-      "keren_melanoma_mibi_Slide11_TMA057_Point035_18"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA007_Point057_3": [
-      "keren_melanoma_mibi_Slide11_TMA007_Point057_3"
-    ],
-    "keren_melanoma_mibi_Slide02_Point003_45": [
-      "keren_melanoma_mibi_Slide02_Point003_45"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA114_Point066_37": [
-      "keren_melanoma_mibi_Slide11_TMA114_Point066_37"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA041_Point072_13": [
-      "keren_melanoma_mibi_Slide11_TMA041_Point072_13"
-    ],
-    "keren_melanoma_mibi_Slide02_Point002_45": [
-      "keren_melanoma_mibi_Slide02_Point002_45"
-    ],
-    "keren_melanoma_mibi_Slide04_Point011_12": [
-      "keren_melanoma_mibi_Slide04_Point011_12"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point009_42": [
-      "keren_melanoma_mibi_Slide06B_Point009_42"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point005_41": [
-      "keren_melanoma_mibi_Slide06A_Point005_41"
-    ],
-    "keren_melanoma_mibi_Slide04_Point017_50": [
-      "keren_melanoma_mibi_Slide04_Point017_50"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA113_Point086_37": [
-      "keren_melanoma_mibi_Slide11_TMA113_Point086_37"
-    ],
-    "keren_melanoma_mibi_Slide08_Point009_38": [
-      "keren_melanoma_mibi_Slide08_Point009_38"
-    ],
-    "keren_melanoma_mibi_Slide02_Point004_45": [
-      "keren_melanoma_mibi_Slide02_Point004_45"
-    ],
-    "keren_melanoma_mibi_Slide09_Point004_9": [
-      "keren_melanoma_mibi_Slide09_Point004_9"
-    ],
-    "keren_melanoma_mibi_Slide04_Point027_50": [
-      "keren_melanoma_mibi_Slide04_Point027_50"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA079_Point051_26": [
-      "keren_melanoma_mibi_Slide11_TMA079_Point051_26"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point017_41": [
-      "keren_melanoma_mibi_Slide06A_Point017_41"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA100_Point084_33": [
-      "keren_melanoma_mibi_Slide11_TMA100_Point084_33"
-    ],
-    "keren_melanoma_mibi_Slide10_Point009_13": [
-      "keren_melanoma_mibi_Slide10_Point009_13"
-    ],
-    "keren_melanoma_mibi_Slide08_Point016_8": [
-      "keren_melanoma_mibi_Slide08_Point016_8"
-    ],
-    "keren_melanoma_mibi_Slide08_Point011_38": [
-      "keren_melanoma_mibi_Slide08_Point011_38"
-    ],
-    "keren_melanoma_mibi_Slide08_Point007_38": [
-      "keren_melanoma_mibi_Slide08_Point007_38"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point009_41": [
-      "keren_melanoma_mibi_Slide06A_Point009_41"
-    ],
-    "keren_melanoma_mibi_Slide05_Point006_44": [
-      "keren_melanoma_mibi_Slide05_Point006_44"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point005_41": [
-      "keren_melanoma_mibi_Slide06B_Point005_41"
-    ],
-    "keren_melanoma_mibi_Slide04_Point023_50": [
-      "keren_melanoma_mibi_Slide04_Point023_50"
-    ],
-    "keren_melanoma_mibi_Slide09_Point015_9": [
-      "keren_melanoma_mibi_Slide09_Point015_9"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA053_Point071_17": [
-      "keren_melanoma_mibi_Slide11_TMA053_Point071_17"
-    ],
-    "keren_melanoma_mibi_Slide07_Point019_38": [
-      "keren_melanoma_mibi_Slide07_Point019_38"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA075_Point090_24": [
-      "keren_melanoma_mibi_Slide11_TMA075_Point090_24"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point002_Control_Melanoma": [
-      "keren_melanoma_mibi_Slide06A_Point002_Control_Melanoma"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA066_Point063_21": [
-      "keren_melanoma_mibi_Slide11_TMA066_Point063_21"
-    ],
-    "keren_melanoma_mibi_Slide05_Point004_44": [
-      "keren_melanoma_mibi_Slide05_Point004_44"
-    ],
-    "keren_melanoma_mibi_Slide09_Point001_9": [
-      "keren_melanoma_mibi_Slide09_Point001_9"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point015_41": [
-      "keren_melanoma_mibi_Slide06A_Point015_41"
-    ],
-    "keren_melanoma_mibi_Slide04_Point006_12": [
-      "keren_melanoma_mibi_Slide04_Point006_12"
-    ],
-    "keren_melanoma_mibi_Slide07_Point020_38": [
-      "keren_melanoma_mibi_Slide07_Point020_38"
-    ],
-    "keren_melanoma_mibi_Slide04_Point028_50": [
-      "keren_melanoma_mibi_Slide04_Point028_50"
-    ],
-    "keren_melanoma_mibi_Slide02_Point001_45": [
-      "keren_melanoma_mibi_Slide02_Point001_45"
-    ],
-    "keren_melanoma_mibi_Slide05_Point003_44": [
-      "keren_melanoma_mibi_Slide05_Point003_44"
-    ],
-    "keren_melanoma_mibi_Slide08_Point015_8": [
-      "keren_melanoma_mibi_Slide08_Point015_8"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA061_Point111_20": [
-      "keren_melanoma_mibi_Slide11_TMA061_Point111_20"
-    ],
-    "keren_melanoma_mibi_Slide07_Point018_38": [
-      "keren_melanoma_mibi_Slide07_Point018_38"
-    ],
-    "keren_melanoma_mibi_Slide09_Point002_9": [
-      "keren_melanoma_mibi_Slide09_Point002_9"
-    ],
-    "keren_melanoma_mibi_Slide07_Point007_49": [
-      "keren_melanoma_mibi_Slide07_Point007_49"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA029_Point073_10": [
-      "keren_melanoma_mibi_Slide11_TMA029_Point073_10"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point010_41": [
-      "keren_melanoma_mibi_Slide06A_Point010_41"
-    ],
-    "keren_melanoma_mibi_Slide10_Point010_13": [
-      "keren_melanoma_mibi_Slide10_Point010_13"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA064_Point081_21": [
-      "keren_melanoma_mibi_Slide11_TMA064_Point081_21"
-    ],
-    "keren_melanoma_mibi_Slide07_Point016_49": [
-      "keren_melanoma_mibi_Slide07_Point016_49"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA105_Point031_34": [
-      "keren_melanoma_mibi_Slide11_TMA105_Point031_34"
-    ],
-    "keren_melanoma_mibi_Slide01_Point005_47": [
-      "keren_melanoma_mibi_Slide01_Point005_47"
-    ],
-    "keren_melanoma_mibi_Slide08_Point002_38": [
-      "keren_melanoma_mibi_Slide08_Point002_38"
-    ],
-    "keren_melanoma_mibi_Slide08_Point006_38": [
-      "keren_melanoma_mibi_Slide08_Point006_38"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point003_41": [
-      "keren_melanoma_mibi_Slide06A_Point003_41"
-    ],
-    "keren_melanoma_mibi_Slide09_Point005_9": [
-      "keren_melanoma_mibi_Slide09_Point005_9"
-    ],
-    "keren_melanoma_mibi_Slide02_Point008_46": [
-      "keren_melanoma_mibi_Slide02_Point008_46"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA051_Point092_16": [
-      "keren_melanoma_mibi_Slide11_TMA051_Point092_16"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA003_Point096_1": [
-      "keren_melanoma_mibi_Slide11_TMA003_Point096_1"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA000_Point001_Control_Lymphoma": [
-      "keren_melanoma_mibi_Slide11_TMA000_Point001_Control_Lymphoma"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA018_Point059_6": [
-      "keren_melanoma_mibi_Slide11_TMA018_Point059_6"
-    ],
-    "keren_melanoma_mibi_Slide04_Point004_12": [
-      "keren_melanoma_mibi_Slide04_Point004_12"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA028_Point078_10": [
-      "keren_melanoma_mibi_Slide11_TMA028_Point078_10"
-    ],
-    "keren_melanoma_mibi_Slide05_Point013_43": [
-      "keren_melanoma_mibi_Slide05_Point013_43"
-    ],
-    "keren_melanoma_mibi_Slide09_Point008_9": [
-      "keren_melanoma_mibi_Slide09_Point008_9"
-    ],
-    "keren_melanoma_mibi_Slide04_Point019_50": [
-      "keren_melanoma_mibi_Slide04_Point019_50"
-    ],
-    "keren_melanoma_mibi_Slide04_Point003_12": [
-      "keren_melanoma_mibi_Slide04_Point003_12"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA058_Point025_19": [
-      "keren_melanoma_mibi_Slide11_TMA058_Point025_19"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA062_Point102_20": [
-      "keren_melanoma_mibi_Slide11_TMA062_Point102_20"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA016_Point077_6": [
-      "keren_melanoma_mibi_Slide11_TMA016_Point077_6"
-    ],
-    "keren_melanoma_mibi_Slide01_Point003_47": [
-      "keren_melanoma_mibi_Slide01_Point003_47"
-    ],
-    "keren_melanoma_mibi_Slide04_Point022_50": [
-      "keren_melanoma_mibi_Slide04_Point022_50"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA084_Point009_27": [
-      "keren_melanoma_mibi_Slide11_TMA084_Point009_27"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA080_Point046_26": [
-      "keren_melanoma_mibi_Slide11_TMA080_Point046_26"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA078_Point064_25": [
-      "keren_melanoma_mibi_Slide11_TMA078_Point064_25"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA073_Point110_24": [
-      "keren_melanoma_mibi_Slide11_TMA073_Point110_24"
-    ],
-    "keren_melanoma_mibi_Slide02_Point007_46": [
-      "keren_melanoma_mibi_Slide02_Point007_46"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point001_Control_Lymphoma": [
-      "keren_melanoma_mibi_Slide06A_Point001_Control_Lymphoma"
-    ],
-    "keren_melanoma_mibi_Slide07_Point025_Control_Lymphoma": [
-      "keren_melanoma_mibi_Slide07_Point025_Control_Lymphoma"
-    ],
-    "keren_melanoma_mibi_Slide10_Point021_48": [
-      "keren_melanoma_mibi_Slide10_Point021_48"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA001_Point116_1": [
-      "keren_melanoma_mibi_Slide11_TMA001_Point116_1"
-    ],
-    "keren_melanoma_mibi_Slide10_Point005_39": [
-      "keren_melanoma_mibi_Slide10_Point005_39"
-    ],
-    "keren_melanoma_mibi_Slide07_Point015_49": [
-      "keren_melanoma_mibi_Slide07_Point015_49"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA065_Point070_21": [
-      "keren_melanoma_mibi_Slide11_TMA065_Point070_21"
-    ],
-    "keren_melanoma_mibi_Slide09_Point003_9": [
-      "keren_melanoma_mibi_Slide09_Point003_9"
-    ],
-    "keren_melanoma_mibi_Slide04_Point008_12": [
-      "keren_melanoma_mibi_Slide04_Point008_12"
-    ],
-    "keren_melanoma_mibi_Slide09_Point010_9": [
-      "keren_melanoma_mibi_Slide09_Point010_9"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point013_42": [
-      "keren_melanoma_mibi_Slide06B_Point013_42"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA083_Point016_27": [
-      "keren_melanoma_mibi_Slide11_TMA083_Point016_27"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA026_Point099_9": [
-      "keren_melanoma_mibi_Slide11_TMA026_Point099_9"
-    ],
-    "keren_melanoma_mibi_Slide04_Point009_12": [
-      "keren_melanoma_mibi_Slide04_Point009_12"
-    ],
-    "keren_melanoma_mibi_Slide07_Point003_49": [
-      "keren_melanoma_mibi_Slide07_Point003_49"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA006_Point058_2": [
-      "keren_melanoma_mibi_Slide11_TMA006_Point058_2"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA059_Point018_19": [
-      "keren_melanoma_mibi_Slide11_TMA059_Point018_19"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA104_Point048_34": [
-      "keren_melanoma_mibi_Slide11_TMA104_Point048_34"
-    ],
-    "keren_melanoma_mibi_Slide03_Point008_40": [
-      "keren_melanoma_mibi_Slide03_Point008_40"
-    ],
-    "keren_melanoma_mibi_Slide09_Point012_9": [
-      "keren_melanoma_mibi_Slide09_Point012_9"
-    ],
-    "keren_melanoma_mibi_Slide10_Point003_39": [
-      "keren_melanoma_mibi_Slide10_Point003_39"
-    ],
-    "keren_melanoma_mibi_Slide05_Point015_43": [
-      "keren_melanoma_mibi_Slide05_Point015_43"
-    ],
-    "keren_melanoma_mibi_Slide10_Point018_48": [
-      "keren_melanoma_mibi_Slide10_Point018_48"
-    ],
-    "keren_melanoma_mibi_Slide10_Point016_48": [
-      "keren_melanoma_mibi_Slide10_Point016_48"
-    ],
-    "keren_melanoma_mibi_Slide09_Point007_9": [
-      "keren_melanoma_mibi_Slide09_Point007_9"
-    ],
-    "keren_melanoma_mibi_Slide03_Point012_40": [
-      "keren_melanoma_mibi_Slide03_Point012_40"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point001_41": [
-      "keren_melanoma_mibi_Slide06B_Point001_41"
-    ],
-    "keren_melanoma_mibi_Slide03_Point004_40": [
-      "keren_melanoma_mibi_Slide03_Point004_40"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point002_41": [
-      "keren_melanoma_mibi_Slide06B_Point002_41"
-    ],
-    "keren_melanoma_mibi_Slide03_Point001_Control_Lymphoma": [
-      "keren_melanoma_mibi_Slide03_Point001_Control_Lymphoma"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA070_Point026_23": [
-      "keren_melanoma_mibi_Slide11_TMA070_Point026_23"
-    ],
-    "keren_melanoma_mibi_Slide07_Point010_49": [
-      "keren_melanoma_mibi_Slide07_Point010_49"
-    ],
-    "keren_melanoma_mibi_Slide07_Point002_49": [
-      "keren_melanoma_mibi_Slide07_Point002_49"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point006_41": [
-      "keren_melanoma_mibi_Slide06A_Point006_41"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point012_42": [
-      "keren_melanoma_mibi_Slide06B_Point012_42"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point010_42": [
-      "keren_melanoma_mibi_Slide06B_Point010_42"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA076_Point082_25": [
-      "keren_melanoma_mibi_Slide11_TMA076_Point082_25"
-    ],
-    "keren_melanoma_mibi_Slide08_Point017_8": [
-      "keren_melanoma_mibi_Slide08_Point017_8"
-    ],
-    "keren_melanoma_mibi_Slide08_Point018_Control_Lymphoma": [
-      "keren_melanoma_mibi_Slide08_Point018_Control_Lymphoma"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA024_Point004_8": [
-      "keren_melanoma_mibi_Slide11_TMA024_Point004_8"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA088_Point083_29": [
-      "keren_melanoma_mibi_Slide11_TMA088_Point083_29"
-    ],
-    "keren_melanoma_mibi_Slide05_Point014_43": [
-      "keren_melanoma_mibi_Slide05_Point014_43"
-    ],
-    "keren_melanoma_mibi_Slide10_Point012_13": [
-      "keren_melanoma_mibi_Slide10_Point012_13"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA048_Point006_15": [
-      "keren_melanoma_mibi_Slide11_TMA048_Point006_15"
-    ],
-    "keren_melanoma_mibi_Slide10_Point017_48": [
-      "keren_melanoma_mibi_Slide10_Point017_48"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA099_Point088_32": [
-      "keren_melanoma_mibi_Slide11_TMA099_Point088_32"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA085_Point109_28": [
-      "keren_melanoma_mibi_Slide11_TMA085_Point109_28"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA052_Point080_17": [
-      "keren_melanoma_mibi_Slide11_TMA052_Point080_17"
-    ],
-    "keren_melanoma_mibi_Slide10_Point011_13": [
-      "keren_melanoma_mibi_Slide10_Point011_13"
-    ],
-    "keren_melanoma_mibi_Slide03_Point003_40": [
-      "keren_melanoma_mibi_Slide03_Point003_40"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA055_Point053_18": [
-      "keren_melanoma_mibi_Slide11_TMA055_Point053_18"
-    ],
-    "keren_melanoma_mibi_Slide08_Point012_38": [
-      "keren_melanoma_mibi_Slide08_Point012_38"
-    ],
-    "keren_melanoma_mibi_Slide08_Point004_38": [
-      "keren_melanoma_mibi_Slide08_Point004_38"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA047_Point019_15": [
-      "keren_melanoma_mibi_Slide11_TMA047_Point019_15"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA023_Point021_8": [
-      "keren_melanoma_mibi_Slide11_TMA023_Point021_8"
-    ],
-    "keren_melanoma_mibi_Slide04_Point024_50": [
-      "keren_melanoma_mibi_Slide04_Point024_50"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA086_Point104_28": [
-      "keren_melanoma_mibi_Slide11_TMA086_Point104_28"
-    ],
-    "keren_melanoma_mibi_Slide09_Point011_9": [
-      "keren_melanoma_mibi_Slide09_Point011_9"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA035_Point020_12": [
-      "keren_melanoma_mibi_Slide11_TMA035_Point020_12"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA107_Point014_35": [
-      "keren_melanoma_mibi_Slide11_TMA107_Point014_35"
-    ],
-    "keren_melanoma_mibi_Slide09_Point006_9": [
-      "keren_melanoma_mibi_Slide09_Point006_9"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA031_Point055_11": [
-      "keren_melanoma_mibi_Slide11_TMA031_Point055_11"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA093_Point032_30": [
-      "keren_melanoma_mibi_Slide11_TMA093_Point032_30"
-    ],
-    "keren_melanoma_mibi_Slide07_Point001_49": [
-      "keren_melanoma_mibi_Slide07_Point001_49"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA040_Point079_13": [
-      "keren_melanoma_mibi_Slide11_TMA040_Point079_13"
-    ],
-    "keren_melanoma_mibi_Slide09_Point017_9": [
-      "keren_melanoma_mibi_Slide09_Point017_9"
-    ],
-    "keren_melanoma_mibi_Slide09_Point022_11": [
-      "keren_melanoma_mibi_Slide09_Point022_11"
-    ],
-    "keren_melanoma_mibi_Slide03_Point011_40": [
-      "keren_melanoma_mibi_Slide03_Point011_40"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA056_Point044_18": [
-      "keren_melanoma_mibi_Slide11_TMA056_Point044_18"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA042_Point061_13": [
-      "keren_melanoma_mibi_Slide11_TMA042_Point061_13"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point007_41": [
-      "keren_melanoma_mibi_Slide06A_Point007_41"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point011_42": [
-      "keren_melanoma_mibi_Slide06B_Point011_42"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA011_Point022_4": [
-      "keren_melanoma_mibi_Slide11_TMA011_Point022_4"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA097_Point108_32": [
-      "keren_melanoma_mibi_Slide11_TMA097_Point108_32"
-    ],
-    "keren_melanoma_mibi_Slide07_Point024_38": [
-      "keren_melanoma_mibi_Slide07_Point024_38"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA037_Point113_12": [
-      "keren_melanoma_mibi_Slide11_TMA037_Point113_12"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point013_41": [
-      "keren_melanoma_mibi_Slide06A_Point013_41"
-    ],
-    "keren_melanoma_mibi_Slide03_Point006_40": [
-      "keren_melanoma_mibi_Slide03_Point006_40"
-    ],
-    "keren_melanoma_mibi_Slide08_Point013_38": [
-      "keren_melanoma_mibi_Slide08_Point013_38"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point007_41": [
-      "keren_melanoma_mibi_Slide06B_Point007_41"
-    ],
-    "keren_melanoma_mibi_Slide03_Point002_Control_Melanoma": [
-      "keren_melanoma_mibi_Slide03_Point002_Control_Melanoma"
-    ],
-    "keren_melanoma_mibi_Slide09_Point016_9": [
-      "keren_melanoma_mibi_Slide09_Point016_9"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point004_41": [
-      "keren_melanoma_mibi_Slide06A_Point004_41"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point011_41": [
-      "keren_melanoma_mibi_Slide06A_Point011_41"
-    ],
-    "keren_melanoma_mibi_Slide09_Point026_11": [
-      "keren_melanoma_mibi_Slide09_Point026_11"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA072_Point008_23": [
-      "keren_melanoma_mibi_Slide11_TMA072_Point008_23"
-    ],
-    "keren_melanoma_mibi_Slide08_Point003_38": [
-      "keren_melanoma_mibi_Slide08_Point003_38"
-    ],
-    "keren_melanoma_mibi_Slide03_Point005_40": [
-      "keren_melanoma_mibi_Slide03_Point005_40"
-    ],
-    "keren_melanoma_mibi_Slide07_Point021_38": [
-      "keren_melanoma_mibi_Slide07_Point021_38"
-    ],
-    "keren_melanoma_mibi_Slide04_Point014_12": [
-      "keren_melanoma_mibi_Slide04_Point014_12"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point014_41": [
-      "keren_melanoma_mibi_Slide06A_Point014_41"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA039_Point093_12": [
-      "keren_melanoma_mibi_Slide11_TMA039_Point093_12"
-    ],
-    "keren_melanoma_mibi_Slide06A_Point016_41": [
-      "keren_melanoma_mibi_Slide06A_Point016_41"
-    ],
-    "keren_melanoma_mibi_Slide09_Point024_11": [
-      "keren_melanoma_mibi_Slide09_Point024_11"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA067_Point052_22": [
-      "keren_melanoma_mibi_Slide11_TMA067_Point052_22"
-    ],
-    "keren_melanoma_mibi_Slide09_Point029_11": [
-      "keren_melanoma_mibi_Slide09_Point029_11"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA111_Point087_36": [
-      "keren_melanoma_mibi_Slide11_TMA111_Point087_36"
-    ],
-    "keren_melanoma_mibi_Slide10_Point008_13": [
-      "keren_melanoma_mibi_Slide10_Point008_13"
-    ],
-    "keren_melanoma_mibi_Slide07_Point023_38": [
-      "keren_melanoma_mibi_Slide07_Point023_38"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA090_Point065_29": [
-      "keren_melanoma_mibi_Slide11_TMA090_Point065_29"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA044_Point043_14": [
-      "keren_melanoma_mibi_Slide11_TMA044_Point043_14"
-    ],
-    "keren_melanoma_mibi_Slide09_Point009_9": [
-      "keren_melanoma_mibi_Slide09_Point009_9"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA004_Point076_2": [
-      "keren_melanoma_mibi_Slide11_TMA004_Point076_2"
-    ],
-    "keren_melanoma_mibi_Slide08_Point001_38": [
-      "keren_melanoma_mibi_Slide08_Point001_38"
-    ],
-    "keren_melanoma_mibi_Slide08_Point010_38": [
-      "keren_melanoma_mibi_Slide08_Point010_38"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA094_Point028_31": [
-      "keren_melanoma_mibi_Slide11_TMA094_Point028_31"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA008_Point040_3": [
-      "keren_melanoma_mibi_Slide11_TMA008_Point040_3"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA082_Point027_27": [
-      "keren_melanoma_mibi_Slide11_TMA082_Point027_27"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA112_Point085_37": [
-      "keren_melanoma_mibi_Slide11_TMA112_Point085_37"
-    ],
-    "keren_melanoma_mibi_Slide10_Point001_39": [
-      "keren_melanoma_mibi_Slide10_Point001_39"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA045_Point036_14": [
-      "keren_melanoma_mibi_Slide11_TMA045_Point036_14"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA108_Point011_35": [
-      "keren_melanoma_mibi_Slide11_TMA108_Point011_35"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA095_Point015_31": [
-      "keren_melanoma_mibi_Slide11_TMA095_Point015_31"
-    ],
-    "keren_melanoma_mibi_Slide09_Point019_9": [
-      "keren_melanoma_mibi_Slide09_Point019_9"
-    ],
-    "keren_melanoma_mibi_Slide04_Point020_50": [
-      "keren_melanoma_mibi_Slide04_Point020_50"
-    ],
-    "keren_melanoma_mibi_Slide04_Point026_50": [
-      "keren_melanoma_mibi_Slide04_Point026_50"
-    ],
-    "keren_melanoma_mibi_Slide05_Point016_43": [
-      "keren_melanoma_mibi_Slide05_Point016_43"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA054_Point062_17": [
-      "keren_melanoma_mibi_Slide11_TMA054_Point062_17"
-    ],
-    "keren_melanoma_mibi_Slide04_Point002_12": [
-      "keren_melanoma_mibi_Slide04_Point002_12"
-    ],
-    "keren_melanoma_mibi_Slide05_Point007_44": [
-      "keren_melanoma_mibi_Slide05_Point007_44"
     ],
     "greenbaum_uterus_mibi_HBM979.KDPM.382-c9ee2a8e5b5acb7aa8812347d463767d": [
       "greenbaum_uterus_mibi_HBM979.KDPM.382-c9ee2a8e5b5acb7aa8812347d463767d"
@@ -5193,35 +3696,17 @@
     ]
   },
   "val": {
-    "keren_pdac_mibi_P006_C_FOV387": [
-      "keren_pdac_mibi_P006_C_FOV387"
-    ],
     "greenbaum_uterus_mibi_HBM525.BZJC.926-f8e71a7a5fa94b5c6469f9573dd5b855": [
       "greenbaum_uterus_mibi_HBM525.BZJC.926-f8e71a7a5fa94b5c6469f9573dd5b855"
-    ],
-    "keren_melanoma_mibi_Slide04_Point012_12": [
-      "keren_melanoma_mibi_Slide04_Point012_12"
     ],
     "karimi_brain_imc_brm_BrM_001C18": [
       "karimi_brain_imc_brm_BrM_001C18"
     ],
-    "keren_new_mibi_FOV20": [
-      "keren_new_mibi_FOV20"
-    ],
     "karimi_brain_imc_glioma_Glioma_090C1": [
       "karimi_brain_imc_glioma_Glioma_090C1"
     ],
-    "keren_melanoma_mibi_Slide08_Point008_38": [
-      "keren_melanoma_mibi_Slide08_Point008_38"
-    ],
     "risom_dcis_mibi_Point2204_pt1071_31605": [
       "risom_dcis_mibi_Point2204_pt1071_31605"
-    ],
-    "keren_new_mibi_FOV226": [
-      "keren_new_mibi_FOV226"
-    ],
-    "keren_melanoma_mibi_Slide09_Point023_11": [
-      "keren_melanoma_mibi_Slide09_Point023_11"
     ],
     "sorin_lung_imc_LUAD_D102": [
       "sorin_lung_imc_LUAD_D102"
@@ -5232,14 +3717,8 @@
     "sorin_lung_imc_LUAD_D357": [
       "sorin_lung_imc_LUAD_D357"
     ],
-    "keren_melanoma_mibi_Slide11_TMA009_Point039_3": [
-      "keren_melanoma_mibi_Slide11_TMA009_Point039_3"
-    ],
     "risom_dcis_mibi_Point3123_pt1162_31688": [
       "risom_dcis_mibi_Point3123_pt1162_31688"
-    ],
-    "keren_melanoma_mibi_Slide02_Point006_46": [
-      "keren_melanoma_mibi_Slide02_Point006_46"
     ],
     "greenbaum_uterus_mibi_HBM268.ZZGQ.759-60b7a63390fdf4d67b0841ee5871877c": [
       "greenbaum_uterus_mibi_HBM268.ZZGQ.759-60b7a63390fdf4d67b0841ee5871877c"
@@ -5271,26 +3750,14 @@
     "sorin_lung_imc_LUAD_D202": [
       "sorin_lung_imc_LUAD_D202"
     ],
-    "keren_pdac_mibi_P071_S_FOV583": [
-      "keren_pdac_mibi_P071_S_FOV583"
-    ],
     "sorin_lung_imc_LUAD_V33B": [
       "sorin_lung_imc_LUAD_V33B"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA092_Point047_30": [
-      "keren_melanoma_mibi_Slide11_TMA092_Point047_30"
     ],
     "greenbaum_uterus_mibi_HBM248.CCGT.382-4be8eef2acf4b42222772de39db745c8": [
       "greenbaum_uterus_mibi_HBM248.CCGT.382-4be8eef2acf4b42222772de39db745c8"
     ],
-    "keren_pdac_mibi_P052_C_FOV525": [
-      "keren_pdac_mibi_P052_C_FOV525"
-    ],
     "sorin_lung_imc_LUAD_D152": [
       "sorin_lung_imc_LUAD_D152"
-    ],
-    "keren_melanoma_mibi_Slide05_Point017_43": [
-      "keren_melanoma_mibi_Slide05_Point017_43"
     ],
     "greenbaum_uterus_mibi_HBM727.VZCG.863-43200662b3a93f325c81d29aaf019093": [
       "greenbaum_uterus_mibi_HBM727.VZCG.863-43200662b3a93f325c81d29aaf019093"
@@ -5310,17 +3777,11 @@
     "karimi_brain_imc_glioma_Glioma_024C1": [
       "karimi_brain_imc_glioma_Glioma_024C1"
     ],
-    "keren_new_mibi_FOV128": [
-      "keren_new_mibi_FOV128"
-    ],
     "sorin_lung_imc_LUAD_D316": [
       "sorin_lung_imc_LUAD_D316"
     ],
     "greenbaum_uterus_mibi_HBM297.DGPL.989-18a68d8433ac8bf3fcc9c1052628f101": [
       "greenbaum_uterus_mibi_HBM297.DGPL.989-18a68d8433ac8bf3fcc9c1052628f101"
-    ],
-    "keren_melanoma_mibi_Slide04_Point021_50": [
-      "keren_melanoma_mibi_Slide04_Point021_50"
     ],
     "sorin_lung_imc_LUAD_D254": [
       "sorin_lung_imc_LUAD_D254"
@@ -5331,26 +3792,14 @@
     "karimi_brain_imc_glioma_Glioma_106C1": [
       "karimi_brain_imc_glioma_Glioma_106C1"
     ],
-    "keren_melanoma_mibi_Slide05_Point012_43": [
-      "keren_melanoma_mibi_Slide05_Point012_43"
-    ],
-    "keren_new_mibi_FOV134": [
-      "keren_new_mibi_FOV134"
-    ],
     "sorin_lung_imc_LUAD_D284": [
       "sorin_lung_imc_LUAD_D284"
-    ],
-    "keren_new_mibi_FOV230": [
-      "keren_new_mibi_FOV230"
     ],
     "karimi_brain_imc_glioma_Glioma_016C1": [
       "karimi_brain_imc_glioma_Glioma_016C1"
     ],
     "sorin_lung_imc_LUAD_D205": [
       "sorin_lung_imc_LUAD_D205"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA005_Point075_2": [
-      "keren_melanoma_mibi_Slide11_TMA005_Point075_2"
     ],
     "karimi_brain_imc_glioma_Glioma_041C1": [
       "karimi_brain_imc_glioma_Glioma_041C1"
@@ -5367,9 +3816,6 @@
     "greenbaum_uterus_mibi_HBM978.KXLG.227-a49238109d8a8305ed08dff2de1e6e0d": [
       "greenbaum_uterus_mibi_HBM978.KXLG.227-a49238109d8a8305ed08dff2de1e6e0d"
     ],
-    "keren_pdac_mibi_P073_C_FOV588": [
-      "keren_pdac_mibi_P073_C_FOV588"
-    ],
     "greenbaum_uterus_mibi_HBM354.SVBP.894-bd73590062a2e8e33fecdfe7fb676065": [
       "greenbaum_uterus_mibi_HBM354.SVBP.894-bd73590062a2e8e33fecdfe7fb676065"
     ],
@@ -5381,9 +3827,6 @@
     ],
     "risom_dcis_mibi_Point2206_pt1116_31620": [
       "risom_dcis_mibi_Point2206_pt1116_31620"
-    ],
-    "keren_pdac_mibi_P073_S_FOV589": [
-      "keren_pdac_mibi_P073_S_FOV589"
     ],
     "karimi_brain_imc_glioma_Glioma_121C": [
       "karimi_brain_imc_glioma_Glioma_121C"
@@ -5409,26 +3852,14 @@
     "greenbaum_uterus_mibi_HBM224.KGNF.646-e890c40224b67535d4b2ff3ebbc3d6a8": [
       "greenbaum_uterus_mibi_HBM224.KGNF.646-e890c40224b67535d4b2ff3ebbc3d6a8"
     ],
-    "keren_pdac_mibi_P070_F_FOV578": [
-      "keren_pdac_mibi_P070_F_FOV578"
-    ],
-    "keren_melanoma_mibi_Slide10_Point007_39": [
-      "keren_melanoma_mibi_Slide10_Point007_39"
-    ],
     "fan_uf_codex_HBM342.FSLD.938-2b57ac6fea7aa96d26d2685a297a4e7a": [
       "fan_uf_codex_HBM342.FSLD.938-2b57ac6fea7aa96d26d2685a297a4e7a"
     ],
     "greenbaum_uterus_mibi_HBM576.HCWQ.728-43f9452091477f31118111574111d3aa": [
       "greenbaum_uterus_mibi_HBM576.HCWQ.728-43f9452091477f31118111574111d3aa"
     ],
-    "keren_new_mibi_FOV176": [
-      "keren_new_mibi_FOV176"
-    ],
     "risom_dcis_mibi_Point4132_pt1026_31856": [
       "risom_dcis_mibi_Point4132_pt1026_31856"
-    ],
-    "keren_new_mibi_FOV302": [
-      "keren_new_mibi_FOV302"
     ],
     "sorin_lung_imc_LUAD_D377": [
       "sorin_lung_imc_LUAD_D377"
@@ -5436,20 +3867,8 @@
     "greenbaum_uterus_mibi_HBM944.CKWN.576-96ef9e1c98efb748c4ab2e7a733ee6fd": [
       "greenbaum_uterus_mibi_HBM944.CKWN.576-96ef9e1c98efb748c4ab2e7a733ee6fd"
     ],
-    "keren_melanoma_mibi_Slide10_Point004_39": [
-      "keren_melanoma_mibi_Slide10_Point004_39"
-    ],
     "karimi_brain_imc_brm_BrM_001C52": [
       "karimi_brain_imc_brm_BrM_001C52"
-    ],
-    "keren_pdac_mibi_P051_C_FOV522": [
-      "keren_pdac_mibi_P051_C_FOV522"
-    ],
-    "keren_new_mibi_FOV212": [
-      "keren_new_mibi_FOV212"
-    ],
-    "keren_melanoma_mibi_Slide10_Point015_48": [
-      "keren_melanoma_mibi_Slide10_Point015_48"
     ],
     "karimi_brain_imc_brm_BrM_001C62": [
       "karimi_brain_imc_brm_BrM_001C62"
@@ -5466,9 +3885,6 @@
     "karimi_brain_imc_glioma_Glioma_021C2": [
       "karimi_brain_imc_glioma_Glioma_021C2"
     ],
-    "keren_melanoma_mibi_Slide11_TMA020_Point041_7": [
-      "keren_melanoma_mibi_Slide11_TMA020_Point041_7"
-    ],
     "sorin_lung_imc_LUAD_D347": [
       "sorin_lung_imc_LUAD_D347"
     ],
@@ -5481,35 +3897,11 @@
     "sorin_lung_imc_LUAD_D335": [
       "sorin_lung_imc_LUAD_D335"
     ],
-    "keren_melanoma_mibi_Slide11_TMA098_Point105_32": [
-      "keren_melanoma_mibi_Slide11_TMA098_Point105_32"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA087_Point089_28": [
-      "keren_melanoma_mibi_Slide11_TMA087_Point089_28"
-    ],
-    "keren_melanoma_mibi_Slide04_Point016_50": [
-      "keren_melanoma_mibi_Slide04_Point016_50"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA038_Point100_12": [
-      "keren_melanoma_mibi_Slide11_TMA038_Point100_12"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA060_Point007_19": [
-      "keren_melanoma_mibi_Slide11_TMA060_Point007_19"
-    ],
-    "keren_new_mibi_FOV164": [
-      "keren_new_mibi_FOV164"
-    ],
-    "keren_pdac_mibi_P009_S_FOV397": [
-      "keren_pdac_mibi_P009_S_FOV397"
-    ],
     "sorin_lung_imc_LUAD_D297": [
       "sorin_lung_imc_LUAD_D297"
     ],
     "risom_dcis_mibi_Point2303_pt1047_20672": [
       "risom_dcis_mibi_Point2303_pt1047_20672"
-    ],
-    "keren_pdac_mibi_P007_C_FOV390": [
-      "keren_pdac_mibi_P007_C_FOV390"
     ],
     "karimi_brain_imc_brm_BrM_001C61": [
       "karimi_brain_imc_brm_BrM_001C61"
@@ -5529,17 +3921,8 @@
     "keren_gvhd_mibi_GVHD_07_FOV_4": [
       "keren_gvhd_mibi_GVHD_07_FOV_4"
     ],
-    "keren_new_mibi_FOV270": [
-      "keren_new_mibi_FOV270"
-    ],
     "sorin_lung_imc_LUAD_D261": [
       "sorin_lung_imc_LUAD_D261"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA050_Point101_16": [
-      "keren_melanoma_mibi_Slide11_TMA050_Point101_16"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA110_Point106_36": [
-      "keren_melanoma_mibi_Slide11_TMA110_Point106_36"
     ],
     "HBM283_GNGR_785": [
       "HBM283_GNGR_785"
@@ -5580,12 +3963,6 @@
     "sorin_lung_imc_LUAD_D221": [
       "sorin_lung_imc_LUAD_D221"
     ],
-    "keren_pdac_mibi_P008_S_FOV394": [
-      "keren_pdac_mibi_P008_S_FOV394"
-    ],
-    "keren_new_mibi_FOV68": [
-      "keren_new_mibi_FOV68"
-    ],
     "dryadb005_intestine_codex_B005_CL_reg003": [
       "dryadb005_intestine_codex_B005_CL_reg003"
     ],
@@ -5604,14 +3981,8 @@
     "sorin_lung_imc_LUAD_D373": [
       "sorin_lung_imc_LUAD_D373"
     ],
-    "keren_melanoma_mibi_Slide11_TMA025_Point114_9": [
-      "keren_melanoma_mibi_Slide11_TMA025_Point114_9"
-    ],
     "greenbaum_uterus_mibi_HBM558.KGML.422-348f1a62c206bb1b7eb87a13cb0eaf87": [
       "greenbaum_uterus_mibi_HBM558.KGML.422-348f1a62c206bb1b7eb87a13cb0eaf87"
-    ],
-    "keren_new_mibi_FOV296": [
-      "keren_new_mibi_FOV296"
     ],
     "sorin_lung_imc_LUAD_D165": [
       "sorin_lung_imc_LUAD_D165"
@@ -5634,17 +4005,11 @@
     "HBM666_JCGS_862_S20030077": [
       "HBM666_JCGS_862_S20030077"
     ],
-    "keren_melanoma_mibi_Slide11_TMA081_Point033_26": [
-      "keren_melanoma_mibi_Slide11_TMA081_Point033_26"
-    ],
     "karimi_brain_imc_glioma_Glioma_053C1": [
       "karimi_brain_imc_glioma_Glioma_053C1"
     ],
     "risom_dcis_mibi_Point2312_pt1064_20700": [
       "risom_dcis_mibi_Point2312_pt1064_20700"
-    ],
-    "keren_melanoma_mibi_Slide04_Point015_12": [
-      "keren_melanoma_mibi_Slide04_Point015_12"
     ],
     "greenbaum_uterus_mibi_HBM966.NKXF.465-72b19f5b68e4f6f1ce7dc958417847ca": [
       "greenbaum_uterus_mibi_HBM966.NKXF.465-72b19f5b68e4f6f1ce7dc958417847ca"
@@ -5652,26 +4017,14 @@
     "greenbaum_uterus_mibi_HBM692.LRPB.358-8430756b9156ed85d6024c0a77aa8790": [
       "greenbaum_uterus_mibi_HBM692.LRPB.358-8430756b9156ed85d6024c0a77aa8790"
     ],
-    "keren_melanoma_mibi_Slide06B_Point003_41": [
-      "keren_melanoma_mibi_Slide06B_Point003_41"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA015_Point095_5": [
-      "keren_melanoma_mibi_Slide11_TMA015_Point095_5"
-    ],
     "karimi_brain_imc_glioma_Glioma_082N": [
       "karimi_brain_imc_glioma_Glioma_082N"
     ],
     "dryadrest_intestine_codex_B012_Sigmoid_CL_reg003": [
       "dryadrest_intestine_codex_B012_Sigmoid_CL_reg003"
     ],
-    "keren_new_mibi_FOV390": [
-      "keren_new_mibi_FOV390"
-    ],
     "sorin_lung_imc_LUAD_D121": [
       "sorin_lung_imc_LUAD_D121"
-    ],
-    "keren_new_mibi_FOV288": [
-      "keren_new_mibi_FOV288"
     ],
     "keren_gvhd_mibi_GVHD_10_FOV_2": [
       "keren_gvhd_mibi_GVHD_10_FOV_2"
@@ -5712,29 +4065,17 @@
     "karimi_brain_imc_brm_BrM_001C39": [
       "karimi_brain_imc_brm_BrM_001C39"
     ],
-    "keren_melanoma_mibi_Slide09_Point030_11": [
-      "keren_melanoma_mibi_Slide09_Point030_11"
-    ],
     "HBM243_BKXT_647": [
       "HBM243_BKXT_647"
     ],
     "sorin_lung_imc_LUAD_V15A": [
       "sorin_lung_imc_LUAD_V15A"
     ],
-    "keren_new_mibi_FOV36": [
-      "keren_new_mibi_FOV36"
-    ],
     "risom_dcis_mibi_Point4102_pt2005_30990_Normal": [
       "risom_dcis_mibi_Point4102_pt2005_30990_Normal"
     ],
-    "keren_new_mibi_FOV374": [
-      "keren_new_mibi_FOV374"
-    ],
     "sorin_lung_imc_LUAD_D325": [
       "sorin_lung_imc_LUAD_D325"
-    ],
-    "keren_new_mibi_FOV334": [
-      "keren_new_mibi_FOV334"
     ],
     "greenbaum_uterus_mibi_HBM463.SQHJ.376-5beb5c6e1531006381edcd3ba115b853": [
       "greenbaum_uterus_mibi_HBM463.SQHJ.376-5beb5c6e1531006381edcd3ba115b853"
@@ -5744,9 +4085,6 @@
     ],
     "greenbaum_uterus_mibi_HBM428.WPXP.979-ff978c50c08438753bb5e6f741ff7e6c": [
       "greenbaum_uterus_mibi_HBM428.WPXP.979-ff978c50c08438753bb5e6f741ff7e6c"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA071_Point017_23": [
-      "keren_melanoma_mibi_Slide11_TMA071_Point017_23"
     ],
     "karimi_brain_imc_glioma_Glioma_073C2": [
       "karimi_brain_imc_glioma_Glioma_073C2"
@@ -5759,15 +4097,6 @@
     ],
     "keren_gvhd_mibi_GVHD_11_FOV_1": [
       "keren_gvhd_mibi_GVHD_11_FOV_1"
-    ],
-    "keren_melanoma_mibi_Slide09_Point025_11": [
-      "keren_melanoma_mibi_Slide09_Point025_11"
-    ],
-    "keren_melanoma_mibi_Slide04_Point005_12": [
-      "keren_melanoma_mibi_Slide04_Point005_12"
-    ],
-    "keren_new_mibi_FOV34": [
-      "keren_new_mibi_FOV34"
     ],
     "sorin_lung_imc_LUAD_D368": [
       "sorin_lung_imc_LUAD_D368"
@@ -5799,50 +4128,26 @@
     "greenbaum_uterus_mibi_HBM554.TVPR.268-9b61a37e586b7bf0603e7b6c4130402c": [
       "greenbaum_uterus_mibi_HBM554.TVPR.268-9b61a37e586b7bf0603e7b6c4130402c"
     ],
-    "keren_new_mibi_FOV60": [
-      "keren_new_mibi_FOV60"
-    ],
     "greenbaum_uterus_mibi_HBM283.CPXW.835-d3896901ac86d1a9c80150b8e3f924e0": [
       "greenbaum_uterus_mibi_HBM283.CPXW.835-d3896901ac86d1a9c80150b8e3f924e0"
     ],
     "sorin_lung_imc_LUAD_D044": [
       "sorin_lung_imc_LUAD_D044"
     ],
-    "keren_melanoma_mibi_Slide05_Point001_Control_Lymphoma": [
-      "keren_melanoma_mibi_Slide05_Point001_Control_Lymphoma"
-    ],
     "hartmann_crc_mibi_21d7_tumor_Point22": [
       "hartmann_crc_mibi_21d7_tumor_Point22"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA014_Point098_5": [
-      "keren_melanoma_mibi_Slide11_TMA014_Point098_5"
     ],
     "greenbaum_uterus_mibi_HBM286.PPPQ.526-2046c3c42bd2169c217fb4d68aafb6ce": [
       "greenbaum_uterus_mibi_HBM286.PPPQ.526-2046c3c42bd2169c217fb4d68aafb6ce"
     ],
-    "keren_new_mibi_FOV58": [
-      "keren_new_mibi_FOV58"
-    ],
     "karimi_brain_imc_glioma_Glioma_008C2": [
       "karimi_brain_imc_glioma_Glioma_008C2"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA017_Point074_6": [
-      "keren_melanoma_mibi_Slide11_TMA017_Point074_6"
-    ],
-    "keren_pdac_mibi_P006_S_FOV388": [
-      "keren_pdac_mibi_P006_S_FOV388"
     ],
     "karimi_brain_imc_glioma_Glioma_105C2": [
       "karimi_brain_imc_glioma_Glioma_105C2"
     ],
-    "keren_melanoma_mibi_Slide11_TMA021_Point038_7": [
-      "keren_melanoma_mibi_Slide11_TMA021_Point038_7"
-    ],
     "sorin_lung_imc_LUAD_D264": [
       "sorin_lung_imc_LUAD_D264"
-    ],
-    "keren_melanoma_mibi_Slide03_Point007_40": [
-      "keren_melanoma_mibi_Slide03_Point007_40"
     ],
     "sorin_lung_imc_LUAD_V47B": [
       "sorin_lung_imc_LUAD_V47B"
@@ -5859,17 +4164,11 @@
     "sorin_lung_imc_LUAD_D128": [
       "sorin_lung_imc_LUAD_D128"
     ],
-    "keren_pdac_mibi_P011_S_FOV403": [
-      "keren_pdac_mibi_P011_S_FOV403"
-    ],
     "keren_gvhd_mibi_GVHD_01_FOV_3_R": [
       "keren_gvhd_mibi_GVHD_01_FOV_3_R"
     ],
     "greenbaum_uterus_mibi_HBM646.ZRTZ.549-38c54d0b994e3417508016d42da9a755": [
       "greenbaum_uterus_mibi_HBM646.ZRTZ.549-38c54d0b994e3417508016d42da9a755"
-    ],
-    "keren_melanoma_mibi_Slide06B_Point006_41": [
-      "keren_melanoma_mibi_Slide06B_Point006_41"
     ],
     "karimi_brain_imc_glioma_Glioma_105N": [
       "karimi_brain_imc_glioma_Glioma_105N"
@@ -5877,17 +4176,11 @@
     "greenbaum_uterus_mibi_HBM729.NHJF.956-fb91e293421f5c17034785620de4a3bf": [
       "greenbaum_uterus_mibi_HBM729.NHJF.956-fb91e293421f5c17034785620de4a3bf"
     ],
-    "keren_melanoma_mibi_Slide02_Point005_45": [
-      "keren_melanoma_mibi_Slide02_Point005_45"
-    ],
     "sorin_lung_imc_LUAD_D346": [
       "sorin_lung_imc_LUAD_D346"
     ],
     "sorin_lung_imc_LUAD_V10B": [
       "sorin_lung_imc_LUAD_V10B"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA068_Point045_22": [
-      "keren_melanoma_mibi_Slide11_TMA068_Point045_22"
     ],
     "karimi_brain_imc_brm_BrM_001C107": [
       "karimi_brain_imc_brm_BrM_001C107"
@@ -5895,29 +4188,14 @@
     "karimi_brain_imc_glioma_Glioma_106N": [
       "karimi_brain_imc_glioma_Glioma_106N"
     ],
-    "keren_melanoma_mibi_Slide09_Point031_11": [
-      "keren_melanoma_mibi_Slide09_Point031_11"
-    ],
     "karimi_brain_imc_brm_BrM_001C87": [
       "karimi_brain_imc_brm_BrM_001C87"
-    ],
-    "keren_new_mibi_FOV222": [
-      "keren_new_mibi_FOV222"
     ],
     "sorin_lung_imc_LUAD_D308": [
       "sorin_lung_imc_LUAD_D308"
     ],
-    "keren_pdac_mibi_P069_C_FOV576": [
-      "keren_pdac_mibi_P069_C_FOV576"
-    ],
-    "keren_pdac_mibi_P026_F_FOV446": [
-      "keren_pdac_mibi_P026_F_FOV446"
-    ],
     "sorin_lung_imc_LUAD_D227": [
       "sorin_lung_imc_LUAD_D227"
-    ],
-    "keren_new_mibi_FOV284": [
-      "keren_new_mibi_FOV284"
     ],
     "karimi_brain_imc_glioma_Glioma_077C2": [
       "karimi_brain_imc_glioma_Glioma_077C2"
@@ -5928,23 +4206,14 @@
     "karimi_brain_imc_brm_BrM_001C17": [
       "karimi_brain_imc_brm_BrM_001C17"
     ],
-    "keren_new_mibi_FOV286": [
-      "keren_new_mibi_FOV286"
-    ],
     "keren_gvhd_mibi_GVHD_03_FOV_3_R": [
       "keren_gvhd_mibi_GVHD_03_FOV_3_R"
-    ],
-    "keren_melanoma_mibi_Slide03_Point009_40": [
-      "keren_melanoma_mibi_Slide03_Point009_40"
     ],
     "karimi_brain_imc_glioma_Glioma_111C2": [
       "karimi_brain_imc_glioma_Glioma_111C2"
     ],
     "sorin_lung_imc_LUAD_D340": [
       "sorin_lung_imc_LUAD_D340"
-    ],
-    "keren_pdac_mibi_P022_S_FOV436": [
-      "keren_pdac_mibi_P022_S_FOV436"
     ],
     "sorin_lung_imc_LUAD_D099": [
       "sorin_lung_imc_LUAD_D099"
@@ -5982,9 +4251,6 @@
     "greenbaum_uterus_mibi_HBM772.CSQS.353-162cadfb856c473e9d9c29c0cd8ea08d": [
       "greenbaum_uterus_mibi_HBM772.CSQS.353-162cadfb856c473e9d9c29c0cd8ea08d"
     ],
-    "keren_melanoma_mibi_Slide10_Point019_48": [
-      "keren_melanoma_mibi_Slide10_Point019_48"
-    ],
     "karimi_brain_imc_glioma_Glioma_095C1": [
       "karimi_brain_imc_glioma_Glioma_095C1"
     ],
@@ -5996,9 +4262,6 @@
     ],
     "sorin_lung_imc_LUAD_D408": [
       "sorin_lung_imc_LUAD_D408"
-    ],
-    "keren_pdac_mibi_P005_S_FOV385": [
-      "keren_pdac_mibi_P005_S_FOV385"
     ],
     "risom_dcis_mibi_Point2318_pt1054_20706": [
       "risom_dcis_mibi_Point2318_pt1054_20706"
@@ -6012,26 +4275,11 @@
     "greenbaum_uterus_mibi_HBM257.TFFM.796-bf6c05cdf049cf866196d04b6c88dddf": [
       "greenbaum_uterus_mibi_HBM257.TFFM.796-bf6c05cdf049cf866196d04b6c88dddf"
     ],
-    "keren_melanoma_mibi_Slide06B_Point004_41": [
-      "keren_melanoma_mibi_Slide06B_Point004_41"
-    ],
-    "keren_melanoma_mibi_Slide10_Point020_48": [
-      "keren_melanoma_mibi_Slide10_Point020_48"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA019_Point056_7": [
-      "keren_melanoma_mibi_Slide11_TMA019_Point056_7"
-    ],
     "sorin_lung_imc_LUAD_V34A": [
       "sorin_lung_imc_LUAD_V34A"
     ],
-    "keren_new_mibi_FOV204": [
-      "keren_new_mibi_FOV204"
-    ],
     "dryadrest_intestine_codex_B012_Mid_jejunum_SB_reg001": [
       "dryadrest_intestine_codex_B012_Mid_jejunum_SB_reg001"
-    ],
-    "keren_pdac_mibi_P007_F_FOV389": [
-      "keren_pdac_mibi_P007_F_FOV389"
     ],
     "mccaffrey_tb_mibi_lung_Patient10-2": [
       "mccaffrey_tb_mibi_lung_Patient10-2"
@@ -6054,26 +4302,14 @@
     "risom_dcis_mibi_Point5308_pt1074_31629": [
       "risom_dcis_mibi_Point5308_pt1074_31629"
     ],
-    "keren_pdac_mibi_P029_C_FOV456": [
-      "keren_pdac_mibi_P029_C_FOV456"
-    ],
     "karimi_brain_imc_brm_BrM_001C10": [
       "karimi_brain_imc_brm_BrM_001C10"
-    ],
-    "keren_new_mibi_FOV104": [
-      "keren_new_mibi_FOV104"
     ],
     "greenbaum_uterus_mibi_HBM426.BLGP.789-5e2153e1b56bd8f6e28195129377fe42": [
       "greenbaum_uterus_mibi_HBM426.BLGP.789-5e2153e1b56bd8f6e28195129377fe42"
     ],
-    "keren_melanoma_mibi_Slide07_Point022_38": [
-      "keren_melanoma_mibi_Slide07_Point022_38"
-    ],
     "karimi_brain_imc_glioma_Glioma_009C1": [
       "karimi_brain_imc_glioma_Glioma_009C1"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA101_Point067_33": [
-      "keren_melanoma_mibi_Slide11_TMA101_Point067_33"
     ],
     "karimi_brain_imc_brm_BrM_001C120": [
       "karimi_brain_imc_brm_BrM_001C120"
@@ -6086,9 +4322,6 @@
     ],
     "sorin_lung_imc_LUAD_D087": [
       "sorin_lung_imc_LUAD_D087"
-    ],
-    "keren_melanoma_mibi_Slide07_Point026_Control_Melanoma": [
-      "keren_melanoma_mibi_Slide07_Point026_Control_Melanoma"
     ],
     "dryadb004_intestine_codex_B004_CL_reg001": [
       "dryadb004_intestine_codex_B004_CL_reg001"
@@ -6104,20 +4337,11 @@
     "greenbaum_uterus_mibi_HBM837.KNJV.852-e4b47b364ff361889845f2d1ab2788a8": [
       "greenbaum_uterus_mibi_HBM837.KNJV.852-e4b47b364ff361889845f2d1ab2788a8"
     ],
-    "keren_pdac_mibi_P037_C_FOV480": [
-      "keren_pdac_mibi_P037_C_FOV480"
-    ],
-    "keren_new_mibi_FOV380": [
-      "keren_new_mibi_FOV380"
-    ],
     "karimi_brain_imc_glioma_Glioma_075C2": [
       "karimi_brain_imc_glioma_Glioma_075C2"
     ],
     "risom_dcis_mibi_Point5302_pt1070_31594": [
       "risom_dcis_mibi_Point5302_pt1070_31594"
-    ],
-    "keren_melanoma_mibi_Slide08_Point014_8": [
-      "keren_melanoma_mibi_Slide08_Point014_8"
     ],
     "dryadrest_intestine_codex_B011_Trans_CL_reg004": [
       "dryadrest_intestine_codex_B011_Trans_CL_reg004"
@@ -6128,23 +4352,11 @@
     "karimi_brain_imc_glioma_Glioma_109C1": [
       "karimi_brain_imc_glioma_Glioma_109C1"
     ],
-    "keren_new_mibi_FOV148": [
-      "keren_new_mibi_FOV148"
-    ],
-    "keren_new_mibi_FOV110": [
-      "keren_new_mibi_FOV110"
-    ],
     "dryadrest_intestine_codex_B011_Proximal_jejunum_SB_reg001": [
       "dryadrest_intestine_codex_B011_Proximal_jejunum_SB_reg001"
     ],
     "greenbaum_uterus_mibi_HBM555.ZNTK.962-1d988a3a09dd6ab19d70f6c33974eef2": [
       "greenbaum_uterus_mibi_HBM555.ZNTK.962-1d988a3a09dd6ab19d70f6c33974eef2"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA096_Point010_31": [
-      "keren_melanoma_mibi_Slide11_TMA096_Point010_31"
-    ],
-    "keren_new_mibi_FOV260": [
-      "keren_new_mibi_FOV260"
     ],
     "keren_tnbc_mibi_Point14": [
       "keren_tnbc_mibi_Point14"
@@ -6152,20 +4364,11 @@
     "sorin_lung_imc_LUAD_V23B": [
       "sorin_lung_imc_LUAD_V23B"
     ],
-    "keren_melanoma_mibi_Slide11_TMA033_Point037_11": [
-      "keren_melanoma_mibi_Slide11_TMA033_Point037_11"
-    ],
     "sorin_lung_imc_LUAD_D311": [
       "sorin_lung_imc_LUAD_D311"
     ],
-    "keren_melanoma_mibi_Slide04_Point025_50": [
-      "keren_melanoma_mibi_Slide04_Point025_50"
-    ],
     "greenbaum_uterus_mibi_HBM776.KFMZ.755-3d6f8b2567f93473a8829133d3b89a21": [
       "greenbaum_uterus_mibi_HBM776.KFMZ.755-3d6f8b2567f93473a8829133d3b89a21"
-    ],
-    "keren_pdac_mibi_P034_F_FOV470": [
-      "keren_pdac_mibi_P034_F_FOV470"
     ],
     "HBM238_ZKPC_934_S20030077": [
       "HBM238_ZKPC_934_S20030077"
@@ -6179,17 +4382,11 @@
     "karimi_brain_imc_glioma_Glioma_064C2": [
       "karimi_brain_imc_glioma_Glioma_064C2"
     ],
-    "keren_melanoma_mibi_Slide08_Point019_Control_Melanoma": [
-      "keren_melanoma_mibi_Slide08_Point019_Control_Melanoma"
-    ],
     "sorin_lung_imc_LUAD_V16A": [
       "sorin_lung_imc_LUAD_V16A"
     ],
     "sorin_lung_imc_LUAD_D216": [
       "sorin_lung_imc_LUAD_D216"
-    ],
-    "keren_pdac_mibi_P069_F_FOV575": [
-      "keren_pdac_mibi_P069_F_FOV575"
     ],
     "hartmann_crc_mibi_d3d3_healthy_Point43": [
       "hartmann_crc_mibi_d3d3_healthy_Point43"
@@ -6209,12 +4406,6 @@
     "sorin_lung_imc_LUAD_D395": [
       "sorin_lung_imc_LUAD_D395"
     ],
-    "keren_new_mibi_FOV392": [
-      "keren_new_mibi_FOV392"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA069_Point034_22": [
-      "keren_melanoma_mibi_Slide11_TMA069_Point034_22"
-    ],
     "karimi_brain_imc_glioma_Glioma_130C1": [
       "karimi_brain_imc_glioma_Glioma_130C1"
     ],
@@ -6224,23 +4415,11 @@
     "karimi_brain_imc_glioma_Glioma_004C1": [
       "karimi_brain_imc_glioma_Glioma_004C1"
     ],
-    "keren_new_mibi_FOV340": [
-      "keren_new_mibi_FOV340"
-    ],
     "sorin_lung_imc_LUAD_D108": [
       "sorin_lung_imc_LUAD_D108"
     ],
-    "keren_new_mibi_FOV156": [
-      "keren_new_mibi_FOV156"
-    ],
-    "keren_melanoma_mibi_Slide09_Point013_9": [
-      "keren_melanoma_mibi_Slide09_Point013_9"
-    ],
     "hartmann_crc_mibi_21d7_tumor_Point32": [
       "hartmann_crc_mibi_21d7_tumor_Point32"
-    ],
-    "keren_pdac_mibi_P024_F_FOV440": [
-      "keren_pdac_mibi_P024_F_FOV440"
     ],
     "sorin_lung_imc_LUAD_D318": [
       "sorin_lung_imc_LUAD_D318"
@@ -6254,9 +4433,6 @@
     "karimi_brain_imc_brm_BrM_001C37": [
       "karimi_brain_imc_brm_BrM_001C37"
     ],
-    "keren_melanoma_mibi_Slide09_Point027_11": [
-      "keren_melanoma_mibi_Slide09_Point027_11"
-    ],
     "karimi_brain_imc_glioma_Glioma_060C2": [
       "karimi_brain_imc_glioma_Glioma_060C2"
     ],
@@ -6266,20 +4442,8 @@
     "karimi_brain_imc_glioma_Glioma_061C2": [
       "karimi_brain_imc_glioma_Glioma_061C2"
     ],
-    "keren_melanoma_mibi_Slide04_Point013_12": [
-      "keren_melanoma_mibi_Slide04_Point013_12"
-    ],
-    "keren_new_mibi_FOV140": [
-      "keren_new_mibi_FOV140"
-    ],
-    "keren_pdac_mibi_P019_S_FOV427": [
-      "keren_pdac_mibi_P019_S_FOV427"
-    ],
     "keren_gvhd_mibi_Control_08_FOV_1": [
       "keren_gvhd_mibi_Control_08_FOV_1"
-    ],
-    "keren_new_mibi_FOV62": [
-      "keren_new_mibi_FOV62"
     ],
     "keren_gvhd_mibi_GVHD_05_FOV_2_R": [
       "keren_gvhd_mibi_GVHD_05_FOV_2_R"
@@ -6287,17 +4451,11 @@
     "HBM875_SBHJ_939_S20030077": [
       "HBM875_SBHJ_939_S20030077"
     ],
-    "keren_pdac_mibi_P032_C_FOV465": [
-      "keren_pdac_mibi_P032_C_FOV465"
-    ],
     "greenbaum_uterus_mibi_HBM999.MJZX.394-71c076d66bfd67580a7706f7d7ac020b": [
       "greenbaum_uterus_mibi_HBM999.MJZX.394-71c076d66bfd67580a7706f7d7ac020b"
     ],
     "karimi_brain_imc_glioma_Glioma_036C1": [
       "karimi_brain_imc_glioma_Glioma_036C1"
-    ],
-    "keren_new_mibi_FOV400": [
-      "keren_new_mibi_FOV400"
     ],
     "greenbaum_uterus_mibi_HBM653.FMZX.257-16072084adc2919788ef17ce61b602d6": [
       "greenbaum_uterus_mibi_HBM653.FMZX.257-16072084adc2919788ef17ce61b602d6"
@@ -6317,15 +4475,6 @@
     "karimi_brain_imc_brm_BrM_001C51": [
       "karimi_brain_imc_brm_BrM_001C51"
     ],
-    "keren_pdac_mibi_P050_C_FOV519": [
-      "keren_pdac_mibi_P050_C_FOV519"
-    ],
-    "keren_pdac_mibi_P030_F_FOV458": [
-      "keren_pdac_mibi_P030_F_FOV458"
-    ],
-    "keren_new_mibi_FOV350": [
-      "keren_new_mibi_FOV350"
-    ],
     "sorin_lung_imc_LUAD_D119": [
       "sorin_lung_imc_LUAD_D119"
     ],
@@ -6337,9 +4486,6 @@
     ],
     "karimi_brain_imc_glioma_Glioma_029C1": [
       "karimi_brain_imc_glioma_Glioma_029C1"
-    ],
-    "keren_melanoma_mibi_Slide11_TMA046_Point024_15": [
-      "keren_melanoma_mibi_Slide11_TMA046_Point024_15"
     ],
     "keren_tnbc_mibi_Point21": [
       "keren_tnbc_mibi_Point21"
@@ -6370,9 +4516,6 @@
     ],
     "karimi_brain_imc_glioma_Glioma_084C1": [
       "karimi_brain_imc_glioma_Glioma_084C1"
-    ],
-    "keren_melanoma_mibi_Slide01_Point004_47": [
-      "keren_melanoma_mibi_Slide01_Point004_47"
     ],
     "hartmann_crc_mibi_99c0_healthy_Point57": [
       "hartmann_crc_mibi_99c0_healthy_Point57"
@@ -6410,9 +4553,6 @@
     "karimi_brain_imc_brm_BrM_001C90": [
       "karimi_brain_imc_brm_BrM_001C90"
     ],
-    "keren_new_mibi_FOV152": [
-      "keren_new_mibi_FOV152"
-    ],
     "sorin_lung_imc_LUAD_D407": [
       "sorin_lung_imc_LUAD_D407"
     ],
@@ -6421,9 +4561,6 @@
     ],
     "karimi_brain_imc_glioma_Glioma_051C1": [
       "karimi_brain_imc_glioma_Glioma_051C1"
-    ],
-    "keren_new_mibi_FOV240": [
-      "keren_new_mibi_FOV240"
     ],
     "mccaffrey_tb_mibi_lung_sarcoid-7": [
       "mccaffrey_tb_mibi_lung_sarcoid-7"
@@ -6440,9 +4577,6 @@
     "keren_gvhd_mibi_GVHD_05_FOV_1_R": [
       "keren_gvhd_mibi_GVHD_05_FOV_1_R"
     ],
-    "keren_melanoma_mibi_Slide11_TMA032_Point042_11": [
-      "keren_melanoma_mibi_Slide11_TMA032_Point042_11"
-    ],
     "dryadb008_intestine_codex_B008_CL_reg002": [
       "dryadb008_intestine_codex_B008_CL_reg002"
     ],
@@ -6451,12 +4585,6 @@
     ],
     "greenbaum_uterus_mibi_HBM258.SWDZ.622-8bd46321c86f76d71792d071f3ef6b69": [
       "greenbaum_uterus_mibi_HBM258.SWDZ.622-8bd46321c86f76d71792d071f3ef6b69"
-    ],
-    "keren_pdac_mibi_P036_S_FOV478": [
-      "keren_pdac_mibi_P036_S_FOV478"
-    ],
-    "keren_melanoma_mibi_Slide05_Point005_44": [
-      "keren_melanoma_mibi_Slide05_Point005_44"
     ],
     "karimi_brain_imc_brm_BrM_001C59": [
       "karimi_brain_imc_brm_BrM_001C59"
